@@ -1,0 +1,332 @@
+# {{PROJECT_NAME}} — Claude Code Operating Manual (CLAUDE.md)
+
+> This file is the single source of truth for how Claude Code operates in this project.
+> It defines the Auto-Flow lifecycle, evaluation gates, agent roles, and operational rules.
+
+---
+
+## Table of Contents
+
+1. [Project Overview](#project-overview)
+2. [Auto-Flow Lifecycle (STEP 0–9)](#auto-flow-lifecycle-step-09)
+3. [Flow Control Table](#flow-control-table)
+4. [Agent Roles](#agent-roles)
+5. [3-Phase Independent Analysis](#3-phase-independent-analysis)
+6. [Evaluation System](#evaluation-system)
+7. [Discussion Protocol](#discussion-protocol)
+8. [Hook Gate](#hook-gate)
+9. [Repository Boundary Rules](#repository-boundary-rules)
+10. [Git Workflow](#git-workflow)
+11. [Security Checklist](#security-checklist)
+12. [Maintained Documents](#maintained-documents)
+
+---
+
+## Project Overview
+
+- **Project**: {{PROJECT_NAME}}
+- **GitHub Organization**: {{GITHUB_ORG}}
+- **Orchestrator Repo**: {{REPO_ORCHESTRATOR}}
+- **Default Branch**: {{DEFAULT_BRANCH}}
+- **CI System**: {{CI_SYSTEM}}
+- **Tech Stack**: {{TECH_STACK_SUMMARY}}
+
+### Repository Structure
+
+| Role | Repository |
+|------|-----------|
+| Orchestrator | `{{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}` |
+| Backend | `{{GITHUB_ORG}}/{{REPO_BACKEND}}` |
+| Frontend | `{{GITHUB_ORG}}/{{REPO_FRONTEND}}` |
+<!-- OPTIONAL: Add more repos as needed -->
+<!-- | Infrastructure | `{{GITHUB_ORG}}/{{REPO_INFRA}}` | -->
+
+---
+
+## Auto-Flow Lifecycle (STEP 0–9)
+
+Auto-Flow is a structured development lifecycle that ensures quality through evaluation gates at every stage. Each STEP has clear entry/exit criteria.
+
+| STEP | Name | Description | Exit Criteria |
+|------|------|-------------|---------------|
+| 0 | **Issue Analysis** | Understand the issue/request thoroughly | Issue requirements documented |
+| 1 | **3-Phase Analysis** | Independent structure analysis (bias prevention) | 3 independent analyses completed |
+| 2 | **Plan Synthesis** | Merge analyses into implementation plan | Plan approved |
+| 3 | **Implementation** | Write the code | Code compiles, basic functionality works |
+| 4 | **Self-Review** | Developer AI reviews own code | No obvious issues found |
+| 5 | **Test** | Test AI writes and runs tests | All tests pass |
+| 6 | **Evaluation** | Evaluation AI scores the work | Score >= 7 (PASS) |
+| 7 | **Revision** | Fix issues from evaluation (if needed) | Re-evaluation PASS |
+| 8 | **PR & Review** | Create PR for human review | PR submitted |
+| 9 | **Merge & Close** | Merge after human approval | Issue closed |
+
+### Execution Principles
+
+1. **Never skip steps.** Each STEP builds on the previous one.
+2. **Regression is allowed.** If STEP 6 fails, return to STEP 3 and redo.
+3. **Human gates exist.** STEP 8→9 always requires human approval.
+4. **State is tracked.** Use `.autoflow-state/` files to persist STEP status.
+
+---
+
+## Flow Control Table
+
+| Current State | Condition | Next State |
+|--------------|-----------|------------|
+| STEP 0 | Issue analyzed | → STEP 1 |
+| STEP 1 | 3 analyses done | → STEP 2 |
+| STEP 2 | Plan approved | → STEP 3 |
+| STEP 3 | Code complete | → STEP 4 |
+| STEP 4 | Self-review clean | → STEP 5 |
+| STEP 5 | Tests pass | → STEP 6 |
+| STEP 6 (score >= 7) | PASS | → STEP 8 |
+| STEP 6 (score < 7) | FAIL | → STEP 3 (redo) |
+| STEP 7 | Re-eval PASS | → STEP 8 |
+| STEP 8 | PR submitted | → STEP 9 (human) |
+| STEP 9 | Merged | → Done |
+
+---
+
+## Agent Roles
+
+Auto-Flow uses **multi-agent role separation** to prevent single-point-of-failure bias.
+
+### Orchestrator AI
+- **Scope**: This repository ({{REPO_ORCHESTRATOR}})
+- **Responsibilities**: Issue triage, task delegation, cross-repo coordination, PR orchestration
+- **Cannot**: Directly modify sub-repo code (except documented exceptions)
+
+### Developer AI
+- **Scope**: Assigned sub-repo only
+- **Responsibilities**: Implementation (STEP 3), self-review (STEP 4)
+- **Cannot**: Evaluate own work (STEP 6)
+
+### Test AI
+- **Scope**: Assigned sub-repo only
+- **Responsibilities**: Write tests, run test suites (STEP 5)
+- **Cannot**: Modify implementation code
+
+### Evaluation AI
+- **Scope**: Read-only across relevant repos
+- **Responsibilities**: Score the work using the 10-point scale (STEP 6)
+- **Cannot**: Fix code — only report issues
+
+### Communication Between Agents
+
+Agents communicate via **Agent Teams** (`SendMessage` / tool-based delegation in Claude Code).
+
+```
+Orchestrator → Developer AI: "Implement feature X in {{REPO_BACKEND}}"
+Developer AI → Orchestrator: "Implementation complete, ready for testing"
+Orchestrator → Test AI: "Run tests for feature X"
+Test AI → Orchestrator: "All tests pass"
+Orchestrator → Evaluation AI: "Evaluate feature X implementation"
+Evaluation AI → Orchestrator: "Score: 8/10 — PASS"
+```
+
+---
+
+## 3-Phase Independent Analysis
+
+To prevent tunnel-vision bias, STEP 1 runs **three independent analyses** before any coding begins.
+
+### Phase A: Top-Down Analysis
+- Start from high-level architecture
+- Identify affected components and their relationships
+- Map the change impact across the system
+
+### Phase B: Bottom-Up Analysis
+- Start from the specific code that needs to change
+- Trace dependencies upward
+- Identify edge cases and constraints
+
+### Phase C: Lateral Analysis
+- Look at similar features/patterns already in the codebase
+- Check for existing utilities, patterns, or conventions to reuse
+- Identify potential conflicts with parallel work
+
+### Synthesis (STEP 2)
+Merge all three analyses into a single implementation plan. Conflicts between phases must be explicitly resolved with rationale.
+
+---
+
+## Evaluation System
+
+> Full details: [docs/evaluation-system.md](docs/evaluation-system.md)
+
+### 10-Point Scale
+
+| Score | Meaning |
+|-------|---------|
+| 9–10 | Excellent — exceeds requirements |
+| 7–8 | Good — meets all requirements (PASS) |
+| 5–6 | Acceptable — works but has issues |
+| 3–4 | Poor — significant problems |
+| 1–2 | Failing — does not meet requirements |
+
+### PASS Criteria
+- **Overall score >= 7** to proceed to STEP 8
+- **No individual category below 5**
+
+### Evaluation Categories
+
+| Category | Weight | Description |
+|----------|--------|-------------|
+| Correctness | 30% | Does it work as specified? |
+| Code Quality | 20% | Clean, readable, maintainable? |
+| Test Coverage | 20% | Are critical paths tested? |
+| Security | 15% | No new vulnerabilities introduced? |
+| Performance | 15% | No regressions, reasonable efficiency? |
+
+### Output Format (JSON)
+
+```json
+{
+  "step": 6,
+  "issue": "#123",
+  "evaluator": "evaluation-ai",
+  "scores": {
+    "correctness": 8,
+    "code_quality": 7,
+    "test_coverage": 7,
+    "security": 8,
+    "performance": 7
+  },
+  "overall": 7.5,
+  "pass": true,
+  "comments": "Implementation meets requirements. Minor suggestion: ..."
+}
+```
+
+---
+
+## Discussion Protocol
+
+When ambiguity or disagreement arises during any STEP, follow this protocol:
+
+1. **Raise**: The agent encountering the issue documents it clearly
+2. **Context**: Include what was attempted, what failed, and why it matters
+3. **Options**: Present at least 2 viable options with trade-offs
+4. **Recommend**: State a recommendation with rationale
+5. **Escalate**: If agents disagree, escalate to the Orchestrator. If the Orchestrator cannot resolve, escalate to a human.
+
+### Format
+
+```
+## Discussion: [Brief Title]
+
+**Raised by**: [Agent Role]
+**STEP**: [Current STEP number]
+**Context**: [What happened]
+
+### Options
+1. **Option A**: [Description] — Trade-off: [...]
+2. **Option B**: [Description] — Trade-off: [...]
+
+### Recommendation
+[Which option and why]
+```
+
+---
+
+## Hook Gate
+
+The Auto-Flow Hook (`check-autoflow-gate.sh`) enforces STEP progression:
+
+- **Trigger**: Runs before commit or PR creation
+- **Checks**: Validates that the current STEP's exit criteria are met
+- **Blocks**: Prevents advancing if evaluation hasn't passed
+- **State files**: Stored in `.autoflow-state/` directory
+
+Configuration: See [.claude/hooks/check-autoflow-gate.sh](.claude/hooks/check-autoflow-gate.sh)
+
+---
+
+## Repository Boundary Rules
+
+> Full details: [docs/repo-boundary-rules.md](docs/repo-boundary-rules.md)
+
+### Core Rules
+
+1. **Each AI agent operates within its assigned repository only.**
+2. **Cross-repo changes require Orchestrator coordination.**
+3. **No direct commits from one repo's AI to another repo.**
+
+### Read/Write Permissions
+
+| Agent | Own Repo | Other Repos | Orchestrator Repo |
+|-------|----------|-------------|-------------------|
+| Developer AI | Read + Write | Read only | Read only |
+| Test AI | Read + Write (tests) | Read only | Read only |
+| Evaluation AI | Read only | Read only | Read only |
+| Orchestrator | Read + Write | Read only* | Read + Write |
+
+*Exception: Orchestrator may make cross-repo config changes when documented.
+
+---
+
+## Git Workflow
+
+> Full details: [docs/git-workflow.md](docs/git-workflow.md)
+
+### Branch Naming
+
+```
+feature/<issue-number>-<short-description>
+fix/<issue-number>-<short-description>
+refactor/<issue-number>-<short-description>
+```
+
+### Commit Message Format
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+Refs: #<issue-number>
+```
+
+Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
+
+### PR Requirements
+
+- [ ] All tests pass
+- [ ] Evaluation score >= 7 (PASS)
+- [ ] No security checklist violations
+- [ ] PR description includes issue reference
+
+---
+
+## Security Checklist
+
+> Full details: [docs/security-checklist.md.template](docs/security-checklist.md.template)
+
+Every PR must verify:
+
+1. **Authentication & Authorization** — Endpoint access control verified
+2. **Input Validation** — SQL/NoSQL/external input properly escaped
+3. **Data Exposure** — No sensitive data in logs or responses
+4. **Infrastructure Isolation** — Internal service ports not exposed
+5. **Dependency Vulnerabilities** — External library CVEs checked
+
+---
+
+## Maintained Documents
+
+> Full details: [docs/maintained-docs.md.template](docs/maintained-docs.md.template)
+
+<!-- BEGIN: OPTIONAL SUBMODULE SECTION -->
+<!-- Remove this section if you don't use a multi-repo / submodule structure -->
+
+## Sub-Repository Rules
+
+> Full details: [docs/submodule-common-rules.md](docs/submodule-common-rules.md)
+
+Each sub-repository must:
+1. Have its own `CLAUDE.md` (see `subrepo-templates/`)
+2. Reference this orchestrator's CLAUDE.md for Auto-Flow rules
+3. Define its own tech-specific testing and linting commands
+4. Never directly import/modify code from sibling repos
+
+<!-- END: OPTIONAL SUBMODULE SECTION -->

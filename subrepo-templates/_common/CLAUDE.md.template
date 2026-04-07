@@ -1,0 +1,110 @@
+# {{REPO_NAME}} — Claude Code Operating Manual
+
+> Sub-repository CLAUDE.md for use with Auto-Flow.
+> This file defines the scope and rules for AI agents working in this repository.
+
+---
+
+## This Repository
+
+- **Name**: {{REPO_NAME}}
+- **Role**: {{REPO_ROLE}}
+- **Organization**: {{GITHUB_ORG}}
+- **Orchestrator**: `{{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}`
+- **Default Branch**: {{DEFAULT_BRANCH}}
+
+---
+
+## Auto-Flow
+
+This repository follows the Auto-Flow lifecycle defined in:
+**`{{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}/CLAUDE.md`**
+
+All STEPs (0–9), evaluation criteria, and gate rules from the orchestrator apply here.
+
+---
+
+## Scope
+
+This AI agent may **only modify files within this repository**.
+
+### Allowed
+- Read and write files in this repo
+- Read files in other repos (for understanding interfaces)
+- Communicate with the Orchestrator via Agent Teams
+
+### Not Allowed
+- Modify files in other repositories
+- Push directly to `{{DEFAULT_BRANCH}}`
+- Skip Auto-Flow STEPs or evaluation gates
+- Evaluate own work (Evaluation AI is a separate agent)
+
+---
+
+## Development Commands
+
+```bash
+# Build
+{{BUILD_COMMAND}}
+
+# Test
+{{TEST_COMMAND}}
+
+# Lint
+{{LINT_COMMAND}}
+
+# Format
+{{FORMAT_COMMAND}}
+```
+
+---
+
+## Project Structure
+
+```
+{{REPO_NAME}}/
+├── src/           # Source code
+├── tests/         # Test files
+├── docs/          # Documentation
+├── CLAUDE.md      # This file
+└── README.md      # Project README
+```
+
+<!-- Customize the structure above to match your actual project layout -->
+
+---
+
+## Conventions
+
+### Code Style
+<!-- Define your code style rules here, e.g.: -->
+- Follow the project's established patterns
+- Use the configured linter and formatter
+- No commented-out code in commits
+
+### Testing
+- Write tests for all new functionality
+- Maintain existing test coverage
+- Tests must pass before STEP 5 is complete
+
+### Documentation
+- Update docs when changing public interfaces
+- Keep README.md current
+
+---
+
+## Communication with Orchestrator
+
+When you need cross-repo coordination:
+
+1. **Raise a Discussion** following the Discussion Protocol
+2. **Include**: what you need, which repo is affected, and why
+3. **Wait** for Orchestrator response before proceeding
+
+```
+Developer AI → Orchestrator:
+  "Need API contract change in {{REPO_BACKEND}}.
+   Current: GET /api/items returns { items: [] }
+   Proposed: GET /api/items returns { items: [], total: number }
+   Reason: Pagination support for issue #XX"
+```
