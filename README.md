@@ -170,6 +170,7 @@ Templates use `{{UPPER_SNAKE_CASE}}` placeholders:
 
 | Document | Description |
 |----------|-------------|
+| [**Design Rationale**](docs/design-rationale.md) | **Read first** — why every design decision was made |
 | [Auto-Flow Guide](docs/autoflow-guide.md) | Detailed step-by-step lifecycle |
 | [Evaluation System](docs/evaluation-system.md) | Scoring, PASS criteria, output format |
 | [Git Workflow](docs/git-workflow.md) | Branch naming, commits, PR process |

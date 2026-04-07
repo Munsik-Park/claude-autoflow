@@ -3,6 +3,9 @@
 > This file is the single source of truth for how Claude Code operates in this project.
 > It defines the Auto-Flow lifecycle, evaluation gates, agent roles, and operational rules.
 
+**New AI agents: Read [docs/design-rationale.md](docs/design-rationale.md) FIRST.**
+It explains _why_ every rule exists. Understanding the design intent takes priority over following the rules. Without understanding the reasons, you may propose changes that look better but undermine core principles.
+
 ---
 
 ## Table of Contents
@@ -50,22 +53,25 @@ Auto-Flow is a structured development lifecycle that ensures quality through eva
 | STEP | Name | Description | Exit Criteria |
 |------|------|-------------|---------------|
 | 0 | **Issue Analysis** | Understand the issue/request thoroughly | Issue requirements documented |
-| 1 | **3-Phase Analysis** | Independent structure analysis (bias prevention) | 3 independent analyses completed |
+| 1 | **3-Phase Analysis** | Information-isolated structure analysis (bias prevention) | 3 isolated analyses completed |
+| 1.5 | **Issue Analysis Eval** | Gate: is the analysis sufficient? | Score >= 7.5 or issue closed |
 | 2 | **Plan Synthesis** | Merge analyses into implementation plan | Plan approved |
 | 3 | **Implementation** | Write the code | Code compiles, basic functionality works |
 | 4 | **Self-Review** | Developer AI reviews own code | No obvious issues found |
 | 5 | **Test** | Test AI writes and runs tests | All tests pass |
-| 6 | **Evaluation** | Evaluation AI scores the work | Score >= 7 (PASS) |
+| 6 | **Evaluation** | Fresh-spawned Evaluation AI scores the work | Score >= 7.5 (PASS) |
 | 7 | **Revision** | Fix issues from evaluation (if needed) | Re-evaluation PASS |
 | 8 | **PR & Review** | Create PR for human review | PR submitted |
 | 9 | **Merge & Close** | Merge after human approval | Issue closed |
 
 ### Execution Principles
 
-1. **Never skip steps.** Each STEP builds on the previous one.
-2. **Regression is allowed.** If STEP 6 fails, return to STEP 3 and redo.
-3. **Human gates exist.** STEP 8→9 always requires human approval.
-4. **State is tracked.** Use `.autoflow-state/` files to persist STEP status.
+1. **Never skip steps.** Each STEP builds on the previous one — regardless of change size. "This one is simple" is itself a biased judgment.
+2. **Regression is allowed.** If STEP 6 fails, return to STEP 7 (or STEP 3 for major issues).
+3. **STEP 1.5 FAIL = issue close.** If existing structure handles the concern, no code change is needed.
+4. **Human gates exist.** STEP 8→9 always requires human approval.
+5. **State is tracked.** Use `.autoflow-state/` files to persist STEP status.
+6. **Pipeline is stateless.** Past issue evaluations do not influence current analysis. Improvement happens outside the pipeline, through human-driven CLAUDE.md updates.
 
 ---
 
@@ -74,13 +80,16 @@ Auto-Flow is a structured development lifecycle that ensures quality through eva
 | Current State | Condition | Next State |
 |--------------|-----------|------------|
 | STEP 0 | Issue analyzed | → STEP 1 |
-| STEP 1 | 3 analyses done | → STEP 2 |
+| STEP 1 | 3 isolated analyses done | → STEP 1.5 |
+| STEP 1.5 (score >= 7.5) | PASS | → STEP 2 |
+| STEP 1.5 (FAIL) | Existing structure sufficient | → **Issue closed** |
 | STEP 2 | Plan approved | → STEP 3 |
 | STEP 3 | Code complete | → STEP 4 |
 | STEP 4 | Self-review clean | → STEP 5 |
 | STEP 5 | Tests pass | → STEP 6 |
-| STEP 6 (score >= 7) | PASS | → STEP 8 |
-| STEP 6 (score < 7) | FAIL | → STEP 3 (redo) |
+| STEP 6 (score >= 7.5, all categories >= 7) | PASS | → STEP 8 |
+| STEP 6 (score < 7.5 or category < 7) | FAIL | → STEP 7 |
+| STEP 6 (security <= 3) | AUTO-FAIL | → STEP 3 (major rework) |
 | STEP 7 | Re-eval PASS | → STEP 8 |
 | STEP 8 | PR submitted | → STEP 9 (human) |
 | STEP 9 | Merged | → Done |
@@ -108,8 +117,9 @@ Auto-Flow uses **multi-agent role separation** to prevent single-point-of-failur
 
 ### Evaluation AI
 - **Scope**: Read-only across relevant repos
-- **Responsibilities**: Score the work using the 10-point scale (STEP 6)
+- **Responsibilities**: Score the work using the 10-point scale (STEPs 1.5, 6)
 - **Cannot**: Fix code — only report issues
+- **Critical**: Must be **spawned fresh** for every evaluation. Never reuse an evaluation agent — self-reinforcement bias makes prior investment in reasoning influence the judgment. See [docs/design-rationale.md](docs/design-rationale.md#decision-2-evaluation-ai-is-spawned-fresh-every-time).
 
 ### Communication Between Agents
 
@@ -126,27 +136,33 @@ Evaluation AI → Orchestrator: "Score: 8/10 — PASS"
 
 ---
 
-## 3-Phase Independent Analysis
+## 3-Phase Independent Analysis (Information Isolation)
 
-To prevent tunnel-vision bias, STEP 1 runs **three independent analyses** before any coding begins.
+> **Why information isolation?** See [docs/design-rationale.md](docs/design-rationale.md#decision-1-ai-a-does-not-receive-the-issue-content-3-phase-independent-analysis)
 
-### Phase A: Top-Down Analysis
-- Start from high-level architecture
-- Identify affected components and their relationships
-- Map the change impact across the system
+To prevent tunnel-vision bias, STEP 1 uses **information isolation** — not just different perspectives, but strictly separated inputs.
 
-### Phase B: Bottom-Up Analysis
-- Start from the specific code that needs to change
-- Trace dependencies upward
-- Identify edge cases and constraints
+### Phase A: Structure Analysis (AI-A) — DOES NOT SEE THE ISSUE
+- **AI-A receives only the codebase.** It never sees the issue text.
+- Analyze current architecture, patterns, and component relationships
+- Document structural facts — what exists, how it works, what its constraints are
+- This prevents the "looking for structure that solves the problem" bias
 
-### Phase C: Lateral Analysis
-- Look at similar features/patterns already in the codebase
-- Check for existing utilities, patterns, or conventions to reuse
-- Identify potential conflicts with parallel work
+### Phase B: Issue Analysis (AI-B) — DOES NOT SEE THE CODE
+- **AI-B receives only the issue text.** It does not access the codebase.
+- Analyze the problem, requirements, and constraints from the issue alone
+- Propose potential resolution approaches
+- It is normal for AI-B to use zero tools
+
+### Phase 3: Cross-Verification
+- AI-A evaluates AI-B's proposals from a structural perspective
+- Determines if existing structure already handles the concern
+- Identifies structural feasibility of proposed approaches
 
 ### Synthesis (STEP 2)
 Merge all three analyses into a single implementation plan. Conflicts between phases must be explicitly resolved with rationale.
+
+**Do NOT give AI-A the issue content "for efficiency."** This destroys the core mechanism. See design rationale.
 
 ---
 
@@ -165,8 +181,9 @@ Merge all three analyses into a single implementation plan. Conflicts between ph
 | 1–2 | Failing — does not meet requirements |
 
 ### PASS Criteria
-- **Overall score >= 7** to proceed to STEP 8
-- **No individual category below 5**
+- **Overall weighted score >= 7.5** to proceed to STEP 8
+- **No individual category below 7**
+- **Security score <= 3 → automatic FAIL** (mandatory rework, cannot be diluted by averaging)
 
 ### Evaluation Categories
 
@@ -234,9 +251,12 @@ When ambiguity or disagreement arises during any STEP, follow this protocol:
 The Auto-Flow Hook (`check-autoflow-gate.sh`) enforces STEP progression:
 
 - **Trigger**: Runs before commit or PR creation
-- **Checks**: Validates that the current STEP's exit criteria are met
-- **Blocks**: Prevents advancing if evaluation hasn't passed
+- **Checks**: Calculates scores directly from raw `scores` in evaluation JSON
+- **Does NOT trust**: The AI-generated `pass` field — it computes pass/fail independently from the numbers
+- **Blocks**: Prevents advancing if calculated scores don't meet thresholds
 - **State files**: Stored in `.autoflow-state/` directory
+
+> **Why distrust the `pass` field?** AI tends to implicitly adjust standards while scoring. The hook ignores AI judgment and checks only the numbers. See [docs/design-rationale.md](docs/design-rationale.md#decision-3-the-hook-does-not-trust-ais-pass-judgment).
 
 Configuration: See [.claude/hooks/check-autoflow-gate.sh](.claude/hooks/check-autoflow-gate.sh)
 
@@ -292,7 +312,7 @@ Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
 ### PR Requirements
 
 - [ ] All tests pass
-- [ ] Evaluation score >= 7 (PASS)
+- [ ] Evaluation score >= 7.5 (PASS), no category below 7
 - [ ] No security checklist violations
 - [ ] PR description includes issue reference
 

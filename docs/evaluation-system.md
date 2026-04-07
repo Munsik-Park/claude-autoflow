@@ -1,12 +1,18 @@
 # Evaluation System
 
-> The Auto-Flow evaluation system provides quantified quality assessment at STEP 6, ensuring consistent standards across all changes.
+> The Auto-Flow evaluation system provides quantified quality assessment at STEPs 1.5 and 6, ensuring consistent standards across all changes.
 
 ---
 
 ## Overview
 
 The Evaluation AI is an **independent agent** that scores completed work before it reaches human review. This separation ensures objectivity — the agent that wrote the code never evaluates it.
+
+### Critical Rule: Fresh Spawn Every Time
+
+**The Evaluation AI must be spawned fresh for every evaluation** — at STEPs 1.5, 3, 5.7, and 6. It carries no prior conversation history. This is mandatory, not optional.
+
+**Why**: When the same agent creates a plan and evaluates it, it struggles to reject its own work. A freshly spawned agent sees only the deliverable — it has no investment in the process. Bias elimination takes priority over token cost savings. See [docs/design-rationale.md](design-rationale.md#decision-2-evaluation-ai-is-spawned-fresh-every-time).
 
 ---
 
@@ -29,12 +35,25 @@ The Evaluation AI is an **independent agent** that scores completed work before 
 
 ## PASS Criteria
 
-A change **passes** evaluation when:
+A change **passes** evaluation when ALL of the following are true:
 
-1. **Overall weighted score >= 7**
-2. **No individual category scores below 5**
+1. **Overall weighted score >= 7.5**
+2. **No individual category score below 7**
+3. **Security score is NOT <= 3** (auto-fail trigger)
 
-If either condition is not met, the change **fails** and must be revised (STEP 7).
+If any condition is not met, the change **fails**.
+
+### Why These Thresholds Are Strict
+
+Lenient criteria create a pattern of "scoring high on easy categories to raise the average while passing weak categories." The individual minimum threshold (>= 7) prevents this gaming. Security <= 3 triggers mandatory rework because security cannot be diluted by averaging — some items are non-negotiable.
+
+### Auto-FAIL Rules
+
+| Condition | Result | Action |
+|-----------|--------|--------|
+| Security <= 3 | AUTO-FAIL | → STEP 3 (mandatory major rework) |
+| Any category < 7 | FAIL | → STEP 7 (revision) |
+| Overall < 7.5 | FAIL | → STEP 7 (revision) |
 
 ---
 
@@ -59,12 +78,22 @@ overall = (correctness * 0.30) + (code_quality * 0.20) + (test_coverage * 0.20)
 
 ```
 correctness:    8 * 0.30 = 2.40
-code_quality:   7 * 0.20 = 1.40
+code_quality:   8 * 0.20 = 1.60
 test_coverage:  7 * 0.20 = 1.40
 security:       9 * 0.15 = 1.35
 performance:    7 * 0.15 = 1.05
                          ------
-overall:                   7.60  → PASS
+overall:                   7.80  → PASS (>= 7.5, all categories >= 7)
+```
+
+```
+correctness:    9 * 0.30 = 2.70
+code_quality:   8 * 0.20 = 1.60
+test_coverage:  6 * 0.20 = 1.20    ← below 7!
+security:       8 * 0.15 = 1.20
+performance:    8 * 0.15 = 1.20
+                         ------
+overall:                   7.90  → FAIL (test_coverage 6 < minimum 7)
 ```
 
 ---
@@ -150,10 +179,12 @@ The Evaluation AI receives:
 
 When a change fails and goes through STEP 7 (revision):
 
-1. The Evaluation AI receives the **updated** diff and test results
+1. A **freshly spawned** Evaluation AI receives the **updated** diff and test results
 2. It also receives the **previous evaluation** for context
 3. It re-evaluates from scratch (not incrementally)
 4. The new evaluation replaces the old one in the state file
+
+> The re-evaluation AI is also spawned fresh — never reused from the previous evaluation cycle.
 
 ### Maximum Revision Cycles
 
@@ -165,11 +196,14 @@ When a change fails and goes through STEP 7 (revision):
 
 ## Hook Integration
 
-The `check-autoflow-gate.sh` hook reads the evaluation JSON to enforce the gate:
+The `check-autoflow-gate.sh` hook enforces the gate by **calculating pass/fail independently from raw scores**:
 
-- At **STEP 6**: Checks if `evaluation.json` exists and `pass === true`
-- At **STEP 8**: Re-verifies that the evaluation still passes before allowing PR creation
-- The hook uses the `overall` score and `PASS_THRESHOLD` (default: 7)
+- The hook **does NOT read the AI-generated `pass` field**
+- It extracts individual scores from the `scores` object and calculates the weighted average itself
+- It checks: weighted average >= 7.5, all categories >= 7, security > 3
+- This design brings the trust chain down to the script level — AI judgment is bypassed
+
+> **Why?** AI tends to implicitly adjust standards while scoring, or interpret edge cases favorably. The hook ignores AI judgment and checks only numbers. See [docs/design-rationale.md](design-rationale.md#decision-3-the-hook-does-not-trust-ais-pass-judgment).
 
 ---
 
@@ -183,8 +217,8 @@ Modify the category weights in `CLAUDE.md` to match your project priorities:
 
 ### Adjusting PASS Threshold
 
-The default threshold is 7. To change:
-1. Update `PASS_THRESHOLD` in `check-autoflow-gate.sh`
+The default thresholds are: overall >= 7.5, individual >= 7, security auto-fail <= 3. To change:
+1. Update `PASS_THRESHOLD`, `MIN_CATEGORY_SCORE`, and `SECURITY_AUTO_FAIL_THRESHOLD` in `check-autoflow-gate.sh`
 2. Update the PASS criteria in `CLAUDE.md`
 3. Document the change and rationale
 
