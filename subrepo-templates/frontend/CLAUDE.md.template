@@ -1,0 +1,128 @@
+# {{REPO_FRONTEND}} — Claude Code Operating Manual
+
+> Frontend sub-repository CLAUDE.md for use with Auto-Flow.
+
+---
+
+## This Repository
+
+- **Name**: {{REPO_FRONTEND}}
+- **Role**: Frontend application
+- **Organization**: {{GITHUB_ORG}}
+- **Orchestrator**: `{{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}`
+- **Default Branch**: {{DEFAULT_BRANCH}}
+
+---
+
+## Auto-Flow
+
+This repository follows the Auto-Flow lifecycle defined in:
+**`{{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}/CLAUDE.md`**
+
+---
+
+## Scope
+
+This AI agent handles the frontend application only. For cross-repo changes, coordinate through the Orchestrator.
+
+---
+
+## Development Commands
+
+```bash
+# Install dependencies
+{{FRONTEND_INSTALL_COMMAND}}
+
+# Build
+{{FRONTEND_BUILD_COMMAND}}
+
+# Test
+{{FRONTEND_TEST_COMMAND}}
+
+# Lint
+{{FRONTEND_LINT_COMMAND}}
+
+# Format
+{{FRONTEND_FORMAT_COMMAND}}
+
+# Run dev server
+{{FRONTEND_DEV_COMMAND}}
+```
+
+---
+
+## Project Structure
+
+```
+{{REPO_FRONTEND}}/
+├── src/
+│   ├── components/     # Reusable UI components
+│   ├── pages/          # Page-level components / routes
+│   ├── hooks/          # Custom hooks
+│   ├── services/       # API client / data fetching
+│   ├── store/          # State management
+│   ├── utils/          # Shared utilities
+│   └── styles/         # Global styles / theme
+├── public/             # Static assets
+├── tests/
+│   ├── unit/           # Unit tests
+│   └── e2e/            # End-to-end tests
+├── docs/
+│   └── components.md   # Component documentation
+├── CLAUDE.md           # This file
+└── README.md
+```
+
+<!-- Customize the structure above to match your actual frontend layout -->
+
+---
+
+## Frontend-Specific Rules
+
+### Component Design
+- Follow the project's component architecture (atomic design, feature-based, etc.)
+- Keep components focused — one responsibility per component
+- Separate presentation from logic
+- Use the project's established patterns for state management
+
+### Styling
+- Follow the project's CSS methodology (CSS Modules, Tailwind, styled-components, etc.)
+- Use design tokens / theme variables for colors, spacing, typography
+- Ensure responsive design for all new components
+
+### API Integration
+- Use the established API client (not raw fetch/axios)
+- Handle loading, error, and empty states
+- Don't hardcode API URLs — use environment configuration
+
+### Accessibility
+- Use semantic HTML elements
+- Add ARIA labels where needed
+- Ensure keyboard navigation works
+- Test with screen readers for critical flows
+
+### Testing
+- Unit tests for utility functions and hooks
+- Component tests for interactive components
+- E2e tests for critical user flows
+- Test both happy path and error states
+
+### Performance
+- Lazy-load routes and heavy components
+- Optimize images and assets
+- Avoid unnecessary re-renders
+- Use appropriate caching strategies
+
+---
+
+## Communication with Orchestrator
+
+When the frontend needs to coordinate with other repos:
+
+```
+Frontend AI → Orchestrator:
+  "Need new backend endpoint for user search.
+   Required: GET /api/v1/users/search?q={query}
+   Response: { users: Array<{ id, name, avatar }> }
+   Needed for: Issue #<number> (user search feature)"
+```

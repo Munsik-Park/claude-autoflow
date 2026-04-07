@@ -1,0 +1,119 @@
+# {{REPO_BACKEND}} — Claude Code Operating Manual
+
+> Backend sub-repository CLAUDE.md for use with Auto-Flow.
+
+---
+
+## This Repository
+
+- **Name**: {{REPO_BACKEND}}
+- **Role**: Backend API service
+- **Organization**: {{GITHUB_ORG}}
+- **Orchestrator**: `{{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}`
+- **Default Branch**: {{DEFAULT_BRANCH}}
+
+---
+
+## Auto-Flow
+
+This repository follows the Auto-Flow lifecycle defined in:
+**`{{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}/CLAUDE.md`**
+
+---
+
+## Scope
+
+This AI agent handles the backend service only. For cross-repo changes, coordinate through the Orchestrator.
+
+---
+
+## Development Commands
+
+```bash
+# Build
+{{BACKEND_BUILD_COMMAND}}
+
+# Test
+{{BACKEND_TEST_COMMAND}}
+
+# Lint
+{{BACKEND_LINT_COMMAND}}
+
+# Format
+{{BACKEND_FORMAT_COMMAND}}
+
+# Run locally
+{{BACKEND_RUN_COMMAND}}
+
+# Database migrations
+{{BACKEND_MIGRATE_COMMAND}}
+```
+
+---
+
+## Project Structure
+
+```
+{{REPO_BACKEND}}/
+├── src/
+│   ├── controllers/    # Request handlers
+│   ├── services/       # Business logic
+│   ├── models/         # Data models
+│   ├── middleware/      # Auth, logging, etc.
+│   ├── routes/         # Route definitions
+│   └── utils/          # Shared utilities
+├── tests/
+│   ├── unit/           # Unit tests
+│   └── integration/    # Integration tests
+├── migrations/         # Database migrations
+├── docs/
+│   └── api.md          # API documentation
+├── CLAUDE.md           # This file
+└── README.md
+```
+
+<!-- Customize the structure above to match your actual backend layout -->
+
+---
+
+## Backend-Specific Rules
+
+### API Design
+- Follow RESTful conventions (or your project's chosen API style)
+- Version APIs appropriately
+- Document all endpoints in `docs/api.md`
+- Use consistent error response format
+
+### Database
+- Always use migrations for schema changes (never manual DDL)
+- Use parameterized queries (no string concatenation)
+- Index foreign keys and frequently queried columns
+- Document schema changes in migration files
+
+### Security
+- Validate all inputs at the controller layer
+- Use parameterized queries for all database access
+- Never log sensitive data (passwords, tokens, PII)
+- Apply rate limiting to public endpoints
+- Follow the security checklist in the orchestrator repo
+
+### Testing
+- Unit tests for all service-layer functions
+- Integration tests for API endpoints
+- Test both success and error paths
+- Mock external services in tests
+
+---
+
+## Communication with Orchestrator
+
+When the backend needs to coordinate with other repos:
+
+```
+Backend AI → Orchestrator:
+  "New endpoint added: POST /api/v1/users
+   Request: { name: string, email: string }
+   Response: { id: string, name: string, email: string }
+   Frontend may need to integrate this.
+   Refs: #<issue>"
+```

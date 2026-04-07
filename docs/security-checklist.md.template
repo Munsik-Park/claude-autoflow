@@ -1,0 +1,137 @@
+# Security Checklist
+
+> Every PR must pass this security checklist before merge. Items are verified during STEP 6 (Evaluation) and STEP 8 (PR Review).
+
+---
+
+## Tech Stack Context
+
+**Project**: {{PROJECT_NAME}}
+**Stack**: {{TECH_STACK_SUMMARY}}
+
+---
+
+## Universal Security Items
+
+### 1. Authentication & Authorization
+
+- [ ] All endpoints require appropriate authentication
+- [ ] Authorization checks enforce least-privilege access
+- [ ] No endpoints accidentally exposed without auth
+- [ ] Session/token management follows best practices
+
+<!-- PROJECT-SPECIFIC EXAMPLE:
+For projects using OAuth 2.0 / OIDC:
+- [ ] OAuth scopes are correctly validated
+- [ ] Token refresh uses secure rotation
+- [ ] PKCE is enabled for public clients
+
+For projects using API keys:
+- [ ] API keys are not logged or exposed in responses
+- [ ] Rate limiting is enforced per key
+- [ ] Key rotation mechanism exists
+-->
+
+### 2. Input Validation
+
+- [ ] All user inputs are validated and sanitized
+- [ ] SQL/NoSQL queries use parameterized statements
+- [ ] File uploads are validated (type, size, content)
+- [ ] URL/path inputs are validated to prevent traversal attacks
+
+<!-- PROJECT-SPECIFIC EXAMPLE:
+For projects using ORMs (SQLAlchemy, Prisma, etc.):
+- [ ] Raw queries are avoided; ORM methods used instead
+- [ ] Any raw queries use parameterized inputs
+
+For projects with GraphQL:
+- [ ] Query depth limiting is configured
+- [ ] Input types are strictly defined
+- [ ] Introspection is disabled in production
+
+For projects with SPARQL or other query languages:
+- [ ] Query injection prevention measures in place
+- [ ] User inputs never concatenated into queries
+-->
+
+### 3. Data Exposure Prevention
+
+- [ ] No sensitive data in log output (passwords, tokens, PII)
+- [ ] API responses don't leak internal data (stack traces, DB schemas)
+- [ ] Error messages are generic for external users, detailed for internal logs
+- [ ] Sensitive fields are masked in any debugging output
+
+<!-- PROJECT-SPECIFIC EXAMPLE:
+For projects handling PII:
+- [ ] PII is encrypted at rest
+- [ ] PII access is audit-logged
+- [ ] Data retention policies are enforced
+
+For projects with payment data:
+- [ ] PCI DSS requirements are met
+- [ ] Card data is never stored in plain text
+-->
+
+### 4. Infrastructure Isolation
+
+- [ ] Internal services are not exposed to public networks
+- [ ] Database ports are not publicly accessible
+- [ ] Admin interfaces require VPN or IP allowlist
+- [ ] Environment variables don't contain secrets in CI logs
+
+<!-- PROJECT-SPECIFIC EXAMPLE:
+For containerized projects (Docker/K8s):
+- [ ] Container images use non-root users
+- [ ] Network policies restrict pod-to-pod communication
+- [ ] Secrets are managed via secret stores (not env vars)
+
+For serverless projects:
+- [ ] Function permissions follow least-privilege IAM policies
+- [ ] API Gateway has proper throttling configured
+-->
+
+### 5. Dependency Vulnerabilities
+
+- [ ] No known critical CVEs in direct dependencies
+- [ ] Dependency lock files are committed and up to date
+- [ ] Automated vulnerability scanning is configured in CI
+- [ ] Any CVE exceptions are documented with rationale
+
+<!-- PROJECT-SPECIFIC EXAMPLE:
+For Node.js projects:
+- [ ] `npm audit` reports no critical vulnerabilities
+- [ ] `package-lock.json` is committed
+
+For Python projects:
+- [ ] `pip audit` or `safety check` reports clean
+- [ ] `requirements.txt` or `poetry.lock` is committed
+
+For Go projects:
+- [ ] `govulncheck` reports no issues
+- [ ] `go.sum` is committed
+-->
+
+---
+
+## How to Customize This Checklist
+
+1. **Replace the `<!-- PROJECT-SPECIFIC EXAMPLE -->` blocks** with your actual project requirements
+2. **Remove irrelevant sections** (e.g., remove SPARQL if you don't use it)
+3. **Add domain-specific items** relevant to your industry (healthcare, finance, etc.)
+4. **Rename this file** from `security-checklist.md.template` to `security-checklist.md` after customization
+
+---
+
+## Integration with Auto-Flow
+
+### During STEP 6 (Evaluation)
+The Evaluation AI checks each security item as part of the **Security** scoring category (15% weight). Any critical security issue results in an automatic FAIL regardless of other scores.
+
+### During STEP 8 (PR Review)
+The PR template includes this checklist. The PR author must check each applicable item before requesting review.
+
+### CI Integration
+Consider adding automated security checks to CI:
+- **SAST**: Static analysis (e.g., Semgrep, CodeQL)
+- **SCA**: Dependency scanning (e.g., Dependabot, Snyk)
+- **Secret scanning**: Detect committed secrets (e.g., GitGuardian, truffleHog)
