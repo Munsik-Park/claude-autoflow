@@ -23,7 +23,9 @@ set -euo pipefail
 # Configuration
 # ---------------------------------------------------------------------------
 STATE_DIR="${CLAUDE_PROJECT_DIR:-.}/.autoflow-state"
-PASS_THRESHOLD=7
+PASS_THRESHOLD="7.5"
+MIN_CATEGORY_SCORE=7
+SECURITY_AUTO_FAIL_THRESHOLD=3
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -65,44 +67,81 @@ get_current_step() {
 }
 
 # ---------------------------------------------------------------------------
-# Read evaluation score
+# Extract a score value from evaluation JSON
 # ---------------------------------------------------------------------------
-# Expects a file: .autoflow-state/<issue>/evaluation.json
-# Must contain "overall" field with numeric score
-get_evaluation_score() {
-  local issue="$1"
-  local eval_file="${STATE_DIR}/${issue}/evaluation.json"
-  if [[ ! -f "$eval_file" ]]; then
-    echo "0"
-    return
-  fi
-
-  # Extract "overall" score — works with basic JSON
-  local score
-  score=$(grep -o '"overall"[[:space:]]*:[[:space:]]*[0-9.]*' "$eval_file" \
-          | head -1 \
-          | grep -o '[0-9.]*$' || echo "0")
-  echo "$score"
+# Uses basic grep/sed — no jq dependency required
+extract_score() {
+  local file="$1"
+  local key="$2"
+  grep -o "\"${key}\"[[:space:]]*:[[:space:]]*[0-9.]*" "$file" \
+    | head -1 \
+    | grep -o '[0-9.]*$' || echo "0"
 }
 
 # ---------------------------------------------------------------------------
 # Check: Is evaluation passing?
 # ---------------------------------------------------------------------------
+# IMPORTANT: This function does NOT read the AI-generated "pass" field.
+# It calculates pass/fail independently from the raw scores.
+# Reason: AI self-reporting is unreliable — it may implicitly adjust
+# standards while scoring. The gate operates on numbers, not AI judgment.
+# See: docs/design-rationale.md (Decision 3)
 check_evaluation_pass() {
   local issue="$1"
-  local score
-  score=$(get_evaluation_score "$issue")
+  local eval_file="${STATE_DIR}/${issue}/evaluation.json"
 
-  # Compare using awk for float comparison
-  local passed
-  passed=$(awk "BEGIN { print ($score >= $PASS_THRESHOLD) ? 1 : 0 }")
+  if [[ ! -f "$eval_file" ]]; then
+    log_fail "No evaluation file found: ${eval_file}"
+    return 1
+  fi
 
-  if [[ "$passed" -eq 1 ]]; then
-    log_pass "Evaluation score: ${score} (>= ${PASS_THRESHOLD}) — PASS"
+  # Extract individual category scores from the raw "scores" object
+  local correctness code_quality test_coverage security performance
+  correctness=$(extract_score "$eval_file" "correctness")
+  code_quality=$(extract_score "$eval_file" "code_quality")
+  test_coverage=$(extract_score "$eval_file" "test_coverage")
+  security=$(extract_score "$eval_file" "security")
+  performance=$(extract_score "$eval_file" "performance")
+
+  log_info "Scores — correctness:${correctness} code_quality:${code_quality} test_coverage:${test_coverage} security:${security} performance:${performance}"
+
+  # Calculate weighted average from raw scores (NOT using AI's "overall" field)
+  local calculated_overall
+  calculated_overall=$(awk "BEGIN { printf \"%.2f\", ($correctness * 0.30) + ($code_quality * 0.20) + ($test_coverage * 0.20) + ($security * 0.15) + ($performance * 0.15) }")
+
+  log_info "Calculated overall: ${calculated_overall} (threshold: ${PASS_THRESHOLD})"
+
+  # Check 1: Security auto-fail
+  local security_fail
+  security_fail=$(awk "BEGIN { print ($security <= $SECURITY_AUTO_FAIL_THRESHOLD) ? 1 : 0 }")
+  if [[ "$security_fail" -eq 1 ]]; then
+    log_fail "Security score: ${security} (<= ${SECURITY_AUTO_FAIL_THRESHOLD}) — AUTO-FAIL (mandatory rework)"
+    return 1
+  fi
+
+  # Check 2: Individual category minimums
+  local min_fail
+  min_fail=$(awk "BEGIN {
+    min = $correctness
+    if ($code_quality < min) min = $code_quality
+    if ($test_coverage < min) min = $test_coverage
+    if ($security < min) min = $security
+    if ($performance < min) min = $performance
+    print (min < $MIN_CATEGORY_SCORE) ? 1 : 0
+  }")
+  if [[ "$min_fail" -eq 1 ]]; then
+    log_fail "One or more categories below minimum (${MIN_CATEGORY_SCORE}) — FAIL"
+    return 1
+  fi
+
+  # Check 3: Overall weighted average
+  local overall_pass
+  overall_pass=$(awk "BEGIN { print ($calculated_overall >= $PASS_THRESHOLD) ? 1 : 0 }")
+  if [[ "$overall_pass" -eq 1 ]]; then
+    log_pass "Evaluation: ${calculated_overall} (>= ${PASS_THRESHOLD}), all categories >= ${MIN_CATEGORY_SCORE} — PASS"
     return 0
   else
-    log_fail "Evaluation score: ${score} (< ${PASS_THRESHOLD}) — FAIL"
-    log_info "Return to STEP 3 and address evaluation feedback before proceeding."
+    log_fail "Overall score: ${calculated_overall} (< ${PASS_THRESHOLD}) — FAIL"
     return 1
   fi
 }

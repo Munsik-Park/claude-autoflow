@@ -36,32 +36,70 @@ The key principles:
 
 ---
 
-## STEP 1: 3-Phase Independent Analysis
+## STEP 1: 3-Phase Independent Analysis (Information Isolation)
 
-**Goal**: Prevent tunnel-vision bias by analyzing the problem from three independent perspectives.
+**Goal**: Prevent tunnel-vision bias through **information isolation** — not just different perspectives, but strictly separated inputs.
 
-### Phase A: Top-Down Analysis
-Start from the system architecture and work downward:
-- Which components are affected?
-- What are the data flow implications?
-- Are there cross-service impacts?
+> **Design rationale**: AI is biased toward solving the moment it receives an issue. If the structure-analyzing AI knows the issue, it starts looking for "structure that solves this problem" instead of seeing structure as it is. Information asymmetry is what makes cross-verification valid. See [docs/design-rationale.md](design-rationale.md) for full reasoning.
 
-### Phase B: Bottom-Up Analysis
-Start from the specific code and work upward:
-- Which files/functions need to change?
-- What are the direct dependencies?
-- What edge cases exist at the code level?
+### Phase A: Structure Analysis (AI-A) — NO ISSUE CONTENT
 
-### Phase C: Lateral Analysis
-Look sideways at the existing codebase:
-- Are there similar features already implemented?
-- What patterns/conventions should be followed?
-- Are there shared utilities to reuse?
+**AI-A receives the codebase only. It does NOT receive the issue text.**
+
+- Analyze the current code structure, architecture, and patterns
+- Document how components relate and interact
+- Identify structural strengths, weaknesses, and constraints
+- Report factual findings about what exists
+
+**Critical rule**: AI-A must never see the issue content. This is not optional. Giving AI-A the issue "for efficiency" destroys the core mechanism of this system.
+
+### Phase B: Issue Analysis (AI-B) — NO CODE ACCESS
+
+**AI-B receives the issue text only. It does NOT access the codebase.**
+
+- Analyze the problem described in the issue
+- Identify requirements, constraints, and acceptance criteria
+- Propose potential resolution approaches based on the issue text alone
+- It is normal for AI-B to use zero tools — analyzing only the issue text is its purpose
+
+**Critical rule**: AI-B must not read code. If it reads code, it shares the same bias as AI-A, making Phase 3 verification purely ceremonial.
+
+### Phase 3: Cross-Verification
+
+**AI-A evaluates AI-B's proposed resolution from a structural perspective.**
+
+- Does the existing structure already handle what the issue describes?
+- Are AI-B's proposed approaches structurally sound?
+- What are the actual code-level implications of each approach?
+- Are there conflicts between what the issue asks for and what the structure supports?
 
 ### Exit Criteria
-- All three analyses documented
-- Key findings from each phase recorded
+- Phase A analysis documented (structure only, no issue awareness)
+- Phase B analysis documented (issue only, no code access)
+- Phase 3 cross-verification documented
 - Conflicts between phases identified
+
+---
+
+## STEP 1.5: Issue Analysis Evaluation (Gate)
+
+**Goal**: Ensure only well-analyzed issues proceed to implementation. This gate is strict because insufficient analysis at this stage causes larger costs downstream.
+
+> **The Evaluation AI is spawned fresh** for this step — it carries no prior conversation history. This prevents self-reinforcement bias.
+
+### Process
+1. A freshly spawned Evaluation AI receives: Phase A report, Phase B report, Phase 3 cross-verification
+2. Evaluates whether the analysis is thorough enough for implementation planning
+3. Produces a scored evaluation
+
+### PASS / FAIL
+- **PASS** (score >= 7.5): Proceed to STEP 2
+- **FAIL**: **Close the issue.** If the structure already handles the concern, no code change is needed. This is not a regression — it is the system working correctly. The best code is code that is never written.
+
+### Exit Criteria
+- Evaluation report saved
+- PASS → proceed to STEP 2
+- FAIL → issue closed (existing structure sufficient)
 
 ---
 
@@ -165,8 +203,10 @@ Look sideways at the existing codebase:
 
 **Goal**: An independent Evaluation AI scores the work objectively.
 
+> **The Evaluation AI is spawned fresh** for every evaluation — it carries no prior conversation history. This is mandatory. Reusing an evaluation agent creates self-reinforcement bias. See [docs/design-rationale.md](design-rationale.md#decision-2-evaluation-ai-is-spawned-fresh-every-time).
+
 ### Process
-1. Evaluation AI receives: issue requirements, implementation plan, code diff, test results
+1. A **freshly spawned** Evaluation AI receives: issue requirements, implementation plan, code diff, test results
 2. Scores across 5 categories (see Evaluation System)
 3. Produces a JSON evaluation report
 
@@ -181,8 +221,9 @@ Look sideways at the existing codebase:
 | Performance | 15% | No regressions, reasonable efficiency? |
 
 ### PASS / FAIL
-- **PASS**: Overall score >= 7, no category below 5 → proceed to STEP 8
-- **FAIL**: Overall score < 7 or any category below 5 → return to STEP 3
+- **PASS**: Overall weighted score >= 7.5 AND no individual category below 7 → proceed to STEP 8
+- **FAIL**: Overall score < 7.5 OR any category below 7 → return to STEP 7 (or STEP 3 for major issues)
+- **AUTO-FAIL**: Security score <= 3 → mandatory rework regardless of other scores
 
 ### Exit Criteria
 - Evaluation report saved to `.autoflow-state/<issue>/evaluation.json`
@@ -249,15 +290,16 @@ Look sideways at the existing codebase:
 
 ## Regression Rules
 
-When a STEP fails, the flow regresses to an earlier STEP:
+When a STEP fails, the flow regresses — or terminates:
 
-| Failure Point | Regress To | Reason |
-|--------------|-----------|--------|
-| STEP 5 (tests fail) | STEP 3 | Fix implementation |
-| STEP 6 (eval < 7) | STEP 3 | Significant rework needed |
-| STEP 6 (eval 5-6) | STEP 7 | Minor revisions needed |
-| STEP 8 (CI fails) | STEP 5 | Re-test |
-| STEP 9 (human rejects) | STEP 7 | Address human feedback |
+| Failure Point | Action | Reason |
+|--------------|--------|--------|
+| STEP 1.5 (structure eval FAIL) | **Close issue** | Existing structure already handles it |
+| STEP 5 (tests fail) | → STEP 3 | Fix implementation |
+| STEP 6 (score < 7.5) | → STEP 7 | Revision needed |
+| STEP 6 (security <= 3) | → STEP 3 | Mandatory major rework |
+| STEP 8 (CI fails) | → STEP 5 | Re-test |
+| STEP 9 (human rejects) | → STEP 7 | Address human feedback |
 
 ---
 
