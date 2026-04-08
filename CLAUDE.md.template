@@ -103,7 +103,7 @@ If Git state is not clean after 0-3, stop and report to user. Do NOT proceed to 
 | STEP 2 | Plan approved | → STEP 3 |
 | STEP 3 PASS | Score >= 7.5, all >= 7 | → STEP 4 |
 | STEP 3 FAIL | Below threshold | → STEP 2 (max 3x) |
-| STEP 4 | Tasks assigned to teammates | → STEP 5a |
+| STEP 4 | Tasks assigned, delegation.md created | → STEP 5a |
 | STEP 5a | Tests written, all Red | → STEP 5b |
 | STEP 5b | Minimum implementation done | → STEP 5c |
 | STEP 5c PASS | All Green + minimal impl check | → STEP 5d |
@@ -215,6 +215,8 @@ Merge all three analyses into a single implementation plan. Conflicts between ph
 
 The orchestrator creates a team and assigns tasks to teammates.
 
+**[MUST]** The orchestrator must create delegation.md as a mandatory artifact before STEP 5a begins.
+
 ```
 4-1. Spawn Test AI teammate
      - SendMessage: acceptance criteria + verification design
@@ -223,8 +225,23 @@ The orchestrator creates a team and assigns tasks to teammates.
      - SendMessage: implementation plan + acceptance criteria
      - Instruction: "Wait for Test AI to complete tests (STEP 5a). Then implement minimum code to pass."
 4-3. Both teammates receive: plan, acceptance criteria, affected files list
+4-4. Create delegation.md in .autoflow-state/<issue>/ with the following sections:
 ```
 
+### delegation.md Format
+
+```markdown
+## Team
+<team-name>
+
+## Test AI Instructions
+<acceptance criteria + verification design for Test AI>
+
+## Developer AI Instructions
+<implementation plan + acceptance criteria for Developer AI>
+```
+
+**[MUST]** STEP 4 produces delegation.md — it is a mandatory artifact for STEP 5a entry.
 **[MUST]** Test AI starts first (STEP 5a). Developer AI waits until tests are written and Red-confirmed.
 
 ---
@@ -232,6 +249,8 @@ The orchestrator creates a team and assigns tasks to teammates.
 ## STEP 5a-5d: Test-Driven Development Cycle
 
 ### STEP 5a: Test Writing (Test AI)
+
+**Entry precondition**: delegation.md must exist in `.autoflow-state/<issue>/` before STEP 5a begins.
 
 Test AI writes tests from acceptance criteria.
 

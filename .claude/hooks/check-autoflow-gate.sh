@@ -147,6 +147,20 @@ check_evaluation_pass() {
 }
 
 # ---------------------------------------------------------------------------
+# Check: Does delegation.md exist?
+# ---------------------------------------------------------------------------
+check_delegation_exists() {
+  local issue="$1"
+  local delegation_file="${STATE_DIR}/${issue}/delegation.md"
+  if [[ ! -f "$delegation_file" ]]; then
+    log_fail "delegation.md not found: ${delegation_file}"
+    log_info "STEP 4 must produce delegation.md before proceeding"
+    return 1
+  fi
+  return 0
+}
+
+# ---------------------------------------------------------------------------
 # Main gate logic
 # ---------------------------------------------------------------------------
 main() {
@@ -167,13 +181,20 @@ main() {
   log_info "Current STEP: ${step}"
 
   case "$step" in
-    # Steps 0-5: No gate block — these are pre-evaluation steps
-    [0-5])
+    # Steps 0-4: No gate block — these are pre-evaluation steps
+    [0-4])
       log_pass "STEP ${step} — no gate restrictions"
+      ;;
+
+    # Step 5: Delegation gate — delegation.md must exist
+    5)
+      check_delegation_exists "$issue" || exit 1
+      log_pass "STEP ${step} — delegation.md found"
       ;;
 
     # Step 6: Evaluation in progress — block commits until evaluation completes
     6)
+      check_delegation_exists "$issue" || exit 1
       log_info "STEP 6 — checking evaluation result..."
       check_evaluation_pass "$issue"
       ;;
