@@ -325,11 +325,16 @@ Developer AI teammate writes minimum code to pass tests. This is the **only** st
 ### STEP 5d: Refactor
 
 ```
-5d-1. Code cleanup (no behavior change — tests must pass without modification)
-5d-2. Re-run all tests → Green maintained
+5d-1. Refactoring needed?
+      ├─ Yes → code cleanup (no behavior change) → 5d-2
+      └─ No  → document reason ("no cleanup needed") → 5d-2 (DO NOT SKIP)
+5d-2. [MUST] Re-run ALL tests → Green maintained
+      - This step is NEVER skipped, even when 5d-1 found nothing to refactor
       - FAIL → refactor broke something → fix (max 2 attempts, then keep pre-refactor state)
-5d-3. Commit (refactor type)
+5d-3. Commit (refactor type, or skip commit if no changes in 5d-1)
 ```
+
+**[MUST]** 5d-2 is mandatory. "No changes were made so tests will pass" is not a valid reason to skip. The re-run confirms that no accidental state changes occurred between STEP 5c and 5d.
 
 ### Pure Documentation Changes
 
