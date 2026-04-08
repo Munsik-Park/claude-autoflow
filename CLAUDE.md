@@ -53,13 +53,21 @@ This project follows Auto-Flow with Agent Teams. Even though this is a single re
 
 ### Orchestrator Boundaries
 
-The orchestrator's "own files" are limited to:
-- `CLAUDE.md`, `CLAUDE.local.md.example`
-- `docs/`, `README.md`, `LICENSE`
+The orchestrator may **directly modify** only these files:
+- `CLAUDE.md`
+- `CLAUDE.local.md.example`
 - `.autoflow-state/` (state tracking)
 - `.claude/` (hooks, settings)
 
-For all other files (`setup/`, `subrepo-templates/`, `CLAUDE.md.template`, `tests/`), the orchestrator **delegates to teammates**. Exception: project rules, infrastructure, and documentation bulk updates may be committed directly by the orchestrator.
+All other files require delegation to teammates:
+- `CLAUDE.md.template` → Developer AI
+- `setup/` → Developer AI
+- `subrepo-templates/` → Developer AI
+- `tests/` → Test AI
+- `docs/` → Developer AI
+- `README.md`, `LICENSE` → Developer AI
+
+**No exceptions.** The previous "documentation bulk updates" exception was removed because it allowed the orchestrator to bypass delegation for nearly any file. If a file is not in the orchestrator's list above, it must go through a teammate — regardless of how simple the change appears.
 
 ### Communication — Agent Teams
 
