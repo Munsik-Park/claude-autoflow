@@ -39,19 +39,19 @@ A change **passes** evaluation when ALL of the following are true:
 
 1. **Overall weighted score >= 7.5**
 2. **No individual category score below 7**
-3. **Security score is NOT <= 3** (auto-fail trigger)
+3. **Consistency score is NOT <= 3** (auto-fail trigger)
 
 If any condition is not met, the change **fails**.
 
 ### Why These Thresholds Are Strict
 
-Lenient criteria create a pattern of "scoring high on easy categories to raise the average while passing weak categories." The individual minimum threshold (>= 7) prevents this gaming. Security <= 3 triggers mandatory rework because security cannot be diluted by averaging — some items are non-negotiable.
+Lenient criteria create a pattern of "scoring high on easy categories to raise the average while passing weak categories." The individual minimum threshold (>= 7) prevents this gaming. Consistency <= 3 triggers mandatory rework because violating core design principles cannot be diluted by averaging — some items are non-negotiable.
 
 ### Auto-FAIL Rules
 
 | Condition | Result | Action |
 |-----------|--------|--------|
-| Security <= 3 | AUTO-FAIL | → STEP 4 (mandatory major rework) |
+| Consistency <= 3 | AUTO-FAIL | → STEP 4 (mandatory major rework) |
 | Any category < 7 | FAIL | → STEP 7 (revision) |
 | Overall < 7.5 | FAIL | → STEP 7 (revision) |
 
@@ -61,39 +61,47 @@ Lenient criteria create a pattern of "scoring high on easy categories to raise t
 
 | Category | Weight | Description |
 |----------|--------|-------------|
-| **Correctness** | 30% | Does the implementation fulfill all requirements from the issue? Does it handle edge cases? |
-| **Code Quality** | 20% | Is the code clean, readable, and maintainable? Does it follow project conventions? |
+| **Correctness** | 25% | Does the implementation fulfill all requirements from the issue? Does it handle edge cases? |
+| **Quality** | 20% | Is the code clean, readable, and maintainable? Does it follow project conventions? |
 | **Test Coverage** | 20% | Are critical paths tested? Are edge cases covered? Do tests actually validate behavior? |
-| **Security** | 15% | Are there any new vulnerabilities? Does it pass the security checklist? |
-| **Performance** | 15% | Are there any regressions? Is the approach reasonably efficient? |
+| **Consistency** | 20% | Does the change align with design-rationale.md principles? Does it follow established patterns? |
+| **Documentation** | 15% | Are docs updated, links valid, examples accurate? |
+
+### Why "Consistency" Replaces "Security"
+
+This is a template project. The critical risk is not security vulnerabilities but **violating core design principles** (e.g., giving AI-A the issue content "for efficiency"). Consistency scoring catches this. Consistency <= 3 triggers AUTO-FAIL because undermining a core principle from design-rationale.md requires mandatory rework regardless of other scores.
 
 ### Weighted Score Calculation
 
+The gate hook dynamically reads all categories from the `scores` object and calculates the weighted average. If a `weights.json` file exists for the issue, those weights are used. Otherwise, equal weights (1/N) are applied across all categories.
+
 ```
-overall = (correctness * 0.30) + (code_quality * 0.20) + (test_coverage * 0.20) 
-        + (security * 0.15) + (performance * 0.15)
+Example with default CLAUDE.md weights (via weights.json):
+
+overall = (correctness * 0.25) + (quality * 0.20) + (test_coverage * 0.20) 
+        + (consistency * 0.20) + (documentation * 0.15)
 ```
 
 ### Example
 
 ```
-correctness:    8 * 0.30 = 2.40
-code_quality:   8 * 0.20 = 1.60
+correctness:    8 * 0.25 = 2.00
+quality:        8 * 0.20 = 1.60
 test_coverage:  7 * 0.20 = 1.40
-security:       9 * 0.15 = 1.35
-performance:    7 * 0.15 = 1.05
+consistency:    9 * 0.20 = 1.80
+documentation:  8 * 0.15 = 1.20
                          ------
-overall:                   7.80  → PASS (>= 7.5, all categories >= 7)
+overall:                   8.00  → PASS (>= 7.5, all categories >= 7)
 ```
 
 ```
-correctness:    9 * 0.30 = 2.70
-code_quality:   8 * 0.20 = 1.60
+correctness:    9 * 0.25 = 2.25
+quality:        8 * 0.20 = 1.60
 test_coverage:  6 * 0.20 = 1.20    ← below 7!
-security:       8 * 0.15 = 1.20
-performance:    8 * 0.15 = 1.20
+consistency:    8 * 0.20 = 1.60
+documentation:  8 * 0.15 = 1.20
                          ------
-overall:                   7.90  → FAIL (test_coverage 6 < minimum 7)
+overall:                   7.85  → FAIL (test_coverage 6 < minimum 7)
 ```
 
 ---
@@ -109,20 +117,11 @@ The Evaluation AI produces a JSON report saved to `.autoflow-state/<issue>/evalu
   "evaluator": "evaluation-ai",
   "timestamp": "2025-01-15T10:30:00Z",
   "scores": {
-    "correctness": 8,
-    "code_quality": 7,
-    "test_coverage": 7,
-    "security": 9,
-    "performance": 7
-  },
-  "overall": 7.6,
-  "pass": true,
-  "category_feedback": {
-    "correctness": "All requirements met. Edge case for empty input handled correctly.",
-    "code_quality": "Clean implementation. Consider extracting the validation logic into a helper.",
-    "test_coverage": "Good coverage of happy path. Add a test for concurrent access.",
-    "security": "No issues found. Input validation is thorough.",
-    "performance": "Acceptable. The N+1 query in line 45 could be optimized but is not critical."
+    "correctness": { "score": 8, "reason": "All requirements met. Edge case for empty input handled correctly." },
+    "quality": { "score": 7, "reason": "Clean implementation. Consider extracting the validation logic into a helper." },
+    "test_coverage": { "score": 7, "reason": "Good coverage of happy path. Add a test for concurrent access." },
+    "consistency": { "score": 9, "reason": "Aligned with design-rationale.md principles throughout." },
+    "documentation": { "score": 7, "reason": "Docs updated. Internal links valid." }
   },
   "blocking_issues": [],
   "suggestions": [
@@ -140,12 +139,11 @@ The Evaluation AI produces a JSON report saved to `.autoflow-state/<issue>/evalu
 | `issue` | string | Issue reference (e.g., "#123") |
 | `evaluator` | string | Agent identifier |
 | `timestamp` | string | ISO 8601 timestamp |
-| `scores` | object | Per-category scores (1–10) |
-| `overall` | number | Weighted average score |
-| `pass` | boolean | Whether criteria are met |
-| `category_feedback` | object | Per-category comments |
+| `scores` | object | Per-category scores — structured format with `score` and `reason` |
 | `blocking_issues` | array | Issues that must be fixed (empty if pass) |
 | `suggestions` | array | Non-blocking improvement ideas |
+
+> **Note**: The hook does NOT read any AI-generated `pass` or `overall` fields. It calculates pass/fail independently from the raw `scores` values. Flat format (`"key": N`) is also supported for backward compatibility.
 
 ---
 
@@ -158,7 +156,6 @@ The Evaluation AI receives:
 2. **Implementation plan** (`.autoflow-state/<issue>/plan.md`)
 3. **Code diff** (`git diff` of the changes)
 4. **Test results** (test output from STEP 5c)
-5. **Security checklist** (from `docs/security-checklist.md`)
 
 ### Evaluation Steps
 
@@ -166,8 +163,8 @@ The Evaluation AI receives:
 2. **Verify correctness** against requirements
 3. **Review code quality** against project conventions
 4. **Assess test coverage** — are critical paths tested?
-5. **Check security** against the security checklist
-6. **Evaluate performance** — any regressions or inefficiencies?
+5. **Check consistency** against design-rationale.md principles
+6. **Evaluate documentation** — are docs updated, links valid?
 7. **Score** each category
 8. **Calculate** weighted overall score
 9. **Determine** PASS/FAIL
@@ -198,9 +195,11 @@ When a change fails and goes through STEP 7 (revision):
 
 The `check-autoflow-gate.sh` hook enforces the gate by **calculating pass/fail independently from raw scores**:
 
-- The hook **does NOT read the AI-generated `pass` field**
-- It extracts individual scores from the `scores` object and calculates the weighted average itself
-- It checks: weighted average >= 7.5, all categories >= 7, security > 3
+- The hook **does NOT read the AI-generated `pass` or `overall` fields**
+- It dynamically discovers all keys in the `scores` object (no hardcoded category names)
+- It extracts individual scores, handling both flat (`"key": N`) and structured (`"key": {"score": N, "reason": "..."}`) formats
+- It reads weights from `.autoflow-state/<issue>/weights.json` if available, otherwise uses equal weights (1/N)
+- It checks: weighted average >= 7.5, all categories >= 7, auto-fail key > 3
 - This design brings the trust chain down to the script level — AI judgment is bypassed
 
 > **Why?** AI tends to implicitly adjust standards while scoring, or interpret edge cases favorably. The hook ignores AI judgment and checks only numbers. See [docs/design-rationale.md](design-rationale.md#decision-3-the-hook-does-not-trust-ais-pass-judgment).
@@ -209,24 +208,55 @@ The `check-autoflow-gate.sh` hook enforces the gate by **calculating pass/fail i
 
 ## Customizing the Evaluation System
 
-### Adjusting Weights
+### Dynamic Category Support
 
-Modify the category weights in `CLAUDE.md` to match your project priorities:
-- **Security-critical project**: Increase security weight to 25%, reduce performance to 5%
-- **Performance-critical project**: Increase performance weight to 25%, reduce code quality to 10%
+The gate hook dynamically enumerates all keys in the `scores` object. You are not limited to the default five categories — any category names work, as long as they appear in the evaluation JSON.
+
+### Configuring Weights
+
+Create a `weights.json` file in `.autoflow-state/<issue>/` to configure per-category weights:
+
+```json
+{
+  "correctness": 0.25,
+  "quality": 0.20,
+  "test_coverage": 0.20,
+  "consistency": 0.20,
+  "documentation": 0.15
+}
+```
+
+Without `weights.json`, all categories receive equal weight (1/N where N is the number of categories).
 
 ### Adjusting PASS Threshold
 
-The default thresholds are: overall >= 7.5, individual >= 7, security auto-fail <= 3. To change:
-1. Update `PASS_THRESHOLD`, `MIN_CATEGORY_SCORE`, and `SECURITY_AUTO_FAIL_THRESHOLD` in `check-autoflow-gate.sh`
+The default thresholds are: overall >= 7.5, individual >= 7, auto-fail key <= 3. To change:
+1. Update `PASS_THRESHOLD`, `MIN_CATEGORY_SCORE`, and `AUTO_FAIL_THRESHOLD` in `check-autoflow-gate.sh`
 2. Update the PASS criteria in `CLAUDE.md`
 3. Document the change and rationale
 
-### Adding Categories
+### Configuring the Auto-Fail Key
 
-You can add project-specific evaluation categories:
-- **Accessibility** (for frontend projects)
-- **Documentation** (for API projects)
-- **Backwards Compatibility** (for library projects)
+The auto-fail key defaults to `consistency`. To change it, set the `AUTO_FAIL_KEY` environment variable:
 
-Update the weights so all categories sum to 100%.
+```bash
+AUTO_FAIL_KEY=security bash .claude/hooks/check-autoflow-gate.sh
+```
+
+If the configured auto-fail key does not exist in the evaluation scores, no auto-fail check is performed.
+
+### Adding Custom Categories
+
+Add any category to the evaluation JSON — the hook discovers them automatically. For example, a frontend project might use:
+
+```json
+{
+  "scores": {
+    "correctness": { "score": 8, "reason": "Requirements met" },
+    "accessibility": { "score": 9, "reason": "WCAG AA compliant" },
+    "performance": { "score": 7, "reason": "Lighthouse score acceptable" }
+  }
+}
+```
+
+Update `weights.json` to assign appropriate weights to your custom categories. If weights are omitted, all categories are weighted equally.

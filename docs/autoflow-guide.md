@@ -341,16 +341,16 @@ When spawning the Evaluation AI (at STEPs 1.5, 3, and 6), the orchestrator's pro
 
 | Category | Weight | What It Measures |
 |----------|--------|-----------------|
-| Correctness | 30% | Does it fulfill the requirements? |
-| Code Quality | 20% | Clean, readable, maintainable? |
+| Correctness | 25% | Does it fulfill the requirements? |
+| Quality | 20% | Clean, readable, maintainable? |
 | Test Coverage | 20% | Critical paths tested? |
-| Security | 15% | No new vulnerabilities? |
-| Performance | 15% | No regressions, reasonable efficiency? |
+| Consistency | 20% | Aligned with design-rationale.md principles? |
+| Documentation | 15% | Docs updated, links valid, examples accurate? |
 
 ### PASS / FAIL
 - **PASS**: Overall weighted score >= 7.5 AND no individual category below 7 → proceed to STEP 8
 - **FAIL**: Overall score < 7.5 OR any category below 7 → return to STEP 7 (or STEP 3 for major issues)
-- **AUTO-FAIL**: Security score <= 3 → STEP 4 (mandatory rework regardless of other scores)
+- **AUTO-FAIL**: Consistency score <= 3 → STEP 4 (mandatory rework regardless of other scores)
 
 ### Exit Criteria
 - Evaluation report saved to `.autoflow-state/<issue>/evaluation.json`
@@ -389,7 +389,7 @@ When spawning the Evaluation AI (at STEPs 1.5, 3, and 6), the orchestrator's pro
 - Description with summary of changes
 - Link to evaluation report
 - Test results summary
-- Security checklist confirmation
+- Consistency with design-rationale.md confirmed
 
 ### Exit Criteria
 - PR created and linked to issue
@@ -426,7 +426,7 @@ When a STEP fails, the flow regresses — or terminates:
 | STEP 5b↔5c cycle (tests fail) | → STEP 5b (max 3 round-trips) | Fix implementation or tests |
 | STEP 5d (refactor breaks tests) | Fix (max 2 attempts) | Keep pre-refactor state |
 | STEP 6 (score < 7.5) | → STEP 7 | Revision needed |
-| STEP 6 (security <= 3) | → STEP 4 | Mandatory major rework |
+| STEP 6 (consistency <= 3) | → STEP 4 | Mandatory major rework |
 | STEP 8 (CI fails) | → STEP 5a | Re-test |
 | STEP 9 (human rejects) | → STEP 7 | Address human feedback |
 
