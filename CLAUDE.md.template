@@ -357,30 +357,26 @@ When the change is purely prose (no scripts, no templates with placeholders):
 
 ## Discussion Protocol
 
-When ambiguity or disagreement arises during any STEP, follow this protocol:
+When ambiguity or disagreement arises:
 
-1. **Raise**: The agent encountering the issue documents it clearly
-2. **Context**: Include what was attempted, what failed, and why it matters
-3. **Options**: Present at least 2 viable options with trade-offs
-4. **Recommend**: State a recommendation with rationale
-5. **Escalate**: If agents disagree, escalate to the Orchestrator. If the Orchestrator cannot resolve, escalate to a human.
-
-### Format
+### Process
 
 ```
-## Discussion: [Brief Title]
-
-**Raised by**: [Agent Role]
-**STEP**: [Current STEP number]
-**Context**: [What happened]
-
-### Options
-1. **Option A**: [Description] — Trade-off: [...]
-2. **Option B**: [Description] — Trade-off: [...]
-
-### Recommendation
-[Which option and why]
+1. UNDERSTAND — Read and comprehend the claim
+2. VERIFY    — Check against actual files/data (mandatory — cannot evaluate without reading)
+3. EVALUATE  — Form judgment with evidence
+4. RESPOND   — One of:
+   - ACCEPT: with specific evidence (no groundless agreement)
+   - COUNTER: with alternative + evidence
+   - PARTIAL: accept parts, counter others
+   - ESCALATE: to human with context
 ```
+
+### Rules
+
+- **No agreement without evidence.** "That sounds right" is not ACCEPT. Cite specific files or data.
+- **First exchange devil's advocate.** On the first interaction about a proposal, include at least one counter-argument. This prevents premature consensus.
+- **Cannot evaluate without reading.** Opinions about code/templates require having read the relevant files.
 
 ---
 
