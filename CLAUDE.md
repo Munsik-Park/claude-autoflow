@@ -51,6 +51,13 @@ This project follows Auto-Flow with Agent Teams. Even though this is a single re
 | **Developer AI** | Teammate (`Agent` with `team_name`) | Writes minimum code to pass tests (STEP 5b) |
 | **Evaluation AI** | Fresh `Agent` (no team, no history) | Scores work at STEPs 1.5, 3, 6 — **spawned fresh every time** |
 
+### Evaluation AI Prompt Rules
+
+1. **[MUST]** Include: evaluation type, `CLAUDE.md > [section]` reference, target file paths
+2. **[MUST]** Do NOT copy evaluation criteria into the prompt — instruct the AI to read CLAUDE.md directly
+3. **[MUST]** Orchestrator-written portion must be 5 lines or fewer (excluding target file contents)
+4. **[DENY]** No opinions, interpretations, or leading phrases ("consider that ~", "note that ~", "this is ~ so")
+
 ### Orchestrator Boundaries
 
 The orchestrator may **directly modify** only these files:
