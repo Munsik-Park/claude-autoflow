@@ -45,6 +45,8 @@ Information isolation is the key. If AI-A knows the issue, it starts looking for
 
 It is normal for AI-B to use zero tools. Its purpose is to analyze the problem from the issue text alone. If it reads code, it shares the same bias as AI-A, making Phase 3 verification purely ceremonial.
 
+Claude is already trained to "give balanced answers." It rarely produces overtly one-sided responses. That is the effect of training. But the bias Auto-Flow prevents is different. When Claude receives an issue, "I need to solve this" is already embedded in the context. When it analyzes code in that state, it reads existing structure that already handles the concern as "insufficient." There is no malice. It is correct, helpful behavior. That is precisely why training cannot catch it. Training blocks "bad answers." Structure blocks "good intentions aimed in the wrong direction." This is why information isolation is necessary.
+
 **Why this design must not be changed**
 
 The suggestion "let's give AI-A the issue for efficiency" destroys the core of this system. Bias prevention can only be achieved through information isolation. Claude's built-in bias mitigation training is effective at balancing response tone, but it cannot prevent context contamination.
@@ -113,6 +115,8 @@ Each STEP transitions to the next only when its stated completion conditions are
 
 AI tends to judge "this change is small enough to skip STEPs." That judgment itself is a product of bias. The thought "this one is simple" causes verification to be skipped, and problems emerge from the skipped verification. Simplicity can be determined after the process, not before it.
 
+The act of judging "this change is simple" is itself a product of bias. That judgment is made before implementation. Before implementation, there is no way to know whether it is actually simple. The judgment may sometimes be correct, but when it is wrong, problems emerge from the verification that was skipped. Auto-Flow does not permit this judgment at all. Simplicity can be evaluated post-hoc, after all STEPs are completed. Pre-process judgment is not allowed.
+
 ---
 
 ### Decision 6: Structure Evaluation FAIL Means Issue Close
@@ -124,6 +128,24 @@ When the structure evaluation at STEPs 1–2 returns FAIL, Auto-Flow terminates 
 **Why it works this way**
 
 The best code is code that is never written. AI feels pressure to create something when it receives an issue. Structure evaluation is the first gate that blocks that pressure. In practice, this judgment has prevented unnecessary code changes — when existing architecture already solved the problem.
+
+---
+
+### Decision 7: All Loops Must Have Termination Conditions
+
+**What it does**
+
+Every repetition in Auto-Flow (e.g., STEP 5b↔5c test-fix cycles, STEP 7→6 re-evaluation cycles, STEP 9 revision requests) has an explicit maximum retry count. No loop can run indefinitely.
+
+**Why it works this way**
+
+When a loop fails, the work does not simply stop. The failure cause is classified, and the flow regresses to the appropriate STEP. When all retries are exhausted, the work is handed to a human. There is no scenario where a loop never terminates.
+
+For comparison: review gate structures where two models find problems in each other's output (e.g., Codex-style mutual review) lack explicit termination conditions, creating infinite loop risk. Auto-Flow blocks this through three mechanisms: **maximum regression count + cause classification + defined human escalation point.**
+
+**This principle applies to all future additions**
+
+When introducing any new loop structure to this system, it must have an explicit termination condition. A loop without a termination condition is not permitted. This is not a guideline — it is a hard constraint.
 
 ---
 
@@ -155,6 +177,7 @@ The following may look like "better approaches" but undermine core principles:
 | Inject past evaluation results into current analysis | Bias propagation → system hardens in one direction |
 | Allow STEP-skipping judgment | "This one is simple" is itself a biased judgment |
 | Let the pipeline modify its own criteria | Judgment tracing impossible → trust chain collapse |
+| Design loops without termination conditions | No maximum retry → infinite loop risk → system hangs |
 
 ---
 
