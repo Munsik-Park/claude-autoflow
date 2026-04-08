@@ -73,6 +73,32 @@ If Git state is not clean after resolution attempts, **stop and report to user**
 - What are the actual code-level implications of each approach?
 - Are there conflicts between what the issue asks for and what the structure supports?
 
+- **Issue Type Classification**:
+  - **Type 1 (Code)**: Bug fixes, new features, script improvements, pattern extensions, hook changes
+  - **Type 2 (Documentation/Consistency)**: Content sync, template updates, cross-document consistency, prose improvements
+  - **Hybrid/unclear → default to Type 1** (more conservative)
+
+- **Scoring** (3 categories × 10 points, selected by issue type):
+
+**Type 1 (Code) Scoring:**
+
+| Category | Measures |
+|---|---|
+| Structural Overlap | Does the proposed resolution duplicate existing mechanisms? (high = no overlap) |
+| Code Change Necessity | Is actual code change needed, vs. data/config addition? (high = code change needed) |
+| New Mechanism Necessity | Does this require a new type of mechanism? (high = new mechanism needed) |
+
+**Type 2 (Documentation/Consistency) Scoring:**
+
+| Category | Measures |
+|---|---|
+| Content Gap | Does a real content gap or inconsistency exist? (high = gap exists) |
+| Consistency Impact | Does the inconsistency affect users or AI behavior? (high = significant impact) |
+| Propagation Scope | Is the propagation scope appropriate — not too broad, not missing targets? (high = appropriate scope) |
+
+- **PASS** (avg >= 7.5, all >= 7): Change needed → proceed to STEP 1.5
+- **FAIL**: Existing structure handles it → close issue with rationale
+
 ### Exit Criteria
 - Phase A analysis documented (structure only, no issue awareness)
 - Phase B analysis documented (issue only, no code access)
