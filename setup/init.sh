@@ -35,6 +35,13 @@ success() { echo -e "${GREEN}[OK]${NC} $*"; }
 warn()    { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error()   { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 
+sed_inplace() {
+  local expr="$1"
+  local file="$2"
+  local tmp="${file}.tmp"
+  sed "$expr" "$file" > "$tmp" && mv "$tmp" "$file"
+}
+
 prompt() {
   local var_name="$1"
   local prompt_text="$2"
@@ -130,20 +137,20 @@ replace_placeholders() {
   cp "$src" "$dest"
 
   # Core placeholders
-  sed -i "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "$dest"
-  sed -i "s|{{GITHUB_ORG}}|${GITHUB_ORG}|g" "$dest"
-  sed -i "s|{{REPO_ORCHESTRATOR}}|${REPO_ORCH}|g" "$dest"
-  sed -i "s|{{DEFAULT_BRANCH}}|${DEFAULT_BRANCH}|g" "$dest"
-  sed -i "s|{{CI_SYSTEM}}|${CI_SYSTEM}|g" "$dest"
-  sed -i "s|{{TECH_STACK_SUMMARY}}|${TECH_STACK}|g" "$dest"
+  sed_inplace "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "$dest"
+  sed_inplace "s|{{GITHUB_ORG}}|${GITHUB_ORG}|g" "$dest"
+  sed_inplace "s|{{REPO_ORCHESTRATOR}}|${REPO_ORCH}|g" "$dest"
+  sed_inplace "s|{{DEFAULT_BRANCH}}|${DEFAULT_BRANCH}|g" "$dest"
+  sed_inplace "s|{{CI_SYSTEM}}|${CI_SYSTEM}|g" "$dest"
+  sed_inplace "s|{{TECH_STACK_SUMMARY}}|${TECH_STACK}|g" "$dest"
 
   # Sub-repo placeholders
   if [[ "$REPO_BACKEND" != "none" ]]; then
-    sed -i "s|{{REPO_BACKEND}}|${REPO_BACKEND}|g" "$dest"
+    sed_inplace "s|{{REPO_BACKEND}}|${REPO_BACKEND}|g" "$dest"
   fi
 
   if [[ "$REPO_FRONTEND" != "none" ]]; then
-    sed -i "s|{{REPO_FRONTEND}}|${REPO_FRONTEND}|g" "$dest"
+    sed_inplace "s|{{REPO_FRONTEND}}|${REPO_FRONTEND}|g" "$dest"
   fi
 
   success "Generated: ${dest}"
