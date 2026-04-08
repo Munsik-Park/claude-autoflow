@@ -108,7 +108,7 @@ The key principles:
 **Goal**: Merge the three analyses into a single, coherent implementation plan.
 
 ### Activities
-- Compare findings from Phase A, B, and C
+- Compare findings from Phase A, B, and Phase 3
 - Resolve conflicts with explicit rationale
 - Create a task breakdown with estimated scope
 - Identify risks and mitigation strategies
@@ -141,61 +141,110 @@ The key principles:
 
 ---
 
-## STEP 3: Implementation
+## STEP 3: Plan Evaluation
 
-**Goal**: Write the code according to the approved plan.
+**Goal**: An independent Evaluation AI scores the implementation plan before coding begins.
 
-### Activities
-- Follow the implementation plan from STEP 2
-- Write clean, production-quality code
-- Follow existing project conventions
-- Add inline comments only where logic is non-obvious
+> **The Evaluation AI is spawned fresh** for this step — it carries no prior conversation history.
 
-### Rules
-- Stay within your assigned repository
-- Do not modify code outside the plan scope
-- If the plan needs adjustment, raise a Discussion before proceeding
+### Process
+1. A freshly spawned Evaluation AI receives the implementation plan from STEP 2
+2. Scores across 5 categories (Feasibility, Dependencies, Scope, Consistency, Test Plan)
+3. Produces a scored evaluation
+
+### PASS / FAIL
+- **PASS** (score >= 7.5, all categories >= 7): Proceed to STEP 4
+- **FAIL**: Return to STEP 2 (max 3 revision cycles)
 
 ### Exit Criteria
-- Code compiles/builds successfully
-- Basic functionality works as intended
-- No linting errors
+- Evaluation report saved
+- PASS → proceed to STEP 4
+- FAIL → return to STEP 2 for plan revision
 
 ---
 
-## STEP 4: Self-Review
+## STEP 4: Task Assignment
 
-**Goal**: The Developer AI reviews its own work before handing off to testing.
+**Goal**: The orchestrator delegates implementation work to Test AI and Developer AI teammates.
 
-### Checklist
-- [ ] Code matches the implementation plan
-- [ ] No debug/temporary code left in
-- [ ] No hardcoded secrets or credentials
-- [ ] Error handling is appropriate (not excessive)
-- [ ] Code follows existing project patterns
-- [ ] No unnecessary changes outside scope
+### Activities
+- Spawn Test AI teammate with acceptance criteria
+- Spawn Developer AI teammate with implementation plan
+- Test AI starts first (STEP 5a) — Developer AI waits
 
 ### Exit Criteria
-- Self-review checklist completed
-- Any issues found are fixed
-- Code is ready for testing
+- Tasks assigned to teammates
+- Test AI and Developer AI have received their instructions
 
 ---
 
-## STEP 5: Testing
+## STEP 5a: Test Writing (Test AI)
 
-**Goal**: Test AI writes and runs tests to verify the implementation.
+**Goal**: Test AI writes tests from acceptance criteria. Tests must all FAIL (Red confirmation).
 
 ### Activities
-- Write unit tests for new/changed functions
-- Write integration tests if cross-component changes exist
-- Run the full test suite
-- Verify no existing tests are broken
+- Convert acceptance criteria into test scripts
+- Run tests — ALL must FAIL (Red confirmation)
+- A test that passes means criteria already met or test is wrong
+- For untestable items, write manual verification checklist
 
 ### Exit Criteria
-- All new tests pass
-- All existing tests pass
-- Test coverage for critical paths is adequate
+- All tests written
+- All tests FAIL (Red confirmed)
+- Ready for Developer AI implementation
+
+---
+
+## STEP 5b: Implementation (Developer AI)
+
+**Goal**: Developer AI writes minimum code to pass tests.
+
+### Activities
+- Read the tests from STEP 5a
+- Write minimum code/content to pass tests
+- Do not implement behavior not covered by tests
+- Commit changes
+
+### Exit Criteria
+- Minimum implementation complete
+- Ready for Green verification
+
+---
+
+## STEP 5c: Green Verification
+
+**Goal**: All tests pass and implementation is minimal.
+
+### Activities
+- Run all tests
+- If some fail, analyze failure cause:
+  - **Test issue**: Fix test → re-Red → STEP 5b re-entry
+  - **Implementation issue**: Fix implementation → STEP 5c retry
+  - **Both need fixes**: Fix test first → Red → fix impl → Green
+  - **Deadlock** (both claim "no problem"): Fresh Evaluation AI arbitrates
+- Minimal implementation check: verify no code exists that isn't covered by tests
+
+### Exit Criteria
+- All tests pass (Green)
+- No uncovered implementation code
+- Max round-trips: STEP 5b↔5c max 3 cycles → human escalation
+
+---
+
+## STEP 5d: Refactor
+
+**Goal**: Code cleanup without changing behavior. Tests must pass without modification.
+
+### Activities
+- Clean up code (no behavior change)
+- Re-run all tests → Green maintained
+- If refactor breaks tests → fix (max 2 attempts, then keep pre-refactor state)
+- Commit (refactor type)
+
+### Exit Criteria
+- Code cleaned up
+- All tests still pass (Green maintained)
+- Ready for evaluation
 
 ---
 
@@ -295,10 +344,12 @@ When a STEP fails, the flow regresses — or terminates:
 | Failure Point | Action | Reason |
 |--------------|--------|--------|
 | STEP 1.5 (structure eval FAIL) | **Close issue** | Existing structure already handles it |
-| STEP 5 (tests fail) | → STEP 3 | Fix implementation |
+| STEP 3 (plan eval FAIL) | → STEP 2 (max 3x) | Plan revision needed |
+| STEP 5b↔5c cycle (tests fail) | → STEP 5b (max 3 round-trips) | Fix implementation or tests |
+| STEP 5d (refactor breaks tests) | Fix (max 2 attempts) | Keep pre-refactor state |
 | STEP 6 (score < 7.5) | → STEP 7 | Revision needed |
 | STEP 6 (security <= 3) | → STEP 3 | Mandatory major rework |
-| STEP 8 (CI fails) | → STEP 5 | Re-test |
+| STEP 8 (CI fails) | → STEP 5a | Re-test |
 | STEP 9 (human rejects) | → STEP 7 | Address human feedback |
 
 ---
@@ -312,9 +363,9 @@ When a STEP fails, the flow regresses — or terminates:
     ├── step               # Contains: current step number
     ├── requirements.md    # STEP 0 output
     ├── analysis/
-    │   ├── phase-a.md     # Top-down analysis
-    │   ├── phase-b.md     # Bottom-up analysis
-    │   └── phase-c.md     # Lateral analysis
+    │   ├── phase-a.md     # Structure analysis
+    │   ├── phase-b.md     # Issue analysis
+    │   └── phase-3.md     # Cross-verification
     ├── plan.md            # STEP 2 output
     ├── evaluation.json    # STEP 6 output
     └── history.log        # Step transition log
