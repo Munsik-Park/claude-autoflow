@@ -40,19 +40,39 @@ All communication with the user must be in Korean. Code, documentation content, 
 
 ## Auto-Flow Lifecycle (STEP 0-9)
 
-This project follows a simplified Auto-Flow adapted for a single-repo template project. No multi-agent teams — a single AI switches roles.
+This project follows Auto-Flow with Agent Teams. Even though this is a single repo, **the orchestrator does not implement**. The orchestrator coordinates, and spawns teammates to do the actual work.
 
-### Role Switching (Single AI)
+### Agent Roles
 
-Instead of separate agents, the AI assumes different roles at each STEP:
+| Role | How | Constraint |
+|------|-----|-----------|
+| **Orchestrator** | Main session (you) | Coordinates only — does NOT write code, tests, or templates |
+| **Test AI** | Teammate (`Agent` with `team_name`) | Writes tests from acceptance criteria (STEP 5a) |
+| **Developer AI** | Teammate (`Agent` with `team_name`) | Writes minimum code to pass tests (STEP 5b) |
+| **Evaluation AI** | Fresh `Agent` (no team, no history) | Scores work at STEPs 1.5, 3, 6 — **spawned fresh every time** |
 
-| Role | When | Constraint |
-|------|------|-----------|
-| **Developer** | STEP 4 (Implementation) | Cannot self-evaluate |
-| **Tester** | STEP 5a-5c (Test cycle) | Tests against acceptance criteria, not implementation intent |
-| **Evaluator** | STEP 1.5, 3, 6 | **Must be spawned fresh** (new Agent, no conversation history) |
+### Orchestrator Boundaries
 
-The Evaluator role MUST be a fresh-spawned agent. The Developer and Tester roles can be the same session but must follow role constraints.
+The orchestrator's "own files" are limited to:
+- `CLAUDE.md`, `CLAUDE.local.md.example`
+- `docs/`, `README.md`, `LICENSE`
+- `.autoflow-state/` (state tracking)
+- `.claude/` (hooks, settings)
+
+For all other files (`setup/`, `subrepo-templates/`, `CLAUDE.md.template`, `tests/`), the orchestrator **delegates to teammates**. Exception: project rules, infrastructure, and documentation bulk updates may be committed directly by the orchestrator.
+
+### Communication — Agent Teams
+
+```
+Orchestrator → TeamCreate (team for this issue)
+Orchestrator → Agent (team_name, name="test-ai")   : spawn Test AI teammate
+Orchestrator → Agent (team_name, name="dev-ai")     : spawn Developer AI teammate
+Orchestrator → SendMessage (to teammates)           : task instructions + acceptance criteria
+Teammates   → SendMessage (to orchestrator)         : status reports, questions
+Orchestrator → Agent (fresh, no team)               : spawn Evaluation AI (independent)
+```
+
+All teammates work on the **same repository** (single repo — no submodule navigation needed).
 
 ### STEP Definitions
 
@@ -60,13 +80,13 @@ The Evaluator role MUST be a fresh-spawned agent. The Developer and Tester roles
 STEP 0: Pre-Work         → Git Clean Check, branch creation
 STEP 1: Issue Analysis    → 3-Phase independent analysis (bias prevention)
 STEP 1.5: Structure Eval  → Evaluation AI (fresh spawn): PASS → continue, FAIL → close issue
-STEP 2: Plan Synthesis    → Merge analyses into implementation plan
+STEP 2: Plan Synthesis    → Merge analyses into implementation plan + acceptance criteria
 STEP 3: Plan Evaluation   → Evaluation AI (fresh spawn): 5 categories × 10 points
-STEP 4: Implementation    → Write code/templates/docs (Developer role)
-STEP 5a: Test Writing     → Write tests → Red confirmation (Tester role)
-STEP 5b: Minimal Impl     → Write minimum code to pass tests (Developer role)
+STEP 4: Task Assignment   → TeamCreate + SendMessage to Test AI and Developer AI
+STEP 5a: Test Writing     → Test AI writes tests → Red confirmation
+STEP 5b: Implementation   → Developer AI writes minimum code to pass tests
 STEP 5c: Green + Verify   → All tests pass + minimal implementation check
-STEP 5d: Refactor         → Code cleanup, Green re-confirmation
+STEP 5d: Refactor         → Developer AI code cleanup, Green re-confirmation
 STEP 6: Evaluation        → Evaluation AI (fresh spawn): scored quality assessment
 STEP 7: Revision          → Fix evaluation feedback (if STEP 6 FAIL)
 STEP 8: PR & Review       → Create PR for human review
@@ -78,9 +98,10 @@ STEP 9: Merge & Close     → Human approves and merges
 1. **Never skip steps.** Every STEP executes regardless of change size. "This one is simple" is itself a biased judgment.
 2. **STEP 0 is mandatory.** If Git state is not clean, STEP 1 does not begin.
 3. **STEP 1.5 FAIL = issue close.** Existing structure handles the concern — no code change needed.
-4. **Evaluator is always fresh.** Never reuse an evaluation agent — self-reinforcement bias.
-5. **All loops terminate.** Every retry has a maximum count and human escalation point.
-6. **Pipeline is stateless.** Past evaluations do not influence current analysis.
+4. **Orchestrator does not implement.** The orchestrator coordinates — teammates do the work.
+5. **Evaluator is always fresh.** Never reuse an evaluation agent — self-reinforcement bias.
+6. **All loops terminate.** Every retry has a maximum count and human escalation point.
+7. **Pipeline is stateless.** Past evaluations do not influence current analysis.
 
 ---
 
@@ -95,7 +116,7 @@ STEP 9: Merge & Close     → Human approves and merges
 | STEP 2 | Plan documented | → STEP 3 |
 | STEP 3 PASS | Score >= 7.5, all >= 7 | → STEP 4 |
 | STEP 3 FAIL | Below threshold | → STEP 2 (max 3x) |
-| STEP 4 | Implementation complete | → STEP 5a |
+| STEP 4 | Tasks assigned to teammates | → STEP 5a |
 | STEP 5a | Tests written, all Red | → STEP 5b |
 | STEP 5b | Minimum implementation done | → STEP 5c |
 | STEP 5c PASS | All Green + minimal impl check | → STEP 5d |
@@ -105,7 +126,7 @@ STEP 9: Merge & Close     → Human approves and merges
 | STEP 5d | Refactor done, Green maintained | → STEP 6 |
 | STEP 6 PASS | Score >= 7.5, all >= 7 | → STEP 8 |
 | STEP 6 FAIL | Below threshold | → STEP 7 |
-| STEP 6 AUTO-FAIL | Security <= 3 | → STEP 4 (major rework) |
+| STEP 6 AUTO-FAIL | Consistency <= 3 | → STEP 4 (major rework) |
 | STEP 7 | Revisions done | → STEP 6 (re-eval, max 3x) |
 | STEP 8 | PR created | → STEP 9 (human) |
 | STEP 9 | Merged | → Done |
@@ -212,6 +233,26 @@ Merge Phase A, B, and 3 into an implementation plan.
 
 ---
 
+## STEP 4: Task Assignment
+
+The orchestrator creates a team and spawns teammates to execute the plan.
+
+```
+4-1. TeamCreate — create a team for this issue
+4-2. Spawn Test AI teammate (Agent with team_name, name="test-ai")
+     - SendMessage: acceptance criteria + verification design
+     - Instruction: "Write tests for these acceptance criteria. Do NOT implement."
+4-3. Spawn Developer AI teammate (Agent with team_name, name="dev-ai")
+     - SendMessage: implementation plan + acceptance criteria
+     - Instruction: "Wait for Test AI to complete tests (STEP 5a). Then implement minimum code to pass."
+4-4. Both teammates receive: plan.md, acceptance criteria, affected files list
+```
+
+**[MUST]** Test AI starts first (STEP 5a). Developer AI waits until tests are written and Red-confirmed.
+**[MUST]** The orchestrator does not write code — it sends instructions and monitors progress.
+
+---
+
 ## STEP 5a-5d: Test-Driven Development Cycle
 
 ### What Is Testable in This Project
@@ -225,22 +266,29 @@ Merge Phase A, B, and 3 into an implementation plan.
 | Documentation content | Partial | Verify internal links resolve, code blocks are valid |
 | Pure prose changes | No | Skip TDD cycle, proceed directly to STEP 6 evaluation |
 
-### STEP 5a: Test Writing (Tester Role)
+### STEP 5a: Test Writing (Test AI)
+
+Test AI teammate writes tests from acceptance criteria.
 
 ```
 5a-1. Convert acceptance criteria → test scripts (tests/ directory)
 5a-2. Run tests → ALL must FAIL (Red confirmation)
       - A test that passes means criteria already met or test is wrong
 5a-3. For untestable items → write manual verification checklist
+5a-4. Report to orchestrator: "Tests written, Red confirmed"
 ```
 
-### STEP 5b: Minimal Implementation (Developer Role)
+### STEP 5b: Implementation (Developer AI)
+
+Developer AI teammate writes minimum code to pass tests. This is the **only** step where implementation code is written.
 
 ```
 5b-1. Read the tests from 5a
 5b-2. Write minimum code/content to pass tests
       - [MUST] Do not implement behavior not covered by tests
+      - [MUST] Do not write code before 5a tests exist — that defeats Test First
 5b-3. Commit (feat/fix branch)
+5b-4. Report to orchestrator: "Implementation complete"
 ```
 
 ### STEP 5c: Green Verification
@@ -278,8 +326,8 @@ Merge Phase A, B, and 3 into an implementation plan.
 ### Pure Documentation Changes
 
 When the change is purely prose (no scripts, no templates with placeholders):
-- Skip STEP 5a-5d entirely
-- Proceed from STEP 4 directly to STEP 6
+- Skip STEP 4, 5a-5d entirely
+- Orchestrator delegates the writing to a teammate, then proceed to STEP 6
 - Document the skip reason: "Pure prose change — no testable behavior"
 
 ---
