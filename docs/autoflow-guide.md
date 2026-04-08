@@ -189,6 +189,25 @@ If Git state is not clean after resolution attempts, **stop and report to user**
 
 ---
 
+## Orchestrator Boundaries
+
+The orchestrator coordinates only — it does **not** implement. File-level boundaries enforce this separation:
+
+**The orchestrator may directly modify only:**
+- `CLAUDE.md`
+- `CLAUDE.local.md.example`
+- `.autoflow-state/` (state tracking)
+- `.claude/` (hooks, settings)
+
+**All other files require delegation to teammates:**
+- Implementation code → Developer AI
+- Tests → Test AI
+- Documentation → Developer AI
+
+**No exceptions.** If a file is not in the orchestrator's list above, it must go through a teammate — regardless of how simple the change appears.
+
+---
+
 ## STEP 4: Task Assignment
 
 **Goal**: The orchestrator delegates implementation work to Test AI and Developer AI teammates.
@@ -279,15 +298,31 @@ If Git state is not clean after resolution attempts, **stop and report to user**
 **Goal**: Code cleanup without changing behavior. Tests must pass without modification.
 
 ### Activities
-- Clean up code (no behavior change)
-- Re-run all tests → Green maintained
+- Refactoring needed?
+  - **Yes** → code cleanup (no behavior change) → proceed to re-run
+  - **No** → document reason ("no cleanup needed") → proceed to re-run (DO NOT SKIP)
+- **[MUST]** Re-run ALL tests → Green maintained
+  - This step is NEVER skipped, even when no refactoring was done
+  - "No changes were made so tests will pass" is not a valid reason to skip
+  - The re-run confirms that no accidental state changes occurred between STEP 5c and 5d
 - If refactor breaks tests → fix (max 2 attempts, then keep pre-refactor state)
-- Commit (refactor type)
+- Commit (refactor type, or skip commit if no changes)
 
 ### Exit Criteria
-- Code cleaned up
-- All tests still pass (Green maintained)
+- Code cleaned up (or documented reason for no refactoring)
+- **[MUST]** All tests re-run and still pass (Green maintained)
 - Ready for evaluation
+
+---
+
+## Evaluation AI Prompt Rules
+
+When spawning the Evaluation AI (at STEPs 1.5, 3, and 6), the orchestrator's prompt must follow these rules:
+
+1. **[MUST]** Include: evaluation type, `CLAUDE.md > [section]` reference, target file paths
+2. **[MUST]** Do NOT copy evaluation criteria into the prompt — instruct the AI to read CLAUDE.md directly
+3. **[MUST]** Orchestrator-written portion must be 5 lines or fewer (excluding target file contents)
+4. **[DENY]** No opinions, interpretations, or leading phrases ("consider that ~", "note that ~", "this is ~ so")
 
 ---
 
@@ -315,7 +350,7 @@ If Git state is not clean after resolution attempts, **stop and report to user**
 ### PASS / FAIL
 - **PASS**: Overall weighted score >= 7.5 AND no individual category below 7 → proceed to STEP 8
 - **FAIL**: Overall score < 7.5 OR any category below 7 → return to STEP 7 (or STEP 3 for major issues)
-- **AUTO-FAIL**: Security score <= 3 → mandatory rework regardless of other scores
+- **AUTO-FAIL**: Security score <= 3 → STEP 4 (mandatory rework regardless of other scores)
 
 ### Exit Criteria
 - Evaluation report saved to `.autoflow-state/<issue>/evaluation.json`
@@ -391,7 +426,7 @@ When a STEP fails, the flow regresses — or terminates:
 | STEP 5b↔5c cycle (tests fail) | → STEP 5b (max 3 round-trips) | Fix implementation or tests |
 | STEP 5d (refactor breaks tests) | Fix (max 2 attempts) | Keep pre-refactor state |
 | STEP 6 (score < 7.5) | → STEP 7 | Revision needed |
-| STEP 6 (security <= 3) | → STEP 3 | Mandatory major rework |
+| STEP 6 (security <= 3) | → STEP 4 | Mandatory major rework |
 | STEP 8 (CI fails) | → STEP 5a | Re-test |
 | STEP 9 (human rejects) | → STEP 7 | Address human feedback |
 

@@ -51,7 +51,7 @@ Lenient criteria create a pattern of "scoring high on easy categories to raise t
 
 | Condition | Result | Action |
 |-----------|--------|--------|
-| Security <= 3 | AUTO-FAIL | → STEP 3 (mandatory major rework) |
+| Security <= 3 | AUTO-FAIL | → STEP 4 (mandatory major rework) |
 | Any category < 7 | FAIL | → STEP 7 (revision) |
 | Overall < 7.5 | FAIL | → STEP 7 (revision) |
 
