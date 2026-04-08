@@ -11,7 +11,7 @@ Auto-Flow is a **10-step development lifecycle** that ensures quality through mu
 Auto-Flow structures every code change through a defined lifecycle:
 
 ```
-STEP 0  Issue Analysis          — Understand the problem
+STEP 0  Pre-Work                — Git clean check, branch creation
 STEP 1  3-Phase Analysis        — Independent bias-free analysis
 STEP 2  Plan Synthesis          — Merge analyses into a plan
 STEP 3  Plan Evaluation          — Scored plan assessment (gate)

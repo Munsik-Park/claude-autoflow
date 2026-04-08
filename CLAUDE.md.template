@@ -52,8 +52,8 @@ Auto-Flow is a structured development lifecycle that ensures quality through eva
 
 | STEP | Name | Description | Exit Criteria |
 |------|------|-------------|---------------|
-| 0 | **Issue Analysis** | Understand the issue/request thoroughly | Issue requirements documented |
-| 1 | **3-Phase Analysis** | Information-isolated structure analysis (bias prevention) | 3 isolated analyses completed |
+| 0 | **Pre-Work** | Git clean check, upstream sync, branch creation | Git clean, branch created |
+| 1 | **3-Phase Analysis** | Understand the issue + information-isolated structure analysis (bias prevention) | 3 isolated analyses completed |
 | 1.5 | **Issue Analysis Eval** | Gate: is the analysis sufficient? | Score >= 7.5 or issue closed |
 | 2 | **Plan Synthesis** | Merge analyses into implementation plan | Plan approved |
 | 3 | **Plan Evaluation** | Fresh Evaluation AI scores the plan | Score >= 7.5, all >= 7 |
@@ -70,11 +70,25 @@ Auto-Flow is a structured development lifecycle that ensures quality through eva
 ### Execution Principles
 
 1. **Never skip steps.** Each STEP builds on the previous one — regardless of change size. "This one is simple" is itself a biased judgment.
-2. **Regression is allowed.** If STEP 6 fails, return to STEP 7 (or STEP 3 for major issues).
-3. **STEP 1.5 FAIL = issue close.** If existing structure handles the concern, no code change is needed.
-4. **Human gates exist.** STEP 8→9 always requires human approval.
-5. **State is tracked.** Use `.autoflow-state/` files to persist STEP status.
-6. **Pipeline is stateless.** Past issue evaluations do not influence current analysis. Improvement happens outside the pipeline, through human-driven CLAUDE.md updates.
+2. **STEP 0 is mandatory.** If Git state is not clean, STEP 1 does not begin.
+3. **Regression is allowed.** If STEP 6 fails, return to STEP 7 (or STEP 3 for major issues).
+4. **STEP 1.5 FAIL = issue close.** If existing structure handles the concern, no code change is needed.
+5. **Human gates exist.** STEP 8→9 always requires human approval.
+6. **State is tracked.** Use `.autoflow-state/` files to persist STEP status.
+7. **Pipeline is stateless.** Past issue evaluations do not influence current analysis. Improvement happens outside the pipeline, through human-driven CLAUDE.md updates.
+
+### STEP 0: Pre-Work
+
+**[MUST]** Git Clean Check before any work begins.
+
+```
+0-1. git status — no uncommitted changes, no untracked files in working area
+0-2. git fetch origin — sync with remote
+0-3. Resolve any dirty state (stash, commit, or discard with user approval)
+0-4. git checkout -b <branch-type>/<issue>-<desc> main
+```
+
+If Git state is not clean after 0-3, stop and report to user. Do NOT proceed to STEP 1.
 
 ---
 
@@ -82,7 +96,7 @@ Auto-Flow is a structured development lifecycle that ensures quality through eva
 
 | Current State | Condition | Next State |
 |--------------|-----------|------------|
-| STEP 0 | Issue analyzed | → STEP 1 |
+| STEP 0 | Git clean, branch created | → STEP 1 |
 | STEP 1 | 3 isolated analyses done | → STEP 1.5 |
 | STEP 1.5 (score >= 7.5) | PASS | → STEP 2 |
 | STEP 1.5 (FAIL) | Existing structure sufficient | → **Issue closed** |

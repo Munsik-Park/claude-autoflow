@@ -16,23 +16,23 @@ The key principles:
 
 ---
 
-## STEP 0: Issue Analysis
+## STEP 0: Pre-Work
 
-**Goal**: Fully understand what needs to be done before any planning or coding.
+**Goal**: Ensure a clean Git state before any analysis or coding begins.
 
 ### Activities
-- Read the issue/request carefully
-- Identify acceptance criteria
-- Clarify ambiguities (use Discussion Protocol if needed)
-- Document requirements summary
+- `git status` — verify no uncommitted changes or untracked files in working area
+- `git fetch origin` — sync with remote
+- Resolve any dirty state (stash, commit, or discard with user approval)
+- `git checkout -b <branch-type>/<issue>-<desc> main` — create feature branch from latest main
 
 ### Exit Criteria
-- Requirements are documented in `.autoflow-state/<issue>/requirements.md`
-- All ambiguities resolved or explicitly noted as assumptions
+- Git working tree is clean
+- Branch created from latest main
+- Ready for STEP 1 analysis
 
-### Common Mistakes
-- Starting to code before fully understanding the issue
-- Assuming requirements that aren't stated
+### Hard Stop Rule
+If Git state is not clean after resolution attempts, **stop and report to user**. Do NOT proceed to STEP 1. Starting work on a dirty Git state causes merge conflicts, lost changes, and broken state downstream.
 
 ---
 
@@ -361,7 +361,7 @@ When a STEP fails, the flow regresses — or terminates:
 ├── current-issue          # Contains: issue number
 └── <issue-number>/
     ├── step               # Contains: current step number
-    ├── requirements.md    # STEP 0 output
+    ├── requirements.md    # STEP 1 output (issue requirements)
     ├── analysis/
     │   ├── phase-a.md     # Structure analysis
     │   ├── phase-b.md     # Issue analysis
