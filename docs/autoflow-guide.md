@@ -298,18 +298,20 @@ The orchestrator coordinates only — it does **not** implement. File-level boun
 **Goal**: Code cleanup without changing behavior. Tests must pass without modification.
 
 ### Activities
-- Refactoring needed?
-  - **Yes** → code cleanup (no behavior change) → proceed to re-run
-  - **No** → document reason ("no cleanup needed") → proceed to re-run (DO NOT SKIP)
+- Developer AI runs `/simplify` (automatically analyzes reuse, quality, and efficiency with 3 parallel agents)
+- Applies suggested fixes (no behavior change — tests must pass without modification)
+- If `/simplify` finds nothing → proceed to re-run (DO NOT SKIP)
 - **[MUST]** Re-run ALL tests → Green maintained
-  - This step is NEVER skipped, even when no refactoring was done
+  - This step is NEVER skipped, even when `/simplify` made no changes
   - "No changes were made so tests will pass" is not a valid reason to skip
   - The re-run confirms that no accidental state changes occurred between STEP 5c and 5d
-- If refactor breaks tests → fix (max 2 attempts, then keep pre-refactor state)
+- If simplify breaks tests → revert changes, fix (max 2 attempts, then keep pre-refactor state)
 - Commit (refactor type, or skip commit if no changes)
 
+**Why /simplify?** Manual "refactoring needed?" judgment was routinely skipped. `/simplify` removes this bias by mechanically analyzing the code.
+
 ### Exit Criteria
-- Code cleaned up (or documented reason for no refactoring)
+- `/simplify` analysis completed (changes applied or "nothing found" documented)
 - **[MUST]** All tests re-run and still pass (Green maintained)
 - Ready for evaluation
 
