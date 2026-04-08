@@ -131,7 +131,7 @@ STEP 9: Merge & Close     → Human approves and merges
 | STEP 2 | Plan documented | → STEP 3 |
 | STEP 3 PASS | Score >= 7.5, all >= 7 | → STEP 4 |
 | STEP 3 FAIL | Below threshold | → STEP 2 (max 3x) |
-| STEP 4 | Tasks assigned to teammates | → STEP 5a |
+| STEP 4 | Tasks assigned, delegation.md created | → STEP 5a |
 | STEP 5a | Tests written, all Red | → STEP 5b |
 | STEP 5b | Minimum implementation done | → STEP 5c |
 | STEP 5c PASS | All Green + minimal impl check | → STEP 5d |
@@ -252,6 +252,8 @@ Merge Phase A, B, and 3 into an implementation plan.
 
 The orchestrator creates a team and spawns teammates to execute the plan.
 
+**[MUST]** The orchestrator must create delegation.md as a mandatory artifact before STEP 5a begins.
+
 ```
 4-1. TeamCreate — create a team for this issue
 4-2. Spawn Test AI teammate (Agent with team_name, name="test-ai")
@@ -261,8 +263,23 @@ The orchestrator creates a team and spawns teammates to execute the plan.
      - SendMessage: implementation plan + acceptance criteria
      - Instruction: "Wait for Test AI to complete tests (STEP 5a). Then implement minimum code to pass."
 4-4. Both teammates receive: plan.md, acceptance criteria, affected files list
+4-5. Create delegation.md in .autoflow-state/<issue>/ with the following sections:
 ```
 
+### delegation.md Format
+
+```markdown
+## Team
+<team-name>
+
+## Test AI Instructions
+<acceptance criteria + verification design for Test AI>
+
+## Developer AI Instructions
+<implementation plan + acceptance criteria for Developer AI>
+```
+
+**[MUST]** STEP 4 produces delegation.md — it is a mandatory artifact for STEP 5a entry.
 **[MUST]** Test AI starts first (STEP 5a). Developer AI waits until tests are written and Red-confirmed.
 **[MUST]** The orchestrator does not write code — it sends instructions and monitors progress.
 
@@ -282,6 +299,8 @@ The orchestrator creates a team and spawns teammates to execute the plan.
 | Pure prose changes | No | Skip TDD cycle, proceed directly to STEP 6 evaluation |
 
 ### STEP 5a: Test Writing (Test AI)
+
+**Entry precondition**: delegation.md must exist in `.autoflow-state/<issue>/` before STEP 5a begins.
 
 Test AI teammate writes tests from acceptance criteria.
 
@@ -512,6 +531,7 @@ State files in `.autoflow-state/` track progress per issue.
     │   ├── phase-b.md     # Issue analysis
     │   └── phase-3.md     # Cross-verification
     ├── plan.md            # STEP 2 output
+    ├── delegation.md      # STEP 4 output (task assignments)
     ├── evaluation.json    # STEP 6 output
     └── history.log        # STEP transition log
 ```

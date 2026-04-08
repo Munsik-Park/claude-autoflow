@@ -170,17 +170,34 @@ If Git state is not clean after resolution attempts, **stop and report to user**
 ### Activities
 - Spawn Test AI teammate with acceptance criteria
 - Spawn Developer AI teammate with implementation plan
+- **[MUST]** Create delegation.md as a mandatory artifact in `.autoflow-state/<issue>/`
 - Test AI starts first (STEP 5a) — Developer AI waits
+
+### delegation.md Format
+
+```markdown
+## Team
+<team-name>
+
+## Test AI Instructions
+<acceptance criteria + verification design for Test AI>
+
+## Developer AI Instructions
+<implementation plan + acceptance criteria for Developer AI>
+```
 
 ### Exit Criteria
 - Tasks assigned to teammates
 - Test AI and Developer AI have received their instructions
+- **[MUST]** delegation.md created and saved
 
 ---
 
 ## STEP 5a: Test Writing (Test AI)
 
 **Goal**: Test AI writes tests from acceptance criteria. Tests must all FAIL (Red confirmation).
+
+**Entry precondition**: delegation.md must exist in `.autoflow-state/<issue>/` before STEP 5a begins.
 
 ### Activities
 - Convert acceptance criteria into test scripts
@@ -367,6 +384,7 @@ When a STEP fails, the flow regresses — or terminates:
     │   ├── phase-b.md     # Issue analysis
     │   └── phase-3.md     # Cross-verification
     ├── plan.md            # STEP 2 output
+    ├── delegation.md      # STEP 4 output (task assignments)
     ├── evaluation.json    # STEP 6 output
     └── history.log        # Step transition log
 ```
