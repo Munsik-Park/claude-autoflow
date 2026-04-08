@@ -56,9 +56,12 @@ Auto-Flow is a structured development lifecycle that ensures quality through eva
 | 1 | **3-Phase Analysis** | Information-isolated structure analysis (bias prevention) | 3 isolated analyses completed |
 | 1.5 | **Issue Analysis Eval** | Gate: is the analysis sufficient? | Score >= 7.5 or issue closed |
 | 2 | **Plan Synthesis** | Merge analyses into implementation plan | Plan approved |
-| 3 | **Implementation** | Write the code | Code compiles, basic functionality works |
-| 4 | **Self-Review** | Developer AI reviews own code | No obvious issues found |
-| 5 | **Test** | Test AI writes and runs tests | All tests pass |
+| 3 | **Plan Evaluation** | Fresh Evaluation AI scores the plan | Score >= 7.5, all >= 7 |
+| 4 | **Task Assignment** | Delegate to Test AI and Developer AI | Tasks assigned to teammates |
+| 5a | **Test Writing** | Test AI writes tests from acceptance criteria | Tests written, all Red |
+| 5b | **Implementation** | Developer AI writes minimum code to pass tests | Minimum implementation done |
+| 5c | **Green Verification** | All tests pass + minimal implementation check | All Green |
+| 5d | **Refactor** | Code cleanup, Green re-confirmation | Refactor done, Green maintained |
 | 6 | **Evaluation** | Fresh-spawned Evaluation AI scores the work | Score >= 7.5 (PASS) |
 | 7 | **Revision** | Fix issues from evaluation (if needed) | Re-evaluation PASS |
 | 8 | **PR & Review** | Create PR for human review | PR submitted |
@@ -84,9 +87,16 @@ Auto-Flow is a structured development lifecycle that ensures quality through eva
 | STEP 1.5 (score >= 7.5) | PASS | → STEP 2 |
 | STEP 1.5 (FAIL) | Existing structure sufficient | → **Issue closed** |
 | STEP 2 | Plan approved | → STEP 3 |
-| STEP 3 | Code complete | → STEP 4 |
-| STEP 4 | Self-review clean | → STEP 5 |
-| STEP 5 | Tests pass | → STEP 6 |
+| STEP 3 PASS | Score >= 7.5, all >= 7 | → STEP 4 |
+| STEP 3 FAIL | Below threshold | → STEP 2 (max 3x) |
+| STEP 4 | Tasks assigned to teammates | → STEP 5a |
+| STEP 5a | Tests written, all Red | → STEP 5b |
+| STEP 5b | Minimum implementation done | → STEP 5c |
+| STEP 5c PASS | All Green + minimal impl check | → STEP 5d |
+| STEP 5c FAIL (test issue) | Test incorrect | → STEP 5a (fix test → re-Red) |
+| STEP 5c FAIL (impl issue) | Implementation incorrect | → STEP 5b (fix impl) |
+| STEP 5c DEADLOCK | Both claim "no problem" | → Evaluation AI arbitrates |
+| STEP 5d | Refactor done, Green maintained | → STEP 6 |
 | STEP 6 (score >= 7.5, all categories >= 7) | PASS | → STEP 8 |
 | STEP 6 (score < 7.5 or category < 7) | FAIL | → STEP 7 |
 | STEP 6 (security <= 3) | AUTO-FAIL | → STEP 3 (major rework) |
@@ -107,12 +117,12 @@ Auto-Flow uses **multi-agent role separation** to prevent single-point-of-failur
 
 ### Developer AI
 - **Scope**: Assigned sub-repo only
-- **Responsibilities**: Implementation (STEP 3), self-review (STEP 4)
+- **Responsibilities**: Implementation (STEP 5b), refactor (STEP 5d)
 - **Cannot**: Evaluate own work (STEP 6)
 
 ### Test AI
 - **Scope**: Assigned sub-repo only
-- **Responsibilities**: Write tests, run test suites (STEP 5)
+- **Responsibilities**: Write tests from acceptance criteria (STEP 5a), verify Green (STEP 5c)
 - **Cannot**: Modify implementation code
 
 ### Evaluation AI
@@ -163,6 +173,120 @@ To prevent tunnel-vision bias, STEP 1 uses **information isolation** — not jus
 Merge all three analyses into a single implementation plan. Conflicts between phases must be explicitly resolved with rationale.
 
 **Do NOT give AI-A the issue content "for efficiency."** This destroys the core mechanism. See design rationale.
+
+---
+
+## STEP 3: Plan Evaluation
+
+**Evaluator**: Fresh-spawned Evaluation AI.
+
+**Input**: Implementation plan from STEP 2.
+
+**5 categories × 10 points**:
+
+| Category | Measures |
+|---|---|
+| Feasibility | Can this plan be implemented with the current structure? |
+| Dependencies | Are affected files and side effects identified? |
+| Scope | Appropriate — not too broad, not missing requirements? |
+| Consistency | Does this align with design-rationale.md principles? |
+| Test Plan | Are acceptance criteria testable? |
+
+**PASS**: avg >= 7.5, all >= 7 → STEP 4.
+**FAIL**: → STEP 2 (max 3x).
+
+---
+
+## STEP 4: Task Assignment
+
+The orchestrator creates a team and assigns tasks to teammates.
+
+```
+4-1. Spawn Test AI teammate
+     - SendMessage: acceptance criteria + verification design
+     - Instruction: "Write tests for these acceptance criteria. Do NOT implement."
+4-2. Spawn Developer AI teammate
+     - SendMessage: implementation plan + acceptance criteria
+     - Instruction: "Wait for Test AI to complete tests (STEP 5a). Then implement minimum code to pass."
+4-3. Both teammates receive: plan, acceptance criteria, affected files list
+```
+
+**[MUST]** Test AI starts first (STEP 5a). Developer AI waits until tests are written and Red-confirmed.
+
+---
+
+## STEP 5a-5d: Test-Driven Development Cycle
+
+### STEP 5a: Test Writing (Test AI)
+
+Test AI writes tests from acceptance criteria.
+
+```
+5a-1. Convert acceptance criteria → test scripts (tests/ directory)
+5a-2. Run tests → ALL must FAIL (Red confirmation)
+      - A test that passes means criteria already met or test is wrong
+5a-3. For untestable items → write manual verification checklist
+```
+
+### STEP 5b: Implementation (Developer AI)
+
+Developer AI writes minimum code to pass tests. This is the **only** step where implementation code is written.
+
+```
+5b-1. Read the tests from 5a
+5b-2. Write minimum code/content to pass tests
+      - [MUST] Do not implement behavior not covered by tests
+5b-3. Commit (feat/fix branch)
+```
+
+### STEP 5c: Green Verification
+
+```
+5c-1. Run all tests
+5c-2. Results:
+
+  All PASS → 5c-3
+
+  Some FAIL → Failure cause analysis:
+    ├─ Test issue → fix test → re-Red → STEP 5b re-entry
+    ├─ Implementation issue → fix implementation → STEP 5c retry
+    ├─ Both need fixes → fix test first → Red → fix impl → Green
+    └─ Deadlock (both claim "no problem") → fresh Evaluation AI arbitrates
+
+5c-3. Minimal implementation check:
+    Diff analysis: is there code NOT covered by any test?
+    ├─ All covered → PASS
+    ├─ Uncovered code exists → remove or add test
+    └─ Config/infra changes → exception allowed (document reason)
+```
+
+**Max round-trips**: STEP 5b↔5c max 3 cycles → human escalation.
+
+### STEP 5d: Refactor
+
+```
+5d-1. Code cleanup (no behavior change — tests must pass without modification)
+5d-2. Re-run all tests → Green maintained
+      - FAIL → refactor broke something → fix (max 2 attempts, then keep pre-refactor state)
+5d-3. Commit (refactor type)
+```
+
+### Pure Documentation Changes
+
+When the change is purely prose (no scripts, no templates with placeholders):
+- Skip TDD cycle (STEP 5a-5d) entirely
+- Proceed directly to STEP 6 evaluation
+- Document the skip reason: "Pure prose change — no testable behavior"
+
+### Regression Rules
+
+| Failure | Max Retries | Escalation |
+|---|---|---|
+| STEP 1.5 FAIL | 0 | Issue closed (by design) |
+| STEP 3 FAIL | 3 → STEP 2 | Human intervention |
+| STEP 5b↔5c cycle | 3 round-trips | Human intervention |
+| STEP 5d FAIL | 2 | Skip refactor, keep Green state |
+| STEP 6 FAIL | 3 → STEP 7 | Human intervention |
 
 ---
 

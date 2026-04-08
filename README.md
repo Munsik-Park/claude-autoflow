@@ -14,9 +14,12 @@ Auto-Flow structures every code change through a defined lifecycle:
 STEP 0  Issue Analysis          — Understand the problem
 STEP 1  3-Phase Analysis        — Independent bias-free analysis
 STEP 2  Plan Synthesis          — Merge analyses into a plan
-STEP 3  Implementation          — Write the code
-STEP 4  Self-Review             — Developer reviews own work
-STEP 5  Testing                 — Independent test execution
+STEP 3  Plan Evaluation          — Scored plan assessment (gate)
+STEP 4  Task Assignment          — Delegate to Test AI and Developer AI
+STEP 5a Test Writing             — Tests from acceptance criteria (Red)
+STEP 5b Implementation           — Minimum code to pass tests
+STEP 5c Green Verification       — All tests pass + minimal check
+STEP 5d Refactor                 — Code cleanup, Green re-confirmation
 STEP 6  Evaluation              — Scored quality assessment (gate)
 STEP 7  Revision (if needed)    — Fix evaluation feedback
 STEP 8  PR & Review             — Submit for human review
@@ -26,8 +29,8 @@ STEP 9  Merge & Close           — Human approves and merges
 ### Key Features
 
 - **Multi-Agent Roles**: Orchestrator, Developer, Test, and Evaluation AIs with separated responsibilities
-- **3-Phase Independent Analysis**: Top-down, bottom-up, and lateral analysis to prevent tunnel-vision bias
-- **Evaluation Gate**: 10-point scoring system with defined PASS threshold (>= 7)
+- **3-Phase Independent Analysis**: Structure, Issue, and Cross-Verification analysis to prevent tunnel-vision bias
+- **Evaluation Gate**: 10-point scoring system with defined PASS threshold (>= 7.5)
 - **Hook Enforcement**: Shell hook validates Auto-Flow state before allowing commits/PRs
 - **Multi-Repo Support**: Orchestrator pattern for coordinating work across multiple repositories
 
@@ -125,7 +128,7 @@ At STEP 6, an independent Evaluation AI scores the work across 5 categories:
 | Security | 15% |
 | Performance | 15% |
 
-**Overall score >= 7** is required to proceed.
+**Overall score >= 7.5** is required to proceed, with no individual category below 7.
 
 ### 4. Hook Enforcement
 

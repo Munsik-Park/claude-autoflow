@@ -10,7 +10,7 @@ The Evaluation AI is an **independent agent** that scores completed work before 
 
 ### Critical Rule: Fresh Spawn Every Time
 
-**The Evaluation AI must be spawned fresh for every evaluation** — at STEPs 1.5, 3, 5.7, and 6. It carries no prior conversation history. This is mandatory, not optional.
+**The Evaluation AI must be spawned fresh for every evaluation** — at STEPs 1.5, 3, and 6. It carries no prior conversation history. This is mandatory, not optional.
 
 **Why**: When the same agent creates a plan and evaluates it, it struggles to reject its own work. A freshly spawned agent sees only the deliverable — it has no investment in the process. Bias elimination takes priority over token cost savings. See [docs/design-rationale.md](design-rationale.md#decision-2-evaluation-ai-is-spawned-fresh-every-time).
 
@@ -157,7 +157,7 @@ The Evaluation AI receives:
 1. **Issue requirements** (`.autoflow-state/<issue>/requirements.md`)
 2. **Implementation plan** (`.autoflow-state/<issue>/plan.md`)
 3. **Code diff** (`git diff` of the changes)
-4. **Test results** (test output from STEP 5)
+4. **Test results** (test output from STEP 5c)
 5. **Security checklist** (from `docs/security-checklist.md`)
 
 ### Evaluation Steps
