@@ -183,6 +183,32 @@ To prevent tunnel-vision bias, STEP 1 uses **information isolation** — not jus
 - Determines if existing structure already handles the concern
 - Identifies structural feasibility of proposed approaches
 
+- **Issue Type Classification**:
+  - **Type 1 (Code)**: Bug fixes, new features, script improvements, pattern extensions, hook changes
+  - **Type 2 (Documentation/Consistency)**: Content sync, template updates, cross-document consistency, prose improvements
+  - **Hybrid/unclear → default to Type 1** (more conservative)
+
+- **Scoring** (3 categories × 10 points, selected by issue type):
+
+**Type 1 (Code) Scoring:**
+
+| Category | Measures |
+|---|---|
+| Structural Overlap | Does the proposed resolution duplicate existing mechanisms? (high = no overlap) |
+| Code Change Necessity | Is actual code change needed, vs. data/config addition? (high = code change needed) |
+| New Mechanism Necessity | Does this require a new type of mechanism? (high = new mechanism needed) |
+
+**Type 2 (Documentation/Consistency) Scoring:**
+
+| Category | Measures |
+|---|---|
+| Content Gap | Does a real content gap or inconsistency exist? (high = gap exists) |
+| Consistency Impact | Does the inconsistency affect users or AI behavior? (high = significant impact) |
+| Propagation Scope | Is the propagation scope appropriate — not too broad, not missing targets? (high = appropriate scope) |
+
+- **PASS** (avg >= 7.5, all >= 7): Change needed → proceed to STEP 1.5
+- **FAIL**: Existing structure handles it → close issue with rationale
+
 ### Synthesis (STEP 2)
 Merge all three analyses into a single implementation plan. Conflicts between phases must be explicitly resolved with rationale.
 

@@ -202,7 +202,14 @@ Spawn AI-A again with Phase A results + AI-B's resolution approaches.
 
 - **Input**: Phase A structure analysis + AI-B resolution list (NOT the issue text)
 - **Instruction**: "Evaluate whether each proposed resolution is already handled by existing structure"
-- **Scoring** (3 categories × 10 points):
+- **Issue Type Classification**:
+  - **Type 1 (Code)**: Bug fixes, new features, script improvements, pattern extensions, hook changes
+  - **Type 2 (Documentation/Consistency)**: Content sync, template updates, cross-document consistency, prose improvements
+  - **Hybrid/unclear → default to Type 1** (more conservative)
+
+- **Scoring** (3 categories × 10 points, selected by issue type):
+
+**Type 1 (Code) Scoring:**
 
 | Category | Measures |
 |---|---|
@@ -210,7 +217,15 @@ Spawn AI-A again with Phase A results + AI-B's resolution approaches.
 | Code Change Necessity | Is actual code change needed, vs. data/config addition? (high = code change needed) |
 | New Mechanism Necessity | Does this require a new type of mechanism? (high = new mechanism needed) |
 
-- **PASS** (avg >= 7.5, all >= 7): Code change needed → proceed to STEP 1.5
+**Type 2 (Documentation/Consistency) Scoring:**
+
+| Category | Measures |
+|---|---|
+| Content Gap | Does a real content gap or inconsistency exist? (high = gap exists) |
+| Consistency Impact | Does the inconsistency affect users or AI behavior? (high = significant impact) |
+| Propagation Scope | Is the propagation scope appropriate — not too broad, not missing targets? (high = appropriate scope) |
+
+- **PASS** (avg >= 7.5, all >= 7): Change needed → proceed to STEP 1.5
 - **FAIL**: Existing structure handles it → close issue with rationale
 
 ---
