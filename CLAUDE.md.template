@@ -113,7 +113,7 @@ If Git state is not clean after 0-3, stop and report to user. Do NOT proceed to 
 | STEP 5d | Refactor done, Green maintained | → STEP 6 |
 | STEP 6 (score >= 7.5, all categories >= 7) | PASS | → STEP 8 |
 | STEP 6 (score < 7.5 or category < 7) | FAIL | → STEP 7 |
-| STEP 6 (security <= 3) | AUTO-FAIL | → STEP 3 (major rework) |
+| STEP 6 (security <= 3) | AUTO-FAIL | → STEP 4 (major rework) |
 | STEP 7 | Re-eval PASS | → STEP 8 |
 | STEP 8 | PR submitted | → STEP 9 (human) |
 | STEP 9 | Merged | → Done |
@@ -144,6 +144,28 @@ Auto-Flow uses **multi-agent role separation** to prevent single-point-of-failur
 - **Responsibilities**: Score the work using the 10-point scale (STEPs 1.5, 6)
 - **Cannot**: Fix code — only report issues
 - **Critical**: Must be **spawned fresh** for every evaluation. Never reuse an evaluation agent — self-reinforcement bias makes prior investment in reasoning influence the judgment. See [docs/design-rationale.md](docs/design-rationale.md#decision-2-evaluation-ai-is-spawned-fresh-every-time).
+
+### Orchestrator Boundaries
+
+The orchestrator may **directly modify** only these files:
+- `CLAUDE.md`
+- `CLAUDE.local.md.example`
+- `.autoflow-state/` (state tracking)
+- `.claude/` (hooks, settings)
+
+All other files require delegation to teammates:
+- Implementation code → Developer AI
+- Tests → Test AI
+- Documentation → Developer AI
+
+**No exceptions.** The previous "documentation bulk updates" exception was removed because it allowed the orchestrator to bypass delegation for nearly any file. If a file is not in the orchestrator's list above, it must go through a teammate — regardless of how simple the change appears.
+
+### Evaluation AI Prompt Rules
+
+1. **[MUST]** Include: evaluation type, `CLAUDE.md > [section]` reference, target file paths
+2. **[MUST]** Do NOT copy evaluation criteria into the prompt — instruct the AI to read CLAUDE.md directly
+3. **[MUST]** Orchestrator-written portion must be 5 lines or fewer (excluding target file contents)
+4. **[DENY]** No opinions, interpretations, or leading phrases ("consider that ~", "note that ~", "this is ~ so")
 
 ### Communication Between Agents
 
@@ -324,11 +346,16 @@ Developer AI writes minimum code to pass tests. This is the **only** step where 
 ### STEP 5d: Refactor
 
 ```
-5d-1. Code cleanup (no behavior change — tests must pass without modification)
-5d-2. Re-run all tests → Green maintained
+5d-1. Refactoring needed?
+      ├─ Yes → code cleanup (no behavior change) → 5d-2
+      └─ No  → document reason ("no cleanup needed") → 5d-2 (DO NOT SKIP)
+5d-2. [MUST] Re-run ALL tests → Green maintained
+      - This step is NEVER skipped, even when 5d-1 found nothing to refactor
       - FAIL → refactor broke something → fix (max 2 attempts, then keep pre-refactor state)
-5d-3. Commit (refactor type)
+5d-3. Commit (refactor type, or skip commit if no changes in 5d-1)
 ```
+
+**[MUST]** 5d-2 is mandatory. "No changes were made so tests will pass" is not a valid reason to skip. The re-run confirms that no accidental state changes occurred between STEP 5c and 5d.
 
 ### Pure Documentation Changes
 
@@ -366,7 +393,7 @@ When the change is purely prose (no scripts, no templates with placeholders):
 ### PASS Criteria
 - **Overall weighted score >= 7.5** to proceed to STEP 8
 - **No individual category below 7**
-- **Security score <= 3 → automatic FAIL** (mandatory rework, cannot be diluted by averaging)
+- **Security score <= 3 → automatic FAIL** (mandatory rework → STEP 4, cannot be diluted by averaging)
 
 ### Evaluation Categories
 
