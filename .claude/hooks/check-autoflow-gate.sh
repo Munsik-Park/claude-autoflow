@@ -11,6 +11,7 @@
 #
 # Environment:
 #   CLAUDE_PROJECT_DIR — Root directory of the project (set by Claude Code)
+#   AUTO_FAIL_KEY      — Category key for auto-fail (default: consistency)
 #
 # Exit codes:
 #   0 — Gate passed, proceed
@@ -25,7 +26,8 @@ set -euo pipefail
 STATE_DIR="${CLAUDE_PROJECT_DIR:-.}/.autoflow-state"
 PASS_THRESHOLD="7.5"
 MIN_CATEGORY_SCORE=7
-SECURITY_AUTO_FAIL_THRESHOLD=3
+AUTO_FAIL_KEY="${AUTO_FAIL_KEY:-consistency}"
+AUTO_FAIL_THRESHOLD=3
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -38,11 +40,9 @@ log_warn()  { echo "[AutoFlow Gate] ⚠️  $*"; }
 # ---------------------------------------------------------------------------
 # Resolve current issue
 # ---------------------------------------------------------------------------
-# Expects a file: .autoflow-state/current-issue
-# Contents: issue number (e.g., "123")
 get_current_issue() {
   local issue_file="${STATE_DIR}/current-issue"
-  if [[ ! -f "$issue_file" ]]; then
+  if [ ! -f "$issue_file" ]; then
     log_warn "No current-issue file found at ${issue_file}"
     log_info "Skipping gate check (no active Auto-Flow session)"
     exit 0
@@ -53,12 +53,10 @@ get_current_issue() {
 # ---------------------------------------------------------------------------
 # Read STEP status for an issue
 # ---------------------------------------------------------------------------
-# Expects a file: .autoflow-state/<issue>/step
-# Contents: step number (e.g., "6")
 get_current_step() {
   local issue="$1"
   local step_file="${STATE_DIR}/${issue}/step"
-  if [[ ! -f "$step_file" ]]; then
+  if [ ! -f "$step_file" ]; then
     log_fail "No step file found for issue #${issue}"
     log_info "Expected: ${step_file}"
     exit 1
@@ -69,13 +67,121 @@ get_current_step() {
 # ---------------------------------------------------------------------------
 # Extract a score value from evaluation JSON
 # ---------------------------------------------------------------------------
-# Uses basic grep/sed — no jq dependency required
+# Handles both flat format ("key": 8) and structured format ("key": {"score": 8, "reason": "..."})
+# Uses POSIX grep/sed/awk only — no jq dependency
 extract_score() {
   local file="$1"
   local key="$2"
-  grep -o "\"${key}\"[[:space:]]*:[[:space:]]*[0-9.]*" "$file" \
-    | head -1 \
-    | grep -o '[0-9.]*$' || echo "0"
+
+  # Find the line containing "key": and extract the numeric score.
+  # Handles both flat ("key": 8) and structured ("key": {"score": 8, "reason": "..."}).
+  # Uses POSIX grep/sed/awk only — no jq.
+  local score
+  score=$(awk -v key="\"${key}\"" '
+    BEGIN { found = 0 }
+    $0 ~ key {
+      # Check if this line has "score": (structured, same line)
+      if (match($0, /"score"[[:space:]]*:[[:space:]]*[0-9][0-9.]*/)) {
+        s = substr($0, RSTART, RLENGTH)
+        # Extract number after the colon
+        match(s, /[0-9][0-9.]*$/)
+        print substr(s, RSTART, RLENGTH)
+        exit
+      }
+      # Check if this line has { (structured, score on next line)
+      if ($0 ~ /{/) {
+        found = 1
+        next
+      }
+      # Flat format: "key": N (no { on the line)
+      match($0, /:[[:space:]]*[0-9][0-9.]*/)
+      if (RSTART > 0) {
+        s = substr($0, RSTART, RLENGTH)
+        match(s, /[0-9][0-9.]*/)
+        print substr(s, RSTART, RLENGTH)
+        exit
+      }
+    }
+    found && /\"score\"/ {
+      match($0, /[0-9][0-9.]*/)
+      if (RSTART > 0) {
+        print substr($0, RSTART, RLENGTH)
+      }
+      exit
+    }
+    found && /}/ { found = 0 }
+  ' "$file")
+
+  if [ -n "$score" ]; then
+    echo "$score"
+  else
+    echo "0"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Get all score keys from the evaluation JSON dynamically
+# ---------------------------------------------------------------------------
+get_score_keys() {
+  local file="$1"
+  # Extract all top-level keys from the "scores" JSON object.
+  # Uses only POSIX awk — no GNU extensions.
+  # Strategy: find the "scores" line, count brace depth to track nested objects,
+  # and extract key names that are direct children of "scores".
+  awk '
+    BEGIN { in_scores = 0; depth = 0 }
+    /"scores"[[:space:]]*:/ {
+      in_scores = 1
+      # Count braces on this line to set initial depth
+      depth = 0
+      for (i = 1; i <= length($0); i++) {
+        c = substr($0, i, 1)
+        if (c == "{") depth++
+        if (c == "}") depth--
+      }
+      next
+    }
+    in_scores {
+      # Count opening/closing braces to track when we leave the scores object
+      for (i = 1; i <= length($0); i++) {
+        c = substr($0, i, 1)
+        if (c == "{") depth++
+        if (c == "}") depth--
+      }
+      # Extract key names (but skip nested keys like "score", "reason")
+      if (match($0, /"[a-zA-Z_][a-zA-Z0-9_]*"[[:space:]]*:/)) {
+        s = substr($0, RSTART + 1, RLENGTH - 3)
+        gsub(/[[:space:]]*$/, "", s)
+        gsub(/"/, "", s)
+        if (s != "score" && s != "reason" && s != "scores") {
+          print s
+        }
+      }
+      if (depth <= 0) { in_scores = 0 }
+    }
+  ' "$file"
+}
+
+# ---------------------------------------------------------------------------
+# Get weight for a category from weights.json or equal weight fallback
+# ---------------------------------------------------------------------------
+get_weight() {
+  local issue="$1"
+  local category="$2"
+  local num_categories="$3"
+  local weights_file="${STATE_DIR}/${issue}/weights.json"
+
+  if [ -f "$weights_file" ]; then
+    local w
+    w=$(grep "\"${category}\"" "$weights_file" | grep -o '[0-9][0-9.]*' | head -1)
+    if [ -n "$w" ]; then
+      echo "$w"
+      return
+    fi
+  fi
+
+  # Equal weight fallback: 1/N
+  awk "BEGIN { printf \"%.6f\", 1.0 / $num_categories }"
 }
 
 # ---------------------------------------------------------------------------
@@ -83,61 +189,88 @@ extract_score() {
 # ---------------------------------------------------------------------------
 # IMPORTANT: This function does NOT read the AI-generated "pass" field.
 # It calculates pass/fail independently from the raw scores.
-# Reason: AI self-reporting is unreliable — it may implicitly adjust
-# standards while scoring. The gate operates on numbers, not AI judgment.
-# See: docs/design-rationale.md (Decision 3)
 check_evaluation_pass() {
   local issue="$1"
   local eval_file="${STATE_DIR}/${issue}/evaluation.json"
 
-  if [[ ! -f "$eval_file" ]]; then
+  if [ ! -f "$eval_file" ]; then
     log_fail "No evaluation file found: ${eval_file}"
     return 1
   fi
 
-  # Extract individual category scores from the raw "scores" object
-  local correctness code_quality test_coverage security performance
-  correctness=$(extract_score "$eval_file" "correctness")
-  code_quality=$(extract_score "$eval_file" "code_quality")
-  test_coverage=$(extract_score "$eval_file" "test_coverage")
-  security=$(extract_score "$eval_file" "security")
-  performance=$(extract_score "$eval_file" "performance")
+  # Dynamically discover all score categories
+  local score_keys
+  score_keys=$(get_score_keys "$eval_file")
+  local num_categories
+  num_categories=$(echo "$score_keys" | wc -l | tr -d '[:space:]')
 
-  log_info "Scores — correctness:${correctness} code_quality:${code_quality} test_coverage:${test_coverage} security:${security} performance:${performance}"
-
-  # Calculate weighted average from raw scores (NOT using AI's "overall" field)
-  local calculated_overall
-  calculated_overall=$(awk "BEGIN { printf \"%.2f\", ($correctness * 0.30) + ($code_quality * 0.20) + ($test_coverage * 0.20) + ($security * 0.15) + ($performance * 0.15) }")
-
-  log_info "Calculated overall: ${calculated_overall} (threshold: ${PASS_THRESHOLD})"
-
-  # Check 1: Security auto-fail
-  local security_fail
-  security_fail=$(awk "BEGIN { print ($security <= $SECURITY_AUTO_FAIL_THRESHOLD) ? 1 : 0 }")
-  if [[ "$security_fail" -eq 1 ]]; then
-    log_fail "Security score: ${security} (<= ${SECURITY_AUTO_FAIL_THRESHOLD}) — AUTO-FAIL (mandatory rework)"
+  if [ "$num_categories" -eq 0 ]; then
+    log_fail "No score categories found in ${eval_file}"
     return 1
+  fi
+
+  # Build score list and display
+  local scores_display=""
+  local all_scores=""
+  local key score
+  for key in $score_keys; do
+    score=$(extract_score "$eval_file" "$key")
+    scores_display="${scores_display} ${key}:${score}"
+    all_scores="${all_scores} ${key}=${score}"
+  done
+
+  log_info "Scores —${scores_display}"
+
+  # Check 1: Auto-fail key
+  local auto_fail_score
+  auto_fail_score=$(extract_score "$eval_file" "$AUTO_FAIL_KEY")
+  if [ "$auto_fail_score" != "0" ]; then
+    local is_auto_fail
+    is_auto_fail=$(awk "BEGIN { print ($auto_fail_score <= $AUTO_FAIL_THRESHOLD) ? 1 : 0 }")
+    if [ "$is_auto_fail" -eq 1 ]; then
+      log_fail "${AUTO_FAIL_KEY} score: ${auto_fail_score} (<= ${AUTO_FAIL_THRESHOLD}) — AUTO-FAIL (mandatory rework)"
+      return 1
+    fi
   fi
 
   # Check 2: Individual category minimums
-  local min_fail
-  min_fail=$(awk "BEGIN {
-    min = $correctness
-    if ($code_quality < min) min = $code_quality
-    if ($test_coverage < min) min = $test_coverage
-    if ($security < min) min = $security
-    if ($performance < min) min = $performance
-    print (min < $MIN_CATEGORY_SCORE) ? 1 : 0
-  }")
-  if [[ "$min_fail" -eq 1 ]]; then
-    log_fail "One or more categories below minimum (${MIN_CATEGORY_SCORE}) — FAIL"
+  local has_min_fail=0
+  local failing_categories=""
+  for key in $score_keys; do
+    score=$(extract_score "$eval_file" "$key")
+    local below_min
+    below_min=$(awk "BEGIN { print ($score < $MIN_CATEGORY_SCORE) ? 1 : 0 }")
+    if [ "$below_min" -eq 1 ]; then
+      has_min_fail=1
+      failing_categories="${failing_categories} ${key}(${score})"
+    fi
+  done
+
+  if [ "$has_min_fail" -eq 1 ]; then
+    log_fail "Categories below minimum (${MIN_CATEGORY_SCORE}):${failing_categories} — FAIL"
     return 1
   fi
 
-  # Check 3: Overall weighted average
+  # Check 3: Weighted average
+  local weighted_sum="0"
+  local weight_sum="0"
+  for key in $score_keys; do
+    score=$(extract_score "$eval_file" "$key")
+    local w
+    w=$(get_weight "$issue" "$key" "$num_categories")
+    weighted_sum=$(awk "BEGIN { printf \"%.6f\", $weighted_sum + ($score * $w) }")
+    weight_sum=$(awk "BEGIN { printf \"%.6f\", $weight_sum + $w }")
+  done
+
+  # Normalize by total weight (in case weights don't sum to 1)
+  local calculated_overall
+  calculated_overall=$(awk "BEGIN { printf \"%.2f\", $weighted_sum / $weight_sum }")
+
+  log_info "Calculated overall: ${calculated_overall} (threshold: ${PASS_THRESHOLD})"
+
   local overall_pass
   overall_pass=$(awk "BEGIN { print ($calculated_overall >= $PASS_THRESHOLD) ? 1 : 0 }")
-  if [[ "$overall_pass" -eq 1 ]]; then
+  if [ "$overall_pass" -eq 1 ]; then
     log_pass "Evaluation: ${calculated_overall} (>= ${PASS_THRESHOLD}), all categories >= ${MIN_CATEGORY_SCORE} — PASS"
     return 0
   else
@@ -152,7 +285,7 @@ check_evaluation_pass() {
 check_delegation_exists() {
   local issue="$1"
   local delegation_file="${STATE_DIR}/${issue}/delegation.md"
-  if [[ ! -f "$delegation_file" ]]; then
+  if [ ! -f "$delegation_file" ]; then
     log_fail "delegation.md not found: ${delegation_file}"
     log_info "STEP 4 must produce delegation.md before proceeding"
     return 1
@@ -169,7 +302,7 @@ main() {
   local issue
   issue=$(get_current_issue)
 
-  if [[ -z "$issue" ]]; then
+  if [ -z "$issue" ]; then
     log_info "No active issue — skipping gate"
     exit 0
   fi
