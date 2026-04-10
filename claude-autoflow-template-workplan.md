@@ -8,7 +8,7 @@
 
 ### 이식 대상
 `Munsik-Park/ontology-platform`의 CLAUDE.md, Hook, docs에 녹아 있는 Claude Code 운영 노하우:
-- Auto-Flow (STEP 0~9) 개발 생명주기
+- Auto-Flow (PREFLIGHT~LAND) 개발 생명주기
 - 3-Phase 독립 구조 분석 (편향 방지)
 - Multi-agent 역할 분리 (오케스트레이터 / 개발 AI / 테스트 AI / 평가 AI)
 - Hook 기반 평가 게이트 (`check-autoflow-gate.sh`)
@@ -164,7 +164,7 @@ Placeholder 형식: `{{UPPER_SNAKE_CASE}}`
 
 #### 3-2. `docs/autoflow-guide.md` 작성
 현재 CLAUDE.md에 내장된 Auto-Flow 설명을 독립 문서로 분리:
-- 각 STEP의 목적과 완료 조건
+- 각 phase의 목적과 완료 조건
 - Flow Control 표
 - 회귀 규칙
 - 실행 원칙
@@ -217,7 +217,7 @@ Phase 1부터 시작해주세요.
 
 ## 핵심 설계 원칙 (작업 중 유지)
 
-1. **Auto-Flow 로직은 건드리지 않는다** — STEP 정의, 평가 기준, Hook 로직은 범용 그대로 유지
+1. **Auto-Flow 로직은 건드리지 않는다** — phase 정의, 평가 기준, Hook 로직은 범용 그대로 유지
 2. **placeholder는 최소화한다** — 필수적인 것만. 너무 많으면 이식 비용이 높아짐
 3. **선택적 섹션은 주석으로** — 서브모듈 불필요한 경우를 위한 "여기서 여기까지 제거" 가이드
 4. **서브 레포 CLAUDE.md는 얇게** — 오케스트레이터 CLAUDE.md를 복사하지 않고 참조하도록

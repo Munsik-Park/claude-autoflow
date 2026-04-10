@@ -11,7 +11,7 @@ It explains _why_ every rule exists. Understanding the design intent takes prior
 ## Table of Contents
 
 1. [Project Overview](#project-overview)
-2. [Auto-Flow Lifecycle (STEP 0–9)](#auto-flow-lifecycle-step-09)
+2. [Auto-Flow Lifecycle](#auto-flow-lifecycle)
 3. [Flow Control Table](#flow-control-table)
 4. [Agent Roles](#agent-roles)
 5. [3-Phase Independent Analysis](#3-phase-independent-analysis)
@@ -46,38 +46,38 @@ It explains _why_ every rule exists. Understanding the design intent takes prior
 
 ---
 
-## Auto-Flow Lifecycle (STEP 0–9)
+## Auto-Flow Lifecycle (PREFLIGHT → LAND)
 
-Auto-Flow is a structured development lifecycle that ensures quality through evaluation gates at every stage. Each STEP has clear entry/exit criteria.
+Auto-Flow is a structured development lifecycle that ensures quality through evaluation gates at every stage. Each phase has clear entry/exit criteria.
 
-| STEP | Name | Description | Exit Criteria |
-|------|------|-------------|---------------|
-| 0 | **Pre-Work** | Git clean check, upstream sync, branch creation | Git clean, branch created |
-| 1 | **3-Phase Analysis** | Understand the issue + information-isolated structure analysis (bias prevention) | 3 isolated analyses completed |
-| 1.5 | **Issue Analysis Eval** | Gate: is the analysis sufficient? | Score >= 7.5 or issue closed |
-| 2 | **Plan Synthesis** | Merge analyses into implementation plan | Plan approved |
-| 3 | **Plan Evaluation** | Fresh Evaluation AI scores the plan | Score >= 7.5, all >= 7 |
-| 4 | **Task Assignment** | Delegate to Test AI and Developer AI | Tasks assigned to teammates |
-| 5a | **Test Writing** | Test AI writes tests from acceptance criteria | Tests written, all Red |
-| 5b | **Implementation** | Developer AI writes minimum code to pass tests | Minimum implementation done |
-| 5c | **Green Verification** | All tests pass + minimal implementation check | All Green |
-| 5d | **Refactor** | Code cleanup, Green re-confirmation | Refactor done, Green maintained |
-| 6 | **Evaluation** | Fresh-spawned Evaluation AI scores the work | Score >= 7.5 (PASS) |
-| 7 | **Revision** | Fix issues from evaluation (if needed) | Re-evaluation PASS |
-| 8 | **PR & Review** | Create PR for human review | PR submitted |
-| 9 | **Merge & Close** | Merge after human approval | Issue closed |
+| Phase | Name | Description | Exit Criteria |
+|-------|------|-------------|---------------|
+| PREFLIGHT | **Pre-Work** | Git clean check, upstream sync, branch creation | Git clean, branch created |
+| DIAGNOSE | **3-Phase Analysis** | Understand the issue + information-isolated structure analysis (bias prevention) | 3 isolated analyses completed |
+| GATE:HYPOTHESIS | **Issue Analysis Eval** | Gate: is the analysis sufficient? | Score >= 7.5 or issue closed |
+| ARCHITECT | **Plan Synthesis** | Merge analyses into implementation plan | Plan approved |
+| GATE:PLAN | **Plan Evaluation** | Fresh Evaluation AI scores the plan | Score >= 7.5, all >= 7 |
+| DISPATCH | **Task Assignment** | Delegate to Test AI and Developer AI | Tasks assigned to teammates |
+| RED | **Test Writing** | Test AI writes tests from acceptance criteria | Tests written, all Red |
+| GREEN | **Implementation** | Developer AI writes minimum code to pass tests | Minimum implementation done |
+| VERIFY | **Green Verification** | All tests pass + minimal implementation check | All Green |
+| REFINE | **Refactor** | Code cleanup, Green re-confirmation | Refactor done, Green maintained |
+| GATE:QUALITY | **Evaluation** | Fresh-spawned Evaluation AI scores the work | Score >= 7.5 (PASS) |
+| REVISION | **Revision** | Fix issues from evaluation (if needed) | Re-evaluation PASS |
+| SHIP | **PR & Review** | Create PR for human review | PR submitted |
+| LAND | **Merge & Close** | Merge after human approval | Issue closed |
 
 ### Execution Principles
 
-1. **Never skip steps.** Each STEP builds on the previous one — regardless of change size. "This one is simple" is itself a biased judgment.
-2. **STEP 0 is mandatory.** If Git state is not clean, STEP 1 does not begin.
-3. **Regression is allowed.** If STEP 6 fails, return to STEP 7 (or STEP 3 for major issues).
-4. **STEP 1.5 FAIL = issue close.** If existing structure handles the concern, no code change is needed.
-5. **Human gates exist.** STEP 8→9 always requires human approval.
-6. **State is tracked.** Use `.autoflow-state/` files to persist STEP status.
+1. **Never skip phases.** Each phase builds on the previous one — regardless of change size. "This one is simple" is itself a biased judgment.
+2. **PREFLIGHT is mandatory.** If Git state is not clean, DIAGNOSE does not begin.
+3. **Regression is allowed.** If GATE:QUALITY fails, return to REVISION (or GATE:PLAN for major issues).
+4. **GATE:HYPOTHESIS FAIL = issue close.** If existing structure handles the concern, no code change is needed.
+5. **Human gates exist.** SHIP→LAND always requires human approval.
+6. **State is tracked.** Use `.autoflow-state/` files to persist phase status.
 7. **Pipeline is stateless.** Past issue evaluations do not influence current analysis. Improvement happens outside the pipeline, through human-driven CLAUDE.md updates.
 
-### STEP 0: Pre-Work
+### PREFLIGHT: Pre-Work
 
 **[MUST]** Git Clean Check before any work begins.
 
@@ -88,7 +88,7 @@ Auto-Flow is a structured development lifecycle that ensures quality through eva
 0-4. git checkout -b <branch-type>/<issue>-<desc> main
 ```
 
-If Git state is not clean after 0-3, stop and report to user. Do NOT proceed to STEP 1.
+If Git state is not clean after 0-3, stop and report to user. Do NOT proceed to DIAGNOSE.
 
 ---
 
@@ -96,27 +96,27 @@ If Git state is not clean after 0-3, stop and report to user. Do NOT proceed to 
 
 | Current State | Condition | Next State |
 |--------------|-----------|------------|
-| STEP 0 | Git clean, branch created | → STEP 1 |
-| STEP 1 | 3 isolated analyses done | → STEP 1.5 |
-| STEP 1.5 (score >= 7.5) | PASS | → STEP 2 |
-| STEP 1.5 (FAIL) | Existing structure sufficient | → **Issue closed** |
-| STEP 2 | Plan approved | → STEP 3 |
-| STEP 3 PASS | Score >= 7.5, all >= 7 | → STEP 4 |
-| STEP 3 FAIL | Below threshold | → STEP 2 (max 3x) |
-| STEP 4 | Tasks assigned, delegation.md created | → STEP 5a |
-| STEP 5a | Tests written, all Red | → STEP 5b |
-| STEP 5b | Minimum implementation done | → STEP 5c |
-| STEP 5c PASS | All Green + minimal impl check | → STEP 5d |
-| STEP 5c FAIL (test issue) | Test incorrect | → STEP 5a (fix test → re-Red) |
-| STEP 5c FAIL (impl issue) | Implementation incorrect | → STEP 5b (fix impl) |
-| STEP 5c DEADLOCK | Both claim "no problem" | → Evaluation AI arbitrates |
-| STEP 5d | Refactor done, Green maintained | → STEP 6 |
-| STEP 6 (score >= 7.5, all categories >= 7) | PASS | → STEP 8 |
-| STEP 6 (score < 7.5 or category < 7) | FAIL | → STEP 7 |
-| STEP 6 (security <= 3) | AUTO-FAIL | → STEP 4 (major rework) |
-| STEP 7 | Re-eval PASS | → STEP 8 |
-| STEP 8 | PR submitted | → STEP 9 (human) |
-| STEP 9 | Merged | → Done |
+| PREFLIGHT | Git clean, branch created | → DIAGNOSE |
+| DIAGNOSE | 3 isolated analyses done | → GATE:HYPOTHESIS |
+| GATE:HYPOTHESIS (score >= 7.5) | PASS | → ARCHITECT |
+| GATE:HYPOTHESIS (FAIL) | Existing structure sufficient | → **Issue closed** |
+| ARCHITECT | Plan approved | → GATE:PLAN |
+| GATE:PLAN PASS | Score >= 7.5, all >= 7 | → DISPATCH |
+| GATE:PLAN FAIL | Below threshold | → ARCHITECT (max 3x) |
+| DISPATCH | Tasks assigned, delegation.md created | → RED |
+| RED | Tests written, all Red | → GREEN |
+| GREEN | Minimum implementation done | → VERIFY |
+| VERIFY PASS | All Green + minimal impl check | → REFINE |
+| VERIFY FAIL (test issue) | Test incorrect | → RED (fix test → re-Red) |
+| VERIFY FAIL (impl issue) | Implementation incorrect | → GREEN (fix impl) |
+| VERIFY DEADLOCK | Both claim "no problem" | → Evaluation AI arbitrates |
+| REFINE | Refactor done, Green maintained | → GATE:QUALITY |
+| GATE:QUALITY (score >= 7.5, all categories >= 7) | PASS | → SHIP |
+| GATE:QUALITY (score < 7.5 or category < 7) | FAIL | → REVISION |
+| GATE:QUALITY (security <= 3) | AUTO-FAIL | → DISPATCH (major rework) |
+| REVISION | Re-eval PASS | → SHIP |
+| SHIP | PR submitted | → LAND (human) |
+| LAND | Merged | → Done |
 
 ---
 
@@ -131,17 +131,17 @@ Auto-Flow uses **multi-agent role separation** to prevent single-point-of-failur
 
 ### Developer AI
 - **Scope**: Assigned sub-repo only
-- **Responsibilities**: Implementation (STEP 5b), refactor (STEP 5d)
-- **Cannot**: Evaluate own work (STEP 6)
+- **Responsibilities**: Implementation (GREEN), refactor (REFINE)
+- **Cannot**: Evaluate own work (GATE:QUALITY)
 
 ### Test AI
 - **Scope**: Assigned sub-repo only
-- **Responsibilities**: Write tests from acceptance criteria (STEP 5a), verify Green (STEP 5c)
+- **Responsibilities**: Write tests from acceptance criteria (RED), verify Green (VERIFY)
 - **Cannot**: Modify implementation code
 
 ### Evaluation AI
 - **Scope**: Read-only across relevant repos
-- **Responsibilities**: Score the work using the 10-point scale (STEPs 1.5, 6)
+- **Responsibilities**: Score the work using the 10-point scale (GATE:HYPOTHESIS, GATE:QUALITY)
 - **Cannot**: Fix code — only report issues
 - **Critical**: Must be **spawned fresh** for every evaluation. Never reuse an evaluation agent — self-reinforcement bias makes prior investment in reasoning influence the judgment. See [docs/design-rationale.md](docs/design-rationale.md#decision-2-evaluation-ai-is-spawned-fresh-every-time).
 
@@ -186,7 +186,7 @@ Evaluation AI → Orchestrator: "Score: 8/10 — PASS"
 
 > **Why information isolation?** See [docs/design-rationale.md](docs/design-rationale.md#decision-1-ai-a-does-not-receive-the-issue-content-3-phase-independent-analysis)
 
-To prevent tunnel-vision bias, STEP 1 uses **information isolation** — not just different perspectives, but strictly separated inputs.
+To prevent tunnel-vision bias, DIAGNOSE uses **information isolation** — not just different perspectives, but strictly separated inputs.
 
 ### Phase A: Structure Analysis (AI-A) — DOES NOT SEE THE ISSUE
 - **AI-A receives only the codebase.** It never sees the issue text.
@@ -228,21 +228,21 @@ To prevent tunnel-vision bias, STEP 1 uses **information isolation** — not jus
 | Consistency Impact | Does the inconsistency affect users or AI behavior? (high = significant impact) |
 | Propagation Scope | Is the propagation scope appropriate — not too broad, not missing targets? (high = appropriate scope) |
 
-- **PASS** (avg >= 7.5, all >= 7): Change needed → proceed to STEP 1.5
+- **PASS** (avg >= 7.5, all >= 7): Change needed → proceed to GATE:HYPOTHESIS
 - **FAIL**: Existing structure handles it → close issue with rationale
 
-### Synthesis (STEP 2)
+### Synthesis (ARCHITECT)
 Merge all three analyses into a single implementation plan. Conflicts between phases must be explicitly resolved with rationale.
 
 **Do NOT give AI-A the issue content "for efficiency."** This destroys the core mechanism. See design rationale.
 
 ---
 
-## STEP 3: Plan Evaluation
+## GATE:PLAN: Plan Evaluation
 
 **Evaluator**: Fresh-spawned Evaluation AI.
 
-**Input**: Implementation plan from STEP 2.
+**Input**: Implementation plan from ARCHITECT.
 
 **5 categories × 10 points**:
 
@@ -254,16 +254,16 @@ Merge all three analyses into a single implementation plan. Conflicts between ph
 | Consistency | Does this align with design-rationale.md principles? |
 | Test Plan | Are acceptance criteria testable? |
 
-**PASS**: avg >= 7.5, all >= 7 → STEP 4.
-**FAIL**: → STEP 2 (max 3x).
+**PASS**: avg >= 7.5, all >= 7 → DISPATCH.
+**FAIL**: → ARCHITECT (max 3x).
 
 ---
 
-## STEP 4: Task Assignment
+## DISPATCH: Task Assignment
 
 The orchestrator creates a team and assigns tasks to teammates.
 
-**[MUST]** The orchestrator must create delegation.md as a mandatory artifact before STEP 5a begins.
+**[MUST]** The orchestrator must create delegation.md as a mandatory artifact before RED begins.
 
 ```
 4-1. Spawn Test AI teammate
@@ -271,7 +271,7 @@ The orchestrator creates a team and assigns tasks to teammates.
      - Instruction: "Write tests for these acceptance criteria. Do NOT implement."
 4-2. Spawn Developer AI teammate
      - SendMessage: implementation plan + acceptance criteria
-     - Instruction: "Wait for Test AI to complete tests (STEP 5a). Then implement minimum code to pass."
+     - Instruction: "Wait for Test AI to complete tests (RED). Then implement minimum code to pass."
 4-3. Both teammates receive: plan, acceptance criteria, affected files list
 4-4. Create delegation.md in .autoflow-state/<issue>/ with the following sections:
 ```
@@ -289,16 +289,16 @@ The orchestrator creates a team and assigns tasks to teammates.
 <implementation plan + acceptance criteria for Developer AI>
 ```
 
-**[MUST]** STEP 4 produces delegation.md — it is a mandatory artifact for STEP 5a entry.
-**[MUST]** Test AI starts first (STEP 5a). Developer AI waits until tests are written and Red-confirmed.
+**[MUST]** DISPATCH produces delegation.md — it is a mandatory artifact for RED entry.
+**[MUST]** Test AI starts first (RED). Developer AI waits until tests are written and Red-confirmed.
 
 ---
 
-## STEP 5a-5d: Test-Driven Development Cycle
+## TDD cycle: Test-Driven Development Cycle
 
-### STEP 5a: Test Writing (Test AI)
+### RED: Test Writing (Test AI)
 
-**Entry precondition**: delegation.md must exist in `.autoflow-state/<issue>/` before STEP 5a begins.
+**Entry precondition**: delegation.md must exist in `.autoflow-state/<issue>/` before RED begins.
 
 Test AI writes tests from acceptance criteria.
 
@@ -309,9 +309,9 @@ Test AI writes tests from acceptance criteria.
 5a-3. For untestable items → write manual verification checklist
 ```
 
-### STEP 5b: Implementation (Developer AI)
+### GREEN: Implementation (Developer AI)
 
-Developer AI writes minimum code to pass tests. This is the **only** step where implementation code is written.
+Developer AI writes minimum code to pass tests. This is the **only** phase where implementation code is written.
 
 ```
 5b-1. Read the tests from 5a
@@ -320,7 +320,7 @@ Developer AI writes minimum code to pass tests. This is the **only** step where 
 5b-3. Commit (feat/fix branch)
 ```
 
-### STEP 5c: Green Verification
+### VERIFY: Green Verification
 
 ```
 5c-1. Run all tests
@@ -329,8 +329,8 @@ Developer AI writes minimum code to pass tests. This is the **only** step where 
   All PASS → 5c-3
 
   Some FAIL → Failure cause analysis:
-    ├─ Test issue → fix test → re-Red → STEP 5b re-entry
-    ├─ Implementation issue → fix implementation → STEP 5c retry
+    ├─ Test issue → fix test → re-Red → GREEN re-entry
+    ├─ Implementation issue → fix implementation → VERIFY retry
     ├─ Both need fixes → fix test first → Red → fix impl → Green
     └─ Deadlock (both claim "no problem") → fresh Evaluation AI arbitrates
 
@@ -341,9 +341,9 @@ Developer AI writes minimum code to pass tests. This is the **only** step where 
     └─ Config/infra changes → exception allowed (document reason)
 ```
 
-**Max round-trips**: STEP 5b↔5c max 3 cycles → human escalation.
+**Max round-trips**: GREEN↔VERIFY max 3 cycles → human escalation.
 
-### STEP 5d: Refactor
+### REFINE: Refactor
 
 ```
 5d-1. Developer AI runs /simplify
@@ -358,24 +358,24 @@ Developer AI writes minimum code to pass tests. This is the **only** step where 
 
 **Why /simplify instead of manual judgment?** Previously, the Developer AI decided "refactoring needed?" — but this judgment was routinely skipped with "no cleanup needed." `/simplify` removes this bias by mechanically analyzing the code. The AI no longer decides IF to refactor; a dedicated tool decides WHAT to refactor.
 
-**[MUST]** 5d-2 is mandatory. "No changes were made so tests will pass" is not a valid reason to skip. The re-run confirms that no accidental state changes occurred between STEP 5c and 5d.
+**[MUST]** 5d-2 is mandatory. "No changes were made so tests will pass" is not a valid reason to skip. The re-run confirms that no accidental state changes occurred between VERIFY and REFINE.
 
 ### Pure Documentation Changes
 
 When the change is purely prose (no scripts, no templates with placeholders):
-- Skip TDD cycle (STEP 5a-5d) entirely
-- Proceed directly to STEP 6 evaluation
+- Skip TDD cycle (RED through REFINE) entirely
+- Proceed directly to GATE:QUALITY evaluation
 - Document the skip reason: "Pure prose change — no testable behavior"
 
 ### Regression Rules
 
 | Failure | Max Retries | Escalation |
 |---|---|---|
-| STEP 1.5 FAIL | 0 | Issue closed (by design) |
-| STEP 3 FAIL | 3 → STEP 2 | Human intervention |
-| STEP 5b↔5c cycle | 3 round-trips | Human intervention |
-| STEP 5d FAIL | 2 | Skip refactor, keep Green state |
-| STEP 6 FAIL | 3 → STEP 7 | Human intervention |
+| GATE:HYPOTHESIS FAIL | 0 | Issue closed (by design) |
+| GATE:PLAN FAIL | 3 → ARCHITECT | Human intervention |
+| GREEN↔VERIFY cycle | 3 round-trips | Human intervention |
+| REFINE FAIL | 2 | Skip refactor, keep Green state |
+| GATE:QUALITY FAIL | 3 → REVISION | Human intervention |
 
 ---
 
@@ -394,9 +394,9 @@ When the change is purely prose (no scripts, no templates with placeholders):
 | 1–2 | Failing — does not meet requirements |
 
 ### PASS Criteria
-- **Overall weighted score >= 7.5** to proceed to STEP 8
+- **Overall weighted score >= 7.5** to proceed to SHIP
 - **No individual category below 7**
-- **Security score <= 3 → automatic FAIL** (mandatory rework → STEP 4, cannot be diluted by averaging)
+- **Security score <= 3 → automatic FAIL** (mandatory rework → DISPATCH, cannot be diluted by averaging)
 
 ### Evaluation Categories
 
@@ -412,7 +412,7 @@ When the change is purely prose (no scripts, no templates with placeholders):
 
 ```json
 {
-  "step": 6,
+  "phase": "GATE:QUALITY",
   "issue": "#123",
   "evaluator": "evaluation-ai",
   "scores": {
@@ -457,7 +457,7 @@ When ambiguity or disagreement arises:
 
 ## Hook Gate
 
-The Auto-Flow Hook (`check-autoflow-gate.sh`) enforces STEP progression:
+The Auto-Flow Hook (`check-autoflow-gate.sh`) enforces phase progression:
 
 - **Trigger**: Runs before commit or PR creation
 - **Checks**: Calculates scores directly from raw `scores` in evaluation JSON

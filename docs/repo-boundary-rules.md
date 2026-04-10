@@ -130,7 +130,7 @@ Orchestrator → Frontend AI:
 When two repos need changes that conflict (e.g., incompatible interface changes):
 
 1. **Detect**: Orchestrator identifies the conflict during coordination
-2. **Pause**: Both repos pause their Auto-Flow at current STEP
+2. **Pause**: Both repos pause their Auto-Flow at current phase
 3. **Resolve**: Orchestrator proposes resolution via Discussion Protocol
 4. **Agree**: Resolution documented and agreed upon
 5. **Resume**: Repos resume with the agreed approach

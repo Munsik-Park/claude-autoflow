@@ -17,7 +17,7 @@ A public template repository that generalizes the Auto-Flow methodology from `on
 |------|------|
 | `CLAUDE.md.template` | Core template users will generate CLAUDE.md from |
 | `docs/design-rationale.md` | Design philosophy — why every rule exists |
-| `docs/autoflow-guide.md` | Step-by-step Auto-Flow lifecycle |
+| `docs/autoflow-guide.md` | Phase-by-phase Auto-Flow lifecycle |
 | `.claude/hooks/check-autoflow-gate.sh` | Hook script enforcing evaluation gates |
 | `setup/init.sh` | Interactive project setup wizard |
 | `subrepo-templates/` | Sub-repo CLAUDE.md templates |
@@ -38,7 +38,7 @@ All communication with the user must be in Korean. Code, documentation content, 
 
 ---
 
-## Auto-Flow Lifecycle (STEP 0-9)
+## Auto-Flow Lifecycle (PREFLIGHT → LAND)
 
 This project follows Auto-Flow with Agent Teams. Even though this is a single repo, **the orchestrator does not implement**. The orchestrator coordinates, and spawns teammates to do the actual work.
 
@@ -47,9 +47,9 @@ This project follows Auto-Flow with Agent Teams. Even though this is a single re
 | Role | How | Constraint |
 |------|-----|-----------|
 | **Orchestrator** | Main session (you) | Coordinates only — does NOT write code, tests, or templates |
-| **Test AI** | Teammate (`Agent` with `team_name`) | Writes tests from acceptance criteria (STEP 5a) |
-| **Developer AI** | Teammate (`Agent` with `team_name`) | Writes minimum code to pass tests (STEP 5b) |
-| **Evaluation AI** | Fresh `Agent` (no team, no history) | Scores work at STEPs 1.5, 3, 6 — **spawned fresh every time** |
+| **Test AI** | Teammate (`Agent` with `team_name`) | Writes tests from acceptance criteria (RED) |
+| **Developer AI** | Teammate (`Agent` with `team_name`) | Writes minimum code to pass tests (GREEN) |
+| **Evaluation AI** | Fresh `Agent` (no team, no history) | Scores work at GATE:HYPOTHESIS, GATE:PLAN, GATE:QUALITY — **spawned fresh every time** |
 
 ### Evaluation AI Prompt Rules
 
@@ -89,30 +89,30 @@ Orchestrator → Agent (fresh, no team)               : spawn Evaluation AI (ind
 
 All teammates work on the **same repository** (single repo — no submodule navigation needed).
 
-### STEP Definitions
+### Phase Definitions
 
 ```
-STEP 0: Pre-Work         → Git Clean Check, branch creation
-STEP 1: Issue Analysis    → 3-Phase independent analysis (bias prevention)
-STEP 1.5: Structure Eval  → Evaluation AI (fresh spawn): PASS → continue, FAIL → close issue
-STEP 2: Plan Synthesis    → Merge analyses into implementation plan + acceptance criteria
-STEP 3: Plan Evaluation   → Evaluation AI (fresh spawn): 5 categories × 10 points
-STEP 4: Task Assignment   → TeamCreate + SendMessage to Test AI and Developer AI
-STEP 5a: Test Writing     → Test AI writes tests → Red confirmation
-STEP 5b: Implementation   → Developer AI writes minimum code to pass tests
-STEP 5c: Green + Verify   → All tests pass + minimal implementation check
-STEP 5d: Refactor         → Developer AI code cleanup, Green re-confirmation
-STEP 6: Evaluation        → Evaluation AI (fresh spawn): scored quality assessment
-STEP 7: Revision          → Fix evaluation feedback (if STEP 6 FAIL)
-STEP 8: PR & Review       → Create PR for human review
-STEP 9: Merge & Close     → Human approves and merges
+PREFLIGHT:       Pre-Work         → Git Clean Check, branch creation
+DIAGNOSE:        Issue Analysis    → 3-Phase independent analysis (bias prevention)
+GATE:HYPOTHESIS: Structure Eval   → Evaluation AI (fresh spawn): PASS → continue, FAIL → close issue
+ARCHITECT:       Plan Synthesis    → Merge analyses into implementation plan + acceptance criteria
+GATE:PLAN:       Plan Evaluation   → Evaluation AI (fresh spawn): 5 categories × 10 points
+DISPATCH:        Task Assignment   → TeamCreate + SendMessage to Test AI and Developer AI
+RED:             Test Writing      → Test AI writes tests → Red confirmation
+GREEN:           Implementation    → Developer AI writes minimum code to pass tests
+VERIFY:          Green + Verify    → All tests pass + minimal implementation check
+REFINE:          Refactor          → Developer AI code cleanup, Green re-confirmation
+GATE:QUALITY:    Evaluation        → Evaluation AI (fresh spawn): scored quality assessment
+REVISION:        Revision          → Fix evaluation feedback (if GATE:QUALITY FAIL)
+SHIP:            PR & Review       → Create PR for human review
+LAND:            Merge & Close     → Human approves and merges
 ```
 
 ### Execution Principles
 
-1. **Never skip steps.** Every STEP executes regardless of change size. "This one is simple" is itself a biased judgment.
-2. **STEP 0 is mandatory.** If Git state is not clean, STEP 1 does not begin.
-3. **STEP 1.5 FAIL = issue close.** Existing structure handles the concern — no code change needed.
+1. **Never skip phases.** Every phase executes regardless of change size. "This one is simple" is itself a biased judgment.
+2. **PREFLIGHT is mandatory.** If Git state is not clean, DIAGNOSE does not begin.
+3. **GATE:HYPOTHESIS FAIL = issue close.** Existing structure handles the concern — no code change needed.
 4. **Orchestrator does not implement.** The orchestrator coordinates — teammates do the work.
 5. **Evaluator is always fresh.** Never reuse an evaluation agent — self-reinforcement bias.
 6. **All loops terminate.** Every retry has a maximum count and human escalation point.
@@ -124,41 +124,41 @@ STEP 9: Merge & Close     → Human approves and merges
 
 | Current State | Condition | Next State |
 |---|---|---|
-| STEP 0 | Git clean, branch created | → STEP 1 |
-| STEP 1 | 3 isolated analyses done | → STEP 1.5 |
-| STEP 1.5 PASS | Score >= 7.5 | → STEP 2 |
-| STEP 1.5 FAIL | Existing structure sufficient | → **Issue closed** |
-| STEP 2 | Plan documented | → STEP 3 |
-| STEP 3 PASS | Score >= 7.5, all >= 7 | → STEP 4 |
-| STEP 3 FAIL | Below threshold | → STEP 2 (max 3x) |
-| STEP 4 | Tasks assigned, delegation.md created | → STEP 5a |
-| STEP 5a | Tests written, all Red | → STEP 5b |
-| STEP 5b | Minimum implementation done | → STEP 5c |
-| STEP 5c PASS | All Green + minimal impl check | → STEP 5d |
-| STEP 5c FAIL (test issue) | Test incorrect | → STEP 5a (fix test → re-Red) |
-| STEP 5c FAIL (impl issue) | Implementation incorrect | → STEP 5b (fix impl) |
-| STEP 5c DEADLOCK | Both claim "no problem" | → Evaluation AI arbitrates |
-| STEP 5d | Refactor done, Green maintained | → STEP 6 |
-| STEP 6 PASS | Score >= 7.5, all >= 7 | → STEP 8 |
-| STEP 6 FAIL | Below threshold | → STEP 7 |
-| STEP 6 AUTO-FAIL | Consistency <= 3 | → STEP 4 (major rework) |
-| STEP 7 | Revisions done | → STEP 6 (re-eval, max 3x) |
-| STEP 8 | PR created | → STEP 9 (human) |
-| STEP 9 | Merged | → Done |
+| PREFLIGHT | Git clean, branch created | → DIAGNOSE |
+| DIAGNOSE | 3 isolated analyses done | → GATE:HYPOTHESIS |
+| GATE:HYPOTHESIS PASS | Score >= 7.5 | → ARCHITECT |
+| GATE:HYPOTHESIS FAIL | Existing structure sufficient | → **Issue closed** |
+| ARCHITECT | Plan documented | → GATE:PLAN |
+| GATE:PLAN PASS | Score >= 7.5, all >= 7 | → DISPATCH |
+| GATE:PLAN FAIL | Below threshold | → ARCHITECT (max 3x) |
+| DISPATCH | Tasks assigned, delegation.md created | → RED |
+| RED | Tests written, all Red | → GREEN |
+| GREEN | Minimum implementation done | → VERIFY |
+| VERIFY PASS | All Green + minimal impl check | → REFINE |
+| VERIFY FAIL (test issue) | Test incorrect | → RED (fix test → re-Red) |
+| VERIFY FAIL (impl issue) | Implementation incorrect | → GREEN (fix impl) |
+| VERIFY DEADLOCK | Both claim "no problem" | → Evaluation AI arbitrates |
+| REFINE | Refactor done, Green maintained | → GATE:QUALITY |
+| GATE:QUALITY PASS | Score >= 7.5, all >= 7 | → SHIP |
+| GATE:QUALITY FAIL | Below threshold | → REVISION |
+| GATE:QUALITY AUTO-FAIL | Consistency <= 3 | → DISPATCH (major rework) |
+| REVISION | Revisions done | → GATE:QUALITY (re-eval, max 3x) |
+| SHIP | PR created | → LAND (human) |
+| LAND | Merged | → Done |
 
 ### Regression Rules
 
 | Failure | Max Retries | Escalation |
 |---|---|---|
-| STEP 1.5 FAIL | 0 | Issue closed (by design) |
-| STEP 3 FAIL | 3 → STEP 2 | Human intervention |
-| STEP 5b↔5c cycle | 3 round-trips | Human intervention |
-| STEP 5d FAIL | 2 | Skip refactor, keep Green state |
-| STEP 6 FAIL | 3 → STEP 7 | Human intervention |
+| GATE:HYPOTHESIS FAIL | 0 | Issue closed (by design) |
+| GATE:PLAN FAIL | 3 → ARCHITECT | Human intervention |
+| GREEN↔VERIFY cycle | 3 round-trips | Human intervention |
+| REFINE FAIL | 2 | Skip refactor, keep Green state |
+| GATE:QUALITY FAIL | 3 → REVISION | Human intervention |
 
 ---
 
-## STEP 0: Pre-Work
+## PREFLIGHT: Pre-Work
 
 **[MUST]** Git Clean Check before any work begins.
 
@@ -169,11 +169,11 @@ STEP 9: Merge & Close     → Human approves and merges
 0-4. git checkout -b <branch-type>/<issue>-<desc> main
 ```
 
-If Git state is not clean after 0-3, stop and report to user. Do NOT proceed to STEP 1.
+If Git state is not clean after 0-3, stop and report to user. Do NOT proceed to DIAGNOSE.
 
 ---
 
-## STEP 1: 3-Phase Independent Analysis
+## DIAGNOSE: 3-Phase Independent Analysis
 
 > **Why information isolation?** See [docs/design-rationale.md](docs/design-rationale.md#decision-1-ai-a-does-not-receive-the-issue-content-3-phase-independent-analysis)
 
@@ -225,12 +225,12 @@ Spawn AI-A again with Phase A results + AI-B's resolution approaches.
 | Consistency Impact | Does the inconsistency affect users or AI behavior? (high = significant impact) |
 | Propagation Scope | Is the propagation scope appropriate — not too broad, not missing targets? (high = appropriate scope) |
 
-- **PASS** (avg >= 7.5, all >= 7): Change needed → proceed to STEP 1.5
+- **PASS** (avg >= 7.5, all >= 7): Change needed → proceed to GATE:HYPOTHESIS
 - **FAIL**: Existing structure handles it → close issue with rationale
 
 ---
 
-## STEP 2: Plan Synthesis
+## ARCHITECT: Plan Synthesis
 
 Merge Phase A, B, and 3 into an implementation plan.
 
@@ -242,11 +242,11 @@ Merge Phase A, B, and 3 into an implementation plan.
 
 ---
 
-## STEP 3: Plan Evaluation
+## GATE:PLAN: Plan Evaluation
 
 **Evaluator**: Fresh-spawned Evaluation AI.
 
-**Input**: Implementation plan from STEP 2.
+**Input**: Implementation plan from ARCHITECT.
 
 **5 categories × 10 points**:
 
@@ -258,16 +258,16 @@ Merge Phase A, B, and 3 into an implementation plan.
 | Consistency | Does this align with design-rationale.md principles? |
 | Test Plan | Are acceptance criteria testable? |
 
-**PASS**: avg >= 7.5, all >= 7 → STEP 4.
-**FAIL**: → STEP 2 (max 3x).
+**PASS**: avg >= 7.5, all >= 7 → DISPATCH.
+**FAIL**: → ARCHITECT (max 3x).
 
 ---
 
-## STEP 4: Task Assignment
+## DISPATCH: Task Assignment
 
 The orchestrator creates a team and spawns teammates to execute the plan.
 
-**[MUST]** The orchestrator must create delegation.md as a mandatory artifact before STEP 5a begins.
+**[MUST]** The orchestrator must create delegation.md as a mandatory artifact before RED begins.
 
 ```
 4-1. TeamCreate — create a team for this issue
@@ -276,7 +276,7 @@ The orchestrator creates a team and spawns teammates to execute the plan.
      - Instruction: "Write tests for these acceptance criteria. Do NOT implement."
 4-3. Spawn Developer AI teammate (Agent with team_name, name="dev-ai")
      - SendMessage: implementation plan + acceptance criteria
-     - Instruction: "Wait for Test AI to complete tests (STEP 5a). Then implement minimum code to pass."
+     - Instruction: "Wait for Test AI to complete tests (RED). Then implement minimum code to pass."
 4-4. Both teammates receive: plan.md, acceptance criteria, affected files list
 4-5. Create delegation.md in .autoflow-state/<issue>/ with the following sections:
 ```
@@ -294,13 +294,13 @@ The orchestrator creates a team and spawns teammates to execute the plan.
 <implementation plan + acceptance criteria for Developer AI>
 ```
 
-**[MUST]** STEP 4 produces delegation.md — it is a mandatory artifact for STEP 5a entry.
-**[MUST]** Test AI starts first (STEP 5a). Developer AI waits until tests are written and Red-confirmed.
+**[MUST]** DISPATCH produces delegation.md — it is a mandatory artifact for RED entry.
+**[MUST]** Test AI starts first (RED). Developer AI waits until tests are written and Red-confirmed.
 **[MUST]** The orchestrator does not write code — it sends instructions and monitors progress.
 
 ---
 
-## STEP 5a-5d: Test-Driven Development Cycle
+## TDD Cycle (RED → GREEN → VERIFY → REFINE)
 
 ### What Is Testable in This Project
 
@@ -311,11 +311,11 @@ The orchestrator creates a team and spawns teammates to execute the plan.
 | Placeholder completeness | Yes | `grep -r '{{' .` after init.sh run — must return empty |
 | Template syntax | Yes | Validate generated CLAUDE.md has no broken markdown |
 | Documentation content | Partial | Verify internal links resolve, code blocks are valid |
-| Pure prose changes | No | Skip TDD cycle, proceed directly to STEP 6 evaluation |
+| Pure prose changes | No | Skip TDD cycle, proceed directly to GATE:QUALITY evaluation |
 
-### STEP 5a: Test Writing (Test AI)
+### RED: Test Writing (Test AI)
 
-**Entry precondition**: delegation.md must exist in `.autoflow-state/<issue>/` before STEP 5a begins.
+**Entry precondition**: delegation.md must exist in `.autoflow-state/<issue>/` before RED begins.
 
 Test AI teammate writes tests from acceptance criteria.
 
@@ -327,20 +327,20 @@ Test AI teammate writes tests from acceptance criteria.
 5a-4. Report to orchestrator: "Tests written, Red confirmed"
 ```
 
-### STEP 5b: Implementation (Developer AI)
+### GREEN: Implementation (Developer AI)
 
-Developer AI teammate writes minimum code to pass tests. This is the **only** step where implementation code is written.
+Developer AI teammate writes minimum code to pass tests. This is the **only** phase where implementation code is written.
 
 ```
-5b-1. Read the tests from 5a
+5b-1. Read the tests from RED
 5b-2. Write minimum code/content to pass tests
       - [MUST] Do not implement behavior not covered by tests
-      - [MUST] Do not write code before 5a tests exist — that defeats Test First
+      - [MUST] Do not write code before RED tests exist — that defeats Test First
 5b-3. Commit (feat/fix branch)
 5b-4. Report to orchestrator: "Implementation complete"
 ```
 
-### STEP 5c: Green Verification
+### VERIFY: Green Verification
 
 ```
 5c-1. Run all tests
@@ -349,8 +349,8 @@ Developer AI teammate writes minimum code to pass tests. This is the **only** st
   All PASS → 5c-3
 
   Some FAIL → Failure cause analysis:
-    ├─ Test issue → fix test → re-Red → STEP 5b re-entry
-    ├─ Implementation issue → fix implementation → STEP 5c retry
+    ├─ Test issue → fix test → re-Red → GREEN re-entry
+    ├─ Implementation issue → fix implementation → VERIFY retry
     ├─ Both need fixes → fix test first → Red → fix impl → Green
     └─ Deadlock (both claim "no problem") → fresh Evaluation AI arbitrates
 
@@ -361,9 +361,9 @@ Developer AI teammate writes minimum code to pass tests. This is the **only** st
     └─ Config/infra changes → exception allowed (document reason)
 ```
 
-**Max round-trips**: STEP 5b↔5c max 3 cycles → human escalation.
+**Max round-trips**: GREEN↔VERIFY max 3 cycles → human escalation.
 
-### STEP 5d: Refactor
+### REFINE: Refactor
 
 ```
 5d-1. Developer AI teammate runs /simplify
@@ -371,20 +371,20 @@ Developer AI teammate writes minimum code to pass tests. This is the **only** st
       - Applies suggested fixes (no behavior change — tests must pass without modification)
       - If /simplify finds nothing → proceed to 5d-2 (DO NOT SKIP)
 5d-2. [MUST] Re-run ALL tests → Green maintained
-      - This step is NEVER skipped, even when 5d-1 made no changes
+      - This phase is NEVER skipped, even when 5d-1 made no changes
       - FAIL → simplify broke something → revert simplify changes (max 2 attempts, then keep pre-refactor state)
 5d-3. Commit (refactor type, or skip commit if no changes in 5d-1)
 ```
 
 **Why /simplify instead of manual judgment?** Previously, the Developer AI decided "refactoring needed?" — but this judgment was routinely skipped with "no cleanup needed." `/simplify` removes this bias by mechanically analyzing the code. The AI no longer decides IF to refactor; a dedicated tool decides WHAT to refactor.
 
-**[MUST]** 5d-2 is mandatory. "No changes were made so tests will pass" is not a valid reason to skip. The re-run confirms that no accidental state changes occurred between STEP 5c and 5d.
+**[MUST]** 5d-2 is mandatory. "No changes were made so tests will pass" is not a valid reason to skip. The re-run confirms that no accidental state changes occurred between VERIFY and REFINE.
 
 ### Pure Documentation Changes
 
 When the change is purely prose (no scripts, no templates with placeholders):
-- Skip STEP 4, 5a-5d entirely
-- Orchestrator delegates the writing to a teammate, then proceed to STEP 6
+- Skip DISPATCH and the TDD cycle (RED–REFINE) entirely
+- Orchestrator delegates the writing to a teammate, then proceed to GATE:QUALITY
 - Document the skip reason: "Pure prose change — no testable behavior"
 
 ---
@@ -407,7 +407,7 @@ When the change is purely prose (no scripts, no templates with placeholders):
 - **[MUST]** Every individual category >= 7
 - **[MUST]** Consistency (design principles) <= 3 → automatic FAIL
 
-### STEP 6 Evaluation Categories
+### GATE:QUALITY Evaluation Categories
 
 | Category | Weight | Description |
 |---|---|---|
@@ -425,7 +425,7 @@ When the change is purely prose (no scripts, no templates with placeholders):
 
 ```json
 {
-  "step": 6,
+  "phase": "GATE:QUALITY",
   "issue": "#N",
   "evaluator": "evaluation-ai",
   "scores": {
@@ -469,7 +469,7 @@ When ambiguity or disagreement arises:
 
 ## Hook Gate
 
-The `check-autoflow-gate.sh` hook enforces STEP progression:
+The `check-autoflow-gate.sh` hook enforces phase progression:
 
 - **Trigger**: Before commit or PR creation
 - **Checks**: Calculates scores from raw `scores` in evaluation JSON
@@ -480,10 +480,10 @@ The `check-autoflow-gate.sh` hook enforces STEP progression:
 
 | Action | Requires |
 |---|---|
-| Commit (STEP 6+) | Evaluation PASS |
+| Commit (GATE:QUALITY+) | Evaluation PASS |
 | PR creation | Evaluation PASS |
-| STEP 0-5 commits | No gate restriction |
-| STEP 7 commits | Allowed (revision in progress) |
+| PREFLIGHT–REFINE commits | No gate restriction |
+| REVISION commits | Allowed (revision in progress) |
 
 ---
 
@@ -517,7 +517,7 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`
 - **`git status` before every commit.**
 - **PR closes issue**: PR body includes `Closes #N`.
 
-### Git Clean Check (STEP 0 and STEP 9)
+### Git Clean Check (PREFLIGHT and LAND)
 
 ```bash
 # 1. No uncommitted changes
@@ -542,20 +542,20 @@ State files in `.autoflow-state/` track progress per issue.
 .autoflow-state/
 ├── current-issue          # Contains: issue number
 └── <issue-number>/
-    ├── step               # Current STEP number
-    ├── requirements.md    # STEP 0-1 output
+    ├── phase              # Current phase name
+    ├── requirements.md    # PREFLIGHT–DIAGNOSE output
     ├── analysis/
     │   ├── phase-a.md     # Structure analysis
     │   ├── phase-b.md     # Issue analysis
     │   └── phase-3.md     # Cross-verification
-    ├── plan.md            # STEP 2 output
-    ├── delegation.md      # STEP 4 output (task assignments)
-    ├── evaluation.json    # STEP 6 output
-    └── history.log        # STEP transition log
+    ├── plan.md            # ARCHITECT output
+    ├── delegation.md      # DISPATCH output (task assignments)
+    ├── evaluation.json    # GATE:QUALITY output
+    └── history.log        # Phase transition log
 ```
 
-**Creation**: STEP 0 completion.
-**Completion**: STEP 9 → clean up or archive.
+**Creation**: PREFLIGHT completion.
+**Completion**: LAND → clean up or archive.
 **`.gitignore`**: `.autoflow-state/` must be gitignored.
 
 ---
@@ -569,7 +569,7 @@ Changes to any of these files require checking if related documents need updatin
 | `CLAUDE.md` | This file — process rules change |
 | `CLAUDE.md.template` | Template for users — process/placeholder changes |
 | `docs/design-rationale.md` | New design decisions or principle changes |
-| `docs/autoflow-guide.md` | STEP definitions change |
+| `docs/autoflow-guide.md` | Phase definitions change |
 | `docs/evaluation-system.md` | Scoring categories or thresholds change |
 | `README.md` | Features, structure, or usage changes |
 | `setup/SETUP-GUIDE.md` | Setup procedure changes |
@@ -588,7 +588,7 @@ When `CLAUDE.md.template` changes, verify that `docs/autoflow-guide.md` and `doc
 
 1. Explicit justification for why the existing rationale is wrong or incomplete
 2. Evidence from actual usage (not theoretical improvement)
-3. STEP 6 evaluation with Consistency score >= 8
+3. GATE:QUALITY evaluation with Consistency score >= 8
 
 ### Template Changes Require User Perspective
 
