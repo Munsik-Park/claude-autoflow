@@ -1,6 +1,6 @@
 # Evaluation System
 
-> The Auto-Flow evaluation system provides quantified quality assessment at STEPs 1.5 and 6, ensuring consistent standards across all changes.
+> The Auto-Flow evaluation system provides quantified quality assessment at GATE:HYPOTHESIS and GATE:QUALITY, ensuring consistent standards across all changes.
 
 ---
 
@@ -10,7 +10,7 @@ The Evaluation AI is an **independent agent** that scores completed work before 
 
 ### Critical Rule: Fresh Spawn Every Time
 
-**The Evaluation AI must be spawned fresh for every evaluation** — at STEPs 1.5, 3, and 6. It carries no prior conversation history. This is mandatory, not optional.
+**The Evaluation AI must be spawned fresh for every evaluation** — at GATE:HYPOTHESIS, GATE:PLAN, and GATE:QUALITY. It carries no prior conversation history. This is mandatory, not optional.
 
 **Why**: When the same agent creates a plan and evaluates it, it struggles to reject its own work. A freshly spawned agent sees only the deliverable — it has no investment in the process. Bias elimination takes priority over token cost savings. See [docs/design-rationale.md](design-rationale.md#decision-2-evaluation-ai-is-spawned-fresh-every-time).
 
@@ -51,9 +51,9 @@ Lenient criteria create a pattern of "scoring high on easy categories to raise t
 
 | Condition | Result | Action |
 |-----------|--------|--------|
-| Consistency <= 3 | AUTO-FAIL | → STEP 4 (mandatory major rework) |
-| Any category < 7 | FAIL | → STEP 7 (revision) |
-| Overall < 7.5 | FAIL | → STEP 7 (revision) |
+| Consistency <= 3 | AUTO-FAIL | → DISPATCH (mandatory major rework) |
+| Any category < 7 | FAIL | → REVISION |
+| Overall < 7.5 | FAIL | → REVISION |
 
 ---
 
@@ -112,7 +112,7 @@ The Evaluation AI produces a JSON report saved to `.autoflow-state/<issue>/evalu
 
 ```json
 {
-  "step": 6,
+  "phase": "GATE:QUALITY",
   "issue": "#123",
   "evaluator": "evaluation-ai",
   "timestamp": "2025-01-15T10:30:00Z",
@@ -135,7 +135,7 @@ The Evaluation AI produces a JSON report saved to `.autoflow-state/<issue>/evalu
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `step` | number | Always `6` for evaluation |
+| `phase` | string | Always `"GATE:QUALITY"` for evaluation |
 | `issue` | string | Issue reference (e.g., "#123") |
 | `evaluator` | string | Agent identifier |
 | `timestamp` | string | ISO 8601 timestamp |
@@ -155,7 +155,7 @@ The Evaluation AI receives:
 1. **Issue requirements** (`.autoflow-state/<issue>/requirements.md`)
 2. **Implementation plan** (`.autoflow-state/<issue>/plan.md`)
 3. **Code diff** (`git diff` of the changes)
-4. **Test results** (test output from STEP 5c)
+4. **Test results** (test output from VERIFY)
 
 ### Evaluation Steps
 
@@ -172,9 +172,9 @@ The Evaluation AI receives:
 
 ---
 
-## Re-Evaluation (After STEP 7)
+## Re-Evaluation (After REVISION)
 
-When a change fails and goes through STEP 7 (revision):
+When a change fails and goes through REVISION:
 
 1. A **freshly spawned** Evaluation AI receives the **updated** diff and test results
 2. It also receives the **previous evaluation** for context
@@ -186,7 +186,7 @@ When a change fails and goes through STEP 7 (revision):
 ### Maximum Revision Cycles
 
 - **3 revision cycles maximum** before human escalation
-- Each cycle: STEP 7 (revision) → STEP 6 (re-evaluation)
+- Each cycle: REVISION → GATE:QUALITY (re-evaluation)
 - If still failing after 3 cycles, the Orchestrator escalates to a human with all evaluation reports
 
 ---

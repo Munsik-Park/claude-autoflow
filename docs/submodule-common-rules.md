@@ -56,7 +56,7 @@ For cross-repo changes, raise a Discussion to the Orchestrator.
 This repository follows the Auto-Flow lifecycle defined in:
 {{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}/CLAUDE.md
 
-All STEPs, evaluation criteria, and gate rules apply.
+All Auto-Flow phases, evaluation criteria, and gate rules apply.
 ```
 
 ---
@@ -64,16 +64,16 @@ All STEPs, evaluation criteria, and gate rules apply.
 ## Agent Behavior Rules
 
 ### DO
-- Follow the Auto-Flow STEPs in order
-- Run tests before marking STEP 5 complete
+- Follow the Auto-Flow phases in order
+- Run tests before marking the TDD cycle complete
 - Use the Discussion Protocol for ambiguities
 - Reference the orchestrator's CLAUDE.md for process questions
 
 ### DO NOT
-- Skip the evaluation gate (STEP 6)
+- Skip the evaluation gate (GATE:QUALITY)
 - Modify files in other repositories
 - Push directly to `{{DEFAULT_BRANCH}}`
-- Ignore evaluation feedback during revision (STEP 7)
+- Ignore evaluation feedback during revision (REVISION)
 
 ---
 
@@ -135,5 +135,5 @@ Each sub-repo should have CI that:
 ### Auto-Flow Gate Integration
 The `check-autoflow-gate.sh` hook can be integrated into CI to verify:
 - Evaluation score meets threshold
-- All STEPs completed in order
+- All Auto-Flow phases completed in order
 - State files are consistent

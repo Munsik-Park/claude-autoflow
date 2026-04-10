@@ -1,4 +1,4 @@
-# Auto-Flow Guide — Step-by-Step Development Lifecycle
+# Auto-Flow Guide — Phase-by-Phase Development Lifecycle
 
 > Auto-Flow is a structured, evaluation-gated development lifecycle for AI-assisted software engineering with Claude Code.
 
@@ -6,17 +6,17 @@
 
 ## Overview
 
-Auto-Flow defines **10 STEPs (0–9)** that guide every code change from issue analysis to merge. Each STEP has explicit entry/exit criteria, and an evaluation gate prevents low-quality work from reaching production.
+Auto-Flow defines **14 phases (PREFLIGHT → LAND)** that guide every code change from issue analysis to merge. Each phase has explicit entry/exit criteria, and an evaluation gate prevents low-quality work from reaching production.
 
 The key principles:
-- **No shortcuts** — every STEP is executed in order
+- **No shortcuts** — every phase is executed in order
 - **Multi-agent separation** — different roles handle implementation, testing, and evaluation
 - **Bias prevention** — 3-phase independent analysis before coding
 - **Quantified quality** — 10-point evaluation with defined PASS threshold
 
 ---
 
-## STEP 0: Pre-Work
+## PREFLIGHT: Pre-Work
 
 **Goal**: Ensure a clean Git state before any analysis or coding begins.
 
@@ -29,14 +29,14 @@ The key principles:
 ### Exit Criteria
 - Git working tree is clean
 - Branch created from latest main
-- Ready for STEP 1 analysis
+- Ready for DIAGNOSE analysis
 
 ### Hard Stop Rule
-If Git state is not clean after resolution attempts, **stop and report to user**. Do NOT proceed to STEP 1. Starting work on a dirty Git state causes merge conflicts, lost changes, and broken state downstream.
+If Git state is not clean after resolution attempts, **stop and report to user**. Do NOT proceed to DIAGNOSE. Starting work on a dirty Git state causes merge conflicts, lost changes, and broken state downstream.
 
 ---
 
-## STEP 1: 3-Phase Independent Analysis (Information Isolation)
+## DIAGNOSE: 3-Phase Independent Analysis (Information Isolation)
 
 **Goal**: Prevent tunnel-vision bias through **information isolation** — not just different perspectives, but strictly separated inputs.
 
@@ -96,7 +96,7 @@ If Git state is not clean after resolution attempts, **stop and report to user**
 | Consistency Impact | Does the inconsistency affect users or AI behavior? (high = significant impact) |
 | Propagation Scope | Is the propagation scope appropriate — not too broad, not missing targets? (high = appropriate scope) |
 
-- **PASS** (avg >= 7.5, all >= 7): Change needed → proceed to STEP 1.5
+- **PASS** (avg >= 7.5, all >= 7): Change needed → proceed to GATE:HYPOTHESIS
 - **FAIL**: Existing structure handles it → close issue with rationale
 
 ### Exit Criteria
@@ -107,7 +107,7 @@ If Git state is not clean after resolution attempts, **stop and report to user**
 
 ---
 
-## STEP 1.5: Issue Analysis Evaluation (Gate)
+## GATE:HYPOTHESIS: Issue Analysis Evaluation (Gate)
 
 **Goal**: Ensure only well-analyzed issues proceed to implementation. This gate is strict because insufficient analysis at this stage causes larger costs downstream.
 
@@ -119,17 +119,17 @@ If Git state is not clean after resolution attempts, **stop and report to user**
 3. Produces a scored evaluation
 
 ### PASS / FAIL
-- **PASS** (score >= 7.5): Proceed to STEP 2
+- **PASS** (score >= 7.5): Proceed to ARCHITECT
 - **FAIL**: **Close the issue.** If the structure already handles the concern, no code change is needed. This is not a regression — it is the system working correctly. The best code is code that is never written.
 
 ### Exit Criteria
 - Evaluation report saved
-- PASS → proceed to STEP 2
+- PASS → proceed to ARCHITECT
 - FAIL → issue closed (existing structure sufficient)
 
 ---
 
-## STEP 2: Plan Synthesis
+## ARCHITECT: Plan Synthesis
 
 **Goal**: Merge the three analyses into a single, coherent implementation plan.
 
@@ -167,25 +167,25 @@ If Git state is not clean after resolution attempts, **stop and report to user**
 
 ---
 
-## STEP 3: Plan Evaluation
+## GATE:PLAN: Plan Evaluation
 
 **Goal**: An independent Evaluation AI scores the implementation plan before coding begins.
 
 > **The Evaluation AI is spawned fresh** for this step — it carries no prior conversation history.
 
 ### Process
-1. A freshly spawned Evaluation AI receives the implementation plan from STEP 2
+1. A freshly spawned Evaluation AI receives the implementation plan from ARCHITECT
 2. Scores across 5 categories (Feasibility, Dependencies, Scope, Consistency, Test Plan)
 3. Produces a scored evaluation
 
 ### PASS / FAIL
-- **PASS** (score >= 7.5, all categories >= 7): Proceed to STEP 4
-- **FAIL**: Return to STEP 2 (max 3 revision cycles)
+- **PASS** (score >= 7.5, all categories >= 7): Proceed to DISPATCH
+- **FAIL**: Return to ARCHITECT (max 3 revision cycles)
 
 ### Exit Criteria
 - Evaluation report saved
-- PASS → proceed to STEP 4
-- FAIL → return to STEP 2 for plan revision
+- PASS → proceed to DISPATCH
+- FAIL → return to ARCHITECT for plan revision
 
 ---
 
@@ -208,7 +208,7 @@ The orchestrator coordinates only — it does **not** implement. File-level boun
 
 ---
 
-## STEP 4: Task Assignment
+## DISPATCH: Task Assignment
 
 **Goal**: The orchestrator delegates implementation work to Test AI and Developer AI teammates.
 
@@ -216,7 +216,7 @@ The orchestrator coordinates only — it does **not** implement. File-level boun
 - Spawn Test AI teammate with acceptance criteria
 - Spawn Developer AI teammate with implementation plan
 - **[MUST]** Create delegation.md as a mandatory artifact in `.autoflow-state/<issue>/`
-- Test AI starts first (STEP 5a) — Developer AI waits
+- Test AI starts first (RED) — Developer AI waits
 
 ### delegation.md Format
 
@@ -238,11 +238,11 @@ The orchestrator coordinates only — it does **not** implement. File-level boun
 
 ---
 
-## STEP 5a: Test Writing (Test AI)
+## RED: Test Writing (Test AI)
 
 **Goal**: Test AI writes tests from acceptance criteria. Tests must all FAIL (Red confirmation).
 
-**Entry precondition**: delegation.md must exist in `.autoflow-state/<issue>/` before STEP 5a begins.
+**Entry precondition**: delegation.md must exist in `.autoflow-state/<issue>/` before RED begins.
 
 ### Activities
 - Convert acceptance criteria into test scripts
@@ -253,35 +253,35 @@ The orchestrator coordinates only — it does **not** implement. File-level boun
 ### Exit Criteria
 - All tests written
 - All tests FAIL (Red confirmed)
-- Ready for Developer AI implementation
+- Ready for Developer AI implementation (GREEN)
 
 ---
 
-## STEP 5b: Implementation (Developer AI)
+## GREEN: Implementation (Developer AI)
 
 **Goal**: Developer AI writes minimum code to pass tests.
 
 ### Activities
-- Read the tests from STEP 5a
+- Read the tests from RED
 - Write minimum code/content to pass tests
 - Do not implement behavior not covered by tests
 - Commit changes
 
 ### Exit Criteria
 - Minimum implementation complete
-- Ready for Green verification
+- Ready for VERIFY
 
 ---
 
-## STEP 5c: Green Verification
+## VERIFY: Green Verification
 
 **Goal**: All tests pass and implementation is minimal.
 
 ### Activities
 - Run all tests
 - If some fail, analyze failure cause:
-  - **Test issue**: Fix test → re-Red → STEP 5b re-entry
-  - **Implementation issue**: Fix implementation → STEP 5c retry
+  - **Test issue**: Fix test → re-Red → GREEN re-entry
+  - **Implementation issue**: Fix implementation → VERIFY retry
   - **Both need fixes**: Fix test first → Red → fix impl → Green
   - **Deadlock** (both claim "no problem"): Fresh Evaluation AI arbitrates
 - Minimal implementation check: verify no code exists that isn't covered by tests
@@ -289,11 +289,11 @@ The orchestrator coordinates only — it does **not** implement. File-level boun
 ### Exit Criteria
 - All tests pass (Green)
 - No uncovered implementation code
-- Max round-trips: STEP 5b↔5c max 3 cycles → human escalation
+- Max round-trips: GREEN↔VERIFY max 3 cycles → human escalation
 
 ---
 
-## STEP 5d: Refactor
+## REFINE: Refactor
 
 **Goal**: Code cleanup without changing behavior. Tests must pass without modification.
 
@@ -302,9 +302,9 @@ The orchestrator coordinates only — it does **not** implement. File-level boun
 - Applies suggested fixes (no behavior change — tests must pass without modification)
 - If `/simplify` finds nothing → proceed to re-run (DO NOT SKIP)
 - **[MUST]** Re-run ALL tests → Green maintained
-  - This step is NEVER skipped, even when `/simplify` made no changes
+  - This phase is NEVER skipped, even when `/simplify` made no changes
   - "No changes were made so tests will pass" is not a valid reason to skip
-  - The re-run confirms that no accidental state changes occurred between STEP 5c and 5d
+  - The re-run confirms that no accidental state changes occurred between VERIFY and REFINE
 - If simplify breaks tests → revert changes, fix (max 2 attempts, then keep pre-refactor state)
 - Commit (refactor type, or skip commit if no changes)
 
@@ -319,7 +319,7 @@ The orchestrator coordinates only — it does **not** implement. File-level boun
 
 ## Evaluation AI Prompt Rules
 
-When spawning the Evaluation AI (at STEPs 1.5, 3, and 6), the orchestrator's prompt must follow these rules:
+When spawning the Evaluation AI (at GATE:HYPOTHESIS, GATE:PLAN, and GATE:QUALITY), the orchestrator's prompt must follow these rules:
 
 1. **[MUST]** Include: evaluation type, `CLAUDE.md > [section]` reference, target file paths
 2. **[MUST]** Do NOT copy evaluation criteria into the prompt — instruct the AI to read CLAUDE.md directly
@@ -328,7 +328,7 @@ When spawning the Evaluation AI (at STEPs 1.5, 3, and 6), the orchestrator's pro
 
 ---
 
-## STEP 6: Evaluation
+## GATE:QUALITY: Evaluation
 
 **Goal**: An independent Evaluation AI scores the work objectively.
 
@@ -350,9 +350,9 @@ When spawning the Evaluation AI (at STEPs 1.5, 3, and 6), the orchestrator's pro
 | Documentation | 15% | Docs updated, links valid, examples accurate? |
 
 ### PASS / FAIL
-- **PASS**: Overall weighted score >= 7.5 AND no individual category below 7 → proceed to STEP 8
-- **FAIL**: Overall score < 7.5 OR any category below 7 → return to STEP 7 (or STEP 3 for major issues)
-- **AUTO-FAIL**: Consistency score <= 3 → STEP 4 (mandatory rework regardless of other scores)
+- **PASS**: Overall weighted score >= 7.5 AND no individual category below 7 → proceed to SHIP
+- **FAIL**: Overall score < 7.5 OR any category below 7 → return to REVISION (or GATE:PLAN for major issues)
+- **AUTO-FAIL**: Consistency score <= 3 → DISPATCH (mandatory rework regardless of other scores)
 
 ### Exit Criteria
 - Evaluation report saved to `.autoflow-state/<issue>/evaluation.json`
@@ -360,15 +360,15 @@ When spawning the Evaluation AI (at STEPs 1.5, 3, and 6), the orchestrator's pro
 
 ---
 
-## STEP 7: Revision (Conditional)
+## REVISION: Revision (Conditional)
 
-**Goal**: Address evaluation feedback when STEP 6 results in FAIL.
+**Goal**: Address evaluation feedback when GATE:QUALITY results in FAIL.
 
 ### Activities
 - Review evaluation comments
 - Fix identified issues
 - Re-run tests
-- Request re-evaluation (back to STEP 6)
+- Request re-evaluation (back to GATE:QUALITY)
 
 ### Rules
 - Only address issues raised in the evaluation
@@ -382,7 +382,7 @@ When spawning the Evaluation AI (at STEPs 1.5, 3, and 6), the orchestrator's pro
 
 ---
 
-## STEP 8: PR & Review
+## SHIP: PR & Review
 
 **Goal**: Create a pull request for human review.
 
@@ -400,14 +400,14 @@ When spawning the Evaluation AI (at STEPs 1.5, 3, and 6), the orchestrator's pro
 
 ---
 
-## STEP 9: Merge & Close
+## LAND: Merge & Close
 
 **Goal**: Human merges the PR and closes the issue.
 
 ### This Step Is Human-Only
 - Human reviews the PR
 - Human approves or requests changes
-- If changes requested → return to STEP 7
+- If changes requested → return to REVISION
 - If approved → merge and close issue
 
 ### Exit Criteria
@@ -419,18 +419,18 @@ When spawning the Evaluation AI (at STEPs 1.5, 3, and 6), the orchestrator's pro
 
 ## Regression Rules
 
-When a STEP fails, the flow regresses — or terminates:
+When a phase fails, the flow regresses — or terminates:
 
 | Failure Point | Action | Reason |
 |--------------|--------|--------|
-| STEP 1.5 (structure eval FAIL) | **Close issue** | Existing structure already handles it |
-| STEP 3 (plan eval FAIL) | → STEP 2 (max 3x) | Plan revision needed |
-| STEP 5b↔5c cycle (tests fail) | → STEP 5b (max 3 round-trips) | Fix implementation or tests |
-| STEP 5d (refactor breaks tests) | Fix (max 2 attempts) | Keep pre-refactor state |
-| STEP 6 (score < 7.5) | → STEP 7 | Revision needed |
-| STEP 6 (consistency <= 3) | → STEP 4 | Mandatory major rework |
-| STEP 8 (CI fails) | → STEP 5a | Re-test |
-| STEP 9 (human rejects) | → STEP 7 | Address human feedback |
+| GATE:HYPOTHESIS (structure eval FAIL) | **Close issue** | Existing structure already handles it |
+| GATE:PLAN (plan eval FAIL) | → ARCHITECT (max 3x) | Plan revision needed |
+| GREEN↔VERIFY cycle (tests fail) | → GREEN (max 3 round-trips) | Fix implementation or tests |
+| REFINE (refactor breaks tests) | Fix (max 2 attempts) | Keep pre-refactor state |
+| GATE:QUALITY (score < 7.5) | → REVISION | Revision needed |
+| GATE:QUALITY (consistency <= 3) | → DISPATCH | Mandatory major rework |
+| SHIP (CI fails) | → RED | Re-test |
+| LAND (human rejects) | → REVISION | Address human feedback |
 
 ---
 
@@ -440,16 +440,16 @@ When a STEP fails, the flow regresses — or terminates:
 .autoflow-state/
 ├── current-issue          # Contains: issue number
 └── <issue-number>/
-    ├── step               # Contains: current step number
-    ├── requirements.md    # STEP 1 output (issue requirements)
+    ├── phase              # Contains: current phase name
+    ├── requirements.md    # DIAGNOSE output (issue requirements)
     ├── analysis/
     │   ├── phase-a.md     # Structure analysis
     │   ├── phase-b.md     # Issue analysis
     │   └── phase-3.md     # Cross-verification
-    ├── plan.md            # STEP 2 output
-    ├── delegation.md      # STEP 4 output (task assignments)
-    ├── evaluation.json    # STEP 6 output
-    └── history.log        # Step transition log
+    ├── plan.md            # ARCHITECT output
+    ├── delegation.md      # DISPATCH output (task assignments)
+    ├── evaluation.json    # GATE:QUALITY output
+    └── history.log        # Phase transition log
 ```
 
 > **Note**: Add `.autoflow-state/` to `.gitignore` — these are working files, not committed.

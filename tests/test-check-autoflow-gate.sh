@@ -72,14 +72,14 @@ cleanup_test_dir() {
   fi
 }
 
-# Set up mock autoflow-state with a given step and evaluation JSON
+# Set up mock autoflow-state with a given phase and evaluation JSON
 setup_eval_fixture() {
-  local step="$1"
+  local phase="$1"
   local eval_json="$2"
   local issue="99"
   mkdir -p "${TEST_DIR}/.autoflow-state/${issue}"
   echo "$issue" > "${TEST_DIR}/.autoflow-state/current-issue"
-  echo "$step" > "${TEST_DIR}/.autoflow-state/${issue}/step"
+  echo "$phase" > "${TEST_DIR}/.autoflow-state/${issue}/phase"
   # Create delegation.md so delegation gate doesn't block
   cat > "${TEST_DIR}/.autoflow-state/${issue}/delegation.md" <<'EOF'
 ## Team
@@ -116,8 +116,8 @@ echo ""
 echo "--- GROUP 1: Dynamic enumeration with standard CLAUDE.md categories ---"
 
 setup_test_dir
-setup_eval_fixture 6 '{
-  "step": 6,
+setup_eval_fixture "GATE:QUALITY" '{
+  "phase": "GATE:QUALITY",
   "issue": "#99",
   "scores": {
     "correctness": { "score": 9, "reason": "Meets all requirements" },
@@ -142,8 +142,8 @@ echo ""
 echo "--- GROUP 2: Dynamic enumeration with custom categories ---"
 
 setup_test_dir
-setup_eval_fixture 6 '{
-  "step": 6,
+setup_eval_fixture "GATE:QUALITY" '{
+  "phase": "GATE:QUALITY",
   "issue": "#99",
   "scores": {
     "accessibility": { "score": 9, "reason": "WCAG compliant" },
@@ -162,7 +162,7 @@ echo ""
 
 # Test with a single category
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "overall_quality": { "score": 9, "reason": "Excellent" }
   }
@@ -176,7 +176,7 @@ echo ""
 
 # Test with many categories
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "cat_a": 8,
     "cat_b": 8,
@@ -200,7 +200,7 @@ echo ""
 echo "--- GROUP 3: Dual format — flat ---"
 
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "correctness": 9,
     "quality": 8,
@@ -222,7 +222,7 @@ echo ""
 echo "--- GROUP 4: Dual format — structured ---"
 
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "correctness": { "score": 9, "reason": "All requirements met" },
     "quality": { "score": 8, "reason": "Clean" },
@@ -244,7 +244,7 @@ echo ""
 echo "--- GROUP 5: Dual format — mixed ---"
 
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "correctness": 9,
     "quality": { "score": 8, "reason": "Clean code" },
@@ -269,7 +269,7 @@ echo "--- GROUP 6: Weight configuration with weights.json ---"
 # correctness=10 (weight 0.5), quality=6 (weight 0.5) → avg = 8.0 → PASS
 # BUT quality=6 < 7 → FAIL due to individual minimum
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "correctness": 10,
     "quality": 6
@@ -291,7 +291,7 @@ echo ""
 # With weights.json: heavy weight on high-scoring category pulls average up
 # correctness=10 (weight 0.9), quality=7 (weight 0.1) → weighted avg = 9.7 → PASS
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "correctness": 10,
     "quality": 7
@@ -314,7 +314,7 @@ echo ""
 # correctness=7 (weight 0.1), quality=10 (weight 0.9) → weighted avg = 9.7 → PASS
 # correctness=7 (weight 0.9), quality=10 (weight 0.1) → weighted avg = 7.3 → FAIL (<7.5)
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "correctness": 7,
     "quality": 10
@@ -340,7 +340,7 @@ echo "--- GROUP 7: Without weights.json → equal weights ---"
 
 # 3 categories at 8 each → avg = 8.0 → PASS
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "cat_x": 8,
     "cat_y": 8,
@@ -356,7 +356,7 @@ echo ""
 
 # 2 categories: one at 10, one at 7 → equal avg = 8.5 → PASS (both >= 7)
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "alpha": 10,
     "beta": 7
@@ -371,7 +371,7 @@ echo ""
 
 # 2 categories: one at 10, one at 5 → equal avg = 7.5 → but 5 < 7 → FAIL
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "alpha": 10,
     "beta": 5
@@ -391,7 +391,7 @@ echo "--- GROUP 8: Auto-fail with default key (consistency) ---"
 
 # consistency <= 3 → AUTO-FAIL regardless of other scores
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "correctness": 10,
     "quality": 10,
@@ -411,7 +411,7 @@ echo ""
 
 # consistency = 2 → AUTO-FAIL
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "correctness": 10,
     "quality": 10,
@@ -429,7 +429,7 @@ echo ""
 
 # consistency = 4 → NOT auto-fail (but still below 7, so FAIL for min check)
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "correctness": 10,
     "quality": 10,
@@ -449,7 +449,7 @@ echo ""
 
 # consistency = 8 → no auto-fail, passes fine
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "correctness": 8,
     "quality": 8,
@@ -472,7 +472,7 @@ echo "--- GROUP 9: Custom AUTO_FAIL_KEY ---"
 
 # Custom auto-fail key: "reliability" at <=3 → AUTO-FAIL
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "correctness": 10,
     "reliability": 3,
@@ -491,7 +491,7 @@ echo ""
 # Custom auto-fail key: consistency is no longer the auto-fail key
 # So consistency=2 does NOT trigger auto-fail (but still fails min check)
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "correctness": 10,
     "consistency": 2,
@@ -509,7 +509,7 @@ echo ""
 
 # Non-existent auto-fail key → no auto-fail triggered at all
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "correctness": 8,
     "quality": 8,
@@ -530,7 +530,7 @@ echo "--- GROUP 10: Pass/fail edge cases ---"
 
 # All scores exactly 7.5 → avg=7.5, all>=7 → PASS
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "cat_a": 7.5,
     "cat_b": 7.5,
@@ -546,7 +546,7 @@ echo ""
 
 # One category at exactly 7, rest at 8 → avg=7.75, all>=7 → PASS
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "cat_a": 8,
     "cat_b": 7,
@@ -563,7 +563,7 @@ echo ""
 
 # One category at 6.9 → below individual minimum → FAIL
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "cat_a": 9,
     "cat_b": 6.9,
@@ -581,7 +581,7 @@ echo ""
 # 3 categories: 7, 7, 7.47 → avg ≈ 7.157 → FAIL
 # Better: 2 categories: 7, 7.98 → avg = 7.49 → FAIL
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "cat_a": 7,
     "cat_b": 7.98
@@ -596,7 +596,7 @@ echo ""
 
 # All perfect 10s → PASS
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "correctness": 10,
     "quality": 10,
@@ -619,7 +619,7 @@ echo "--- GROUP 11: Backward compatibility with old flat format ---"
 
 # The old hardcoded categories in flat format should still work
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "correctness": 9,
     "code_quality": 8,
@@ -639,7 +639,7 @@ echo ""
 # NOTE: In the NEW system, auto-fail key defaults to "consistency", not "security"
 # So old-style "security" at 2 should NOT trigger auto-fail (but fails min check)
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "correctness": 9,
     "code_quality": 8,
@@ -752,12 +752,12 @@ fi
 echo ""
 
 # ==========================================================================
-# GROUP 16: STEP 8 also uses dynamic evaluation
+# GROUP 16: SHIP also uses dynamic evaluation
 # ==========================================================================
-echo "--- GROUP 16: STEP 8 uses same dynamic evaluation ---"
+echo "--- GROUP 16: SHIP uses same dynamic evaluation ---"
 
 setup_test_dir
-setup_eval_fixture 8 '{
+setup_eval_fixture "SHIP" '{
   "scores": {
     "custom_a": { "score": 9, "reason": "Good" },
     "custom_b": { "score": 8, "reason": "Fine" }
@@ -765,13 +765,13 @@ setup_eval_fixture 8 '{
 }'
 exit_code=$(run_hook)
 assert_exit_code 0 "$exit_code" \
-  "T40: STEP 8 with custom categories → PASS"
+  "T40: SHIP with custom categories → PASS"
 cleanup_test_dir
 
 echo ""
 
 setup_test_dir
-setup_eval_fixture 8 '{
+setup_eval_fixture "SHIP" '{
   "scores": {
     "custom_a": { "score": 9, "reason": "Good" },
     "custom_b": { "score": 5, "reason": "Poor" }
@@ -779,7 +779,7 @@ setup_eval_fixture 8 '{
 }'
 exit_code=$(run_hook)
 assert_exit_code 1 "$exit_code" \
-  "T41: STEP 8 with one low custom category → FAIL"
+  "T41: SHIP with one low custom category → FAIL"
 cleanup_test_dir
 
 echo ""
@@ -791,7 +791,7 @@ echo "--- GROUP 17: extract_score handles structured format ---"
 
 # Structured format with "score" key nested inside an object
 setup_test_dir
-setup_eval_fixture 6 '{
+setup_eval_fixture "GATE:QUALITY" '{
   "scores": {
     "correctness": { "score": 5, "reason": "Incomplete implementation" },
     "quality": { "score": 5, "reason": "Messy" },

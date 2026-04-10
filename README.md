@@ -2,7 +2,7 @@
 
 A reusable template for structured, evaluation-gated AI-assisted software development with [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
-Auto-Flow is a **10-step development lifecycle** that ensures quality through multi-agent role separation, independent analysis, and quantified evaluation gates. This template lets you adopt the methodology in any project.
+Auto-Flow is a **14-phase development lifecycle** that ensures quality through multi-agent role separation, independent analysis, and quantified evaluation gates. This template lets you adopt the methodology in any project.
 
 ---
 
@@ -11,19 +11,20 @@ Auto-Flow is a **10-step development lifecycle** that ensures quality through mu
 Auto-Flow structures every code change through a defined lifecycle:
 
 ```
-STEP 0  Pre-Work                — Git clean check, branch creation
-STEP 1  3-Phase Analysis        — Independent bias-free analysis
-STEP 2  Plan Synthesis          — Merge analyses into a plan
-STEP 3  Plan Evaluation          — Scored plan assessment (gate)
-STEP 4  Task Assignment          — Delegate to Test AI and Developer AI
-STEP 5a Test Writing             — Tests from acceptance criteria (Red)
-STEP 5b Implementation           — Minimum code to pass tests
-STEP 5c Green Verification       — All tests pass + minimal check
-STEP 5d Refactor                 — Code cleanup, Green re-confirmation
-STEP 6  Evaluation              — Scored quality assessment (gate)
-STEP 7  Revision (if needed)    — Fix evaluation feedback
-STEP 8  PR & Review             — Submit for human review
-STEP 9  Merge & Close           — Human approves and merges
+PREFLIGHT    Pre-Work                — Git clean check, branch creation
+DIAGNOSE     3-Phase Analysis        — Independent bias-free analysis
+GATE:HYPOTHESIS  Hypothesis Gate     — Scored hypothesis assessment (gate, bug issues only)
+ARCHITECT    Plan Synthesis          — Merge analyses into a plan
+GATE:PLAN    Plan Evaluation         — Scored plan assessment (gate)
+DISPATCH     Task Assignment         — Delegate to Test AI and Developer AI
+RED          Test Writing            — Tests from acceptance criteria (Red)
+GREEN        Implementation          — Minimum code to pass tests
+VERIFY       Green Verification      — All tests pass + minimal check
+REFINE       Refactor                — Code cleanup, Green re-confirmation
+GATE:QUALITY Evaluation             — Scored quality assessment (gate)
+REVISION     Revision (if needed)   — Fix evaluation feedback
+SHIP         PR & Review             — Submit for human review
+LAND         Merge & Close           — Human approves and merges
 ```
 
 ### Key Features
@@ -118,7 +119,7 @@ Different AI agents handle different responsibilities:
 
 ### 3. Evaluation Gate
 
-At STEP 6, an independent Evaluation AI scores the work across 5 categories:
+At GATE:QUALITY, an independent Evaluation AI scores the work across 5 categories:
 
 | Category | Weight |
 |----------|--------|

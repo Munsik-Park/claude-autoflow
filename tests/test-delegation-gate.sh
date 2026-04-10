@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Test Suite: Delegation Gate for STEP 4 (Issue #16)
+# Test Suite: Delegation Gate for DISPATCH (Issue #16)
 # Validates that delegation.md is enforced as a mandatory artifact
-# before STEP 5a can begin, across documentation and hook logic.
+# before RED can begin, across documentation and hook logic.
 
 set -euo pipefail
 
@@ -38,29 +38,29 @@ CLAUDE_MD="CLAUDE.md"
 GUIDE="docs/autoflow-guide.md"
 HOOK=".claude/hooks/check-autoflow-gate.sh"
 
-echo "=== Test Suite: Delegation Gate for STEP 4 (Issue #16) ==="
+echo "=== Test Suite: Delegation Gate for DISPATCH (Issue #16) ==="
 echo ""
 
 # ==========================================================================
-# AC1: CLAUDE.md.template STEP 4 section mentions delegation.md as mandatory
+# AC1: CLAUDE.md.template DISPATCH section mentions delegation.md as mandatory
 # ==========================================================================
-echo "--- AC1: STEP 4 mentions delegation.md as mandatory ---"
+echo "--- AC1: DISPATCH mentions delegation.md as mandatory ---"
 
 assert_contains "$TEMPLATE" "delegation\.md" \
-  "T1: CLAUDE.md.template STEP 4 section references delegation.md"
+  "T1: CLAUDE.md.template DISPATCH section references delegation.md"
 
 assert_contains "$TEMPLATE" "delegation\.md.*mandatory\|[MUST].*delegation\.md\|\[MUST\].*delegation" \
-  "T2: CLAUDE.md.template marks delegation.md as mandatory in STEP 4"
+  "T2: CLAUDE.md.template marks delegation.md as mandatory in DISPATCH"
 
 echo ""
 
 # ==========================================================================
-# AC2: CLAUDE.md.template STEP 5a mentions delegation.md as entry precondition
+# AC2: CLAUDE.md.template RED mentions delegation.md as entry precondition
 # ==========================================================================
-echo "--- AC2: STEP 5a mentions delegation.md as precondition ---"
+echo "--- AC2: RED mentions delegation.md as precondition ---"
 
 assert_contains "$TEMPLATE" "delegation\.md.*precondition\|delegation\.md.*before\|delegation\.md.*exists\|delegation\.md.*entry" \
-  "T3: CLAUDE.md.template STEP 5a references delegation.md as entry requirement"
+  "T3: CLAUDE.md.template RED references delegation.md as entry requirement"
 
 echo ""
 
@@ -83,12 +83,12 @@ assert_contains "$TEMPLATE" "Developer AI Instructions\|dev-ai.*instructions\|De
 echo ""
 
 # ==========================================================================
-# AC4: Flow Control Table includes delegation.md in STEP 4 condition
+# AC4: Flow Control Table includes delegation.md in DISPATCH condition
 # ==========================================================================
 echo "--- AC4: Flow Control Table updated ---"
 
-assert_contains "$TEMPLATE" "STEP 4.*delegation\.md\|delegation\.md.*STEP 4" \
-  "T7: Flow Control table mentions delegation.md for STEP 4"
+assert_contains "$TEMPLATE" "DISPATCH.*delegation\.md\|delegation\.md.*DISPATCH" \
+  "T7: Flow Control table mentions delegation.md for DISPATCH"
 
 echo ""
 
@@ -129,48 +129,48 @@ trap 'rm -rf "$TEST_DIR"' EXIT
 
 # Set up mock autoflow-state directory
 setup_mock_state() {
-  local step="$1"
+  local phase="$1"
   local issue="99"
   mkdir -p "${TEST_DIR}/.autoflow-state/${issue}"
   echo "$issue" > "${TEST_DIR}/.autoflow-state/current-issue"
-  echo "$step" > "${TEST_DIR}/.autoflow-state/${issue}/step"
+  echo "$phase" > "${TEST_DIR}/.autoflow-state/${issue}/phase"
 }
 
-# AC7: Hook validates delegation.md existence at STEP >= 5
+# AC7: Hook validates delegation.md existence at RED phase and beyond
 echo ""
-echo "  --- AC7: Hook checks delegation.md at STEP >= 5 ---"
+echo "  --- AC7: Hook checks delegation.md at RED phase and beyond ---"
 
-setup_mock_state 5
-CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$HOOK" > "${TEST_DIR}/output-step5.txt" 2>&1 || true
-if grep -qi "delegation" "${TEST_DIR}/output-step5.txt" 2>/dev/null; then
+setup_mock_state RED
+CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$HOOK" > "${TEST_DIR}/output-phase-red.txt" 2>&1 || true
+if grep -qi "delegation" "${TEST_DIR}/output-phase-red.txt" 2>/dev/null; then
   PASS=$((PASS + 1))
-  echo "  PASS: T12: Hook mentions delegation.md when checking STEP 5"
+  echo "  PASS: T12: Hook mentions delegation.md when checking RED phase"
 else
   FAIL=$((FAIL + 1))
-  ERRORS+=("FAIL: T12: Hook does not mention delegation.md at STEP 5")
-  echo "  FAIL: T12: Hook mentions delegation.md when checking STEP 5"
+  ERRORS+=("FAIL: T12: Hook does not mention delegation.md at RED phase")
+  echo "  FAIL: T12: Hook mentions delegation.md when checking RED phase"
 fi
 
-# AC8: Hook exits 1 with clear error when delegation.md missing at STEP >= 5
+# AC8: Hook exits 1 with clear error when delegation.md missing at RED phase
 echo ""
 echo "  --- AC8: Hook exits 1 when delegation.md missing ---"
 
-setup_mock_state 5
+setup_mock_state RED
 # Ensure no delegation.md exists
 rm -f "${TEST_DIR}/.autoflow-state/99/delegation.md"
 hook_exit=0
 CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$HOOK" > "${TEST_DIR}/output-missing.txt" 2>&1 || hook_exit=$?
 if [ "$hook_exit" -eq 1 ]; then
   PASS=$((PASS + 1))
-  echo "  PASS: T13: Hook exits 1 when delegation.md is missing at STEP 5"
+  echo "  PASS: T13: Hook exits 1 when delegation.md is missing at RED phase"
 else
   FAIL=$((FAIL + 1))
-  ERRORS+=("FAIL: T13: Hook exits 0 (should exit 1) when delegation.md is missing at STEP 5 (got exit $hook_exit)")
-  echo "  FAIL: T13: Hook exits 1 when delegation.md is missing at STEP 5"
+  ERRORS+=("FAIL: T13: Hook exits 0 (should exit 1) when delegation.md is missing at RED phase (got exit $hook_exit)")
+  echo "  FAIL: T13: Hook exits 1 when delegation.md is missing at RED phase"
 fi
 
-# Also test STEP 6 (should also require delegation.md)
-setup_mock_state 6
+# Also test GATE:QUALITY (should also require delegation.md)
+setup_mock_state "GATE:QUALITY"
 rm -f "${TEST_DIR}/.autoflow-state/99/delegation.md"
 # Create a passing evaluation.json so the eval gate doesn't mask the delegation check
 mkdir -p "${TEST_DIR}/.autoflow-state/99"
@@ -186,40 +186,40 @@ cat > "${TEST_DIR}/.autoflow-state/99/evaluation.json" <<'EJSON'
 }
 EJSON
 hook_exit_6=0
-CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$HOOK" > "${TEST_DIR}/output-step6-nodelegation.txt" 2>&1 || hook_exit_6=$?
-if grep -qi "delegation" "${TEST_DIR}/output-step6-nodelegation.txt" 2>/dev/null; then
+CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$HOOK" > "${TEST_DIR}/output-phase-gate-quality-nodelegation.txt" 2>&1 || hook_exit_6=$?
+if grep -qi "delegation" "${TEST_DIR}/output-phase-gate-quality-nodelegation.txt" 2>/dev/null; then
   PASS=$((PASS + 1))
-  echo "  PASS: T14: Hook checks delegation.md at STEP 6"
+  echo "  PASS: T14: Hook checks delegation.md at GATE:QUALITY"
 else
   FAIL=$((FAIL + 1))
-  ERRORS+=("FAIL: T14: Hook does not check delegation.md at STEP 6")
-  echo "  FAIL: T14: Hook checks delegation.md at STEP 6"
+  ERRORS+=("FAIL: T14: Hook does not check delegation.md at GATE:QUALITY")
+  echo "  FAIL: T14: Hook checks delegation.md at GATE:QUALITY"
 fi
 
-# AC9: STEP 0-4 commits still work without delegation.md (no regression)
+# AC9: PREFLIGHT/DIAGNOSE/ARCHITECT/GATE:PLAN/DISPATCH commits still work without delegation.md (no regression)
 echo ""
-echo "  --- AC9: No regression for STEP 0-4 ---"
+echo "  --- AC9: No regression for pre-RED phases ---"
 
-for s in 0 1 2 3 4; do
+for s in PREFLIGHT DIAGNOSE ARCHITECT "GATE:PLAN" DISPATCH; do
   setup_mock_state "$s"
   rm -f "${TEST_DIR}/.autoflow-state/99/delegation.md"
-  step_exit=0
-  CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$HOOK" > "${TEST_DIR}/output-step${s}.txt" 2>&1 || step_exit=$?
-  if [ "$step_exit" -eq 0 ]; then
+  phase_exit=0
+  CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$HOOK" > "${TEST_DIR}/output-phase-${s}.txt" 2>&1 || phase_exit=$?
+  if [ "$phase_exit" -eq 0 ]; then
     PASS=$((PASS + 1))
-    echo "  PASS: T15-${s}: Hook passes at STEP ${s} without delegation.md"
+    echo "  PASS: T15-${s}: Hook passes at ${s} without delegation.md"
   else
     FAIL=$((FAIL + 1))
-    ERRORS+=("FAIL: T15-${s}: Hook fails at STEP ${s} without delegation.md (exit $step_exit)")
-    echo "  FAIL: T15-${s}: Hook passes at STEP ${s} without delegation.md"
+    ERRORS+=("FAIL: T15-${s}: Hook fails at ${s} without delegation.md (exit $phase_exit)")
+    echo "  FAIL: T15-${s}: Hook passes at ${s} without delegation.md"
   fi
 done
 
-# Bonus: Hook passes at STEP 5 when delegation.md EXISTS
+# Bonus: Hook passes at RED when delegation.md EXISTS
 echo ""
 echo "  --- Bonus: Hook passes when delegation.md is present ---"
 
-setup_mock_state 5
+setup_mock_state RED
 cat > "${TEST_DIR}/.autoflow-state/99/delegation.md" <<'DELEG'
 ## Team
 issue-16-team
@@ -231,14 +231,14 @@ Write tests for acceptance criteria.
 Implement minimum code to pass tests.
 DELEG
 hook_exit_with=0
-CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$HOOK" > "${TEST_DIR}/output-step5-with.txt" 2>&1 || hook_exit_with=$?
+CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$HOOK" > "${TEST_DIR}/output-phase-red-with.txt" 2>&1 || hook_exit_with=$?
 if [ "$hook_exit_with" -eq 0 ]; then
   PASS=$((PASS + 1))
-  echo "  PASS: T16: Hook passes at STEP 5 when delegation.md exists"
+  echo "  PASS: T16: Hook passes at RED when delegation.md exists"
 else
   FAIL=$((FAIL + 1))
-  ERRORS+=("FAIL: T16: Hook passes at STEP 5 when delegation.md exists (got exit $hook_exit_with)")
-  echo "  FAIL: T16: Hook passes at STEP 5 when delegation.md exists"
+  ERRORS+=("FAIL: T16: Hook passes at RED when delegation.md exists (got exit $hook_exit_with)")
+  echo "  FAIL: T16: Hook passes at RED when delegation.md exists"
 fi
 
 echo ""
@@ -251,13 +251,13 @@ echo "--- AC10: CLAUDE.md synced with template ---"
 assert_contains "$CLAUDE_MD" "delegation\.md" \
   "T17: CLAUDE.md references delegation.md"
 
-# CLAUDE.md STEP 4 should mention delegation.md
-assert_contains "$CLAUDE_MD" "STEP 4.*delegation\|delegation.*STEP 4\|## STEP 4" \
-  "T18: CLAUDE.md STEP 4 section exists (baseline)"
+# CLAUDE.md DISPATCH should mention delegation.md
+assert_contains "$CLAUDE_MD" "DISPATCH.*delegation\|delegation.*DISPATCH\|## DISPATCH" \
+  "T18: CLAUDE.md DISPATCH section exists (baseline)"
 
 # Check that CLAUDE.md Flow Control also reflects delegation.md
-assert_contains "$CLAUDE_MD" "delegation\.md.*STEP 4\|STEP 4.*delegation" \
-  "T19: CLAUDE.md Flow Control references delegation.md for STEP 4"
+assert_contains "$CLAUDE_MD" "delegation\.md.*DISPATCH\|DISPATCH.*delegation" \
+  "T19: CLAUDE.md Flow Control references delegation.md for DISPATCH"
 
 echo ""
 

@@ -26,20 +26,20 @@ echo "===== Issue #18 Sync Tests ====="
 echo ""
 
 # --------------------------------------------------------------------------
-# AC1: CLAUDE.md.template STEP 5d has [MUST] marker for 5d-2 mandatory re-run
+# AC1: CLAUDE.md.template REFINE has [MUST] marker for mandatory re-run
 #      AND "DO NOT SKIP" text
 # --------------------------------------------------------------------------
-check "AC1: template STEP 5d has [MUST] marker for mandatory re-run" \
-  "grep -q '\[MUST\]' '$CLAUDE_TEMPLATE' && grep -A5 '5d-2' '$CLAUDE_TEMPLATE' | grep -q '\[MUST\]'"
+check "AC1: template REFINE has [MUST] marker for mandatory re-run" \
+  "grep -q '\[MUST\]' '$CLAUDE_TEMPLATE' && grep -A5 'REFINE-2\|refine-2' '$CLAUDE_TEMPLATE' | grep -q '\[MUST\]'"
 
-check "AC1b: template STEP 5d has DO NOT SKIP text" \
+check "AC1b: template REFINE has DO NOT SKIP text" \
   "grep -q 'DO NOT SKIP' '$CLAUDE_TEMPLATE'"
 
 # --------------------------------------------------------------------------
-# AC2: CLAUDE.md.template STEP 5d has no-refactoring path
+# AC2: CLAUDE.md.template REFINE has no-refactoring path
 #      (e.g., "No -> document reason" or "no refactoring needed")
 # --------------------------------------------------------------------------
-check "AC2: template STEP 5d has no-refactoring path" \
+check "AC2: template REFINE has no-refactoring path" \
   "grep -i -q 'no.*document reason\|no refactoring needed\|No.*→.*document\|Refactoring needed' '$CLAUDE_TEMPLATE'"
 
 # --------------------------------------------------------------------------
@@ -68,20 +68,20 @@ check "AC4c: template Eval AI Prompt Rules has >= 1 DENY rule" \
   "grep -A10 'Evaluation AI Prompt Rules' '$CLAUDE_TEMPLATE' | grep -q '\[DENY\]'"
 
 # --------------------------------------------------------------------------
-# AC5: CLAUDE.md.template Flow Control AUTO-FAIL line routes to STEP 4
+# AC5: CLAUDE.md.template Flow Control AUTO-FAIL line routes to DISPATCH
 # --------------------------------------------------------------------------
-check "AC5: template AUTO-FAIL routes to STEP 4 (not STEP 3)" \
-  "grep -i 'auto-fail\|AUTO-FAIL' '$CLAUDE_TEMPLATE' | grep -q 'STEP 4'"
+check "AC5: template AUTO-FAIL routes to DISPATCH (not GATE:PLAN)" \
+  "grep -i 'auto-fail\|AUTO-FAIL' '$CLAUDE_TEMPLATE' | grep -q 'DISPATCH'"
 
 # --------------------------------------------------------------------------
-# AC6: docs/autoflow-guide.md STEP 5d has [MUST] marker for mandatory re-run
+# AC6: docs/autoflow-guide.md REFINE has [MUST] marker for mandatory re-run
 #      AND "no refactoring" path language
 # --------------------------------------------------------------------------
-check "AC6a: autoflow-guide STEP 5d has [MUST] marker" \
-  "awk '/^## STEP 5d/,/^---$/{print}' '$AUTOFLOW_GUIDE' | grep -q '\[MUST\]'"
+check "AC6a: autoflow-guide REFINE has [MUST] marker" \
+  "awk '/^## REFINE/,/^---$/{print}' '$AUTOFLOW_GUIDE' | grep -q '\[MUST\]'"
 
-check "AC6b: autoflow-guide STEP 5d has no-refactoring path" \
-  "awk '/^## STEP 5d/,/^---$/{print}' '$AUTOFLOW_GUIDE' | grep -qi 'no.*refactor\|Refactoring needed'"
+check "AC6b: autoflow-guide REFINE has no-refactoring path" \
+  "awk '/^## REFINE/,/^---$/{print}' '$AUTOFLOW_GUIDE' | grep -qi 'no.*refactor\|Refactoring needed'"
 
 # --------------------------------------------------------------------------
 # AC7: docs/autoflow-guide.md has orchestrator boundaries section
@@ -90,14 +90,14 @@ check "AC7: autoflow-guide has Orchestrator Boundaries section" \
   "grep -q 'Orchestrator Boundaries' '$AUTOFLOW_GUIDE'"
 
 # --------------------------------------------------------------------------
-# AC8: docs/autoflow-guide.md AUTO-FAIL routes to STEP 4 in STEP 6 section
+# AC8: docs/autoflow-guide.md AUTO-FAIL routes to DISPATCH in GATE:QUALITY section
 #      AND in Regression Rules table
 # --------------------------------------------------------------------------
-check "AC8a: autoflow-guide STEP 6 AUTO-FAIL routes to STEP 4" \
-  "awk '/## STEP 6/,/## STEP 7/{print}' '$AUTOFLOW_GUIDE' | grep -i 'auto-fail\|security.*<=.*3' | grep -q 'STEP 4'"
+check "AC8a: autoflow-guide GATE:QUALITY AUTO-FAIL routes to DISPATCH" \
+  "awk '/## GATE:QUALITY/,/## REVISION/{print}' '$AUTOFLOW_GUIDE' | grep -i 'auto-fail\|security.*<=.*3' | grep -q 'DISPATCH'"
 
-check "AC8b: autoflow-guide Regression Rules AUTO-FAIL routes to STEP 4" \
-  "awk '/^## Regression Rules/,/^---$/{print}' '$AUTOFLOW_GUIDE' | grep -i 'security.*<=.*3' | grep -q 'STEP 4'"
+check "AC8b: autoflow-guide Regression Rules AUTO-FAIL routes to DISPATCH" \
+  "awk '/^## Regression Rules/,/^---$/{print}' '$AUTOFLOW_GUIDE' | grep -i 'security.*<=.*3' | grep -q 'DISPATCH'"
 
 # --------------------------------------------------------------------------
 # AC9: docs/autoflow-guide.md has Evaluation AI Prompt Rules
@@ -117,10 +117,10 @@ check "AC10b: autoflow-guide evaluation categories use Security (not Consistency
   "awk '/Scoring Categories/,/### PASS/{print}' '$AUTOFLOW_GUIDE' | grep -q 'Security'"
 
 # --------------------------------------------------------------------------
-# AC11: docs/evaluation-system.md AUTO-FAIL routes to STEP 4
+# AC11: docs/evaluation-system.md AUTO-FAIL routes to DISPATCH
 # --------------------------------------------------------------------------
-check "AC11: evaluation-system.md AUTO-FAIL routes to STEP 4 (not STEP 3)" \
-  "grep -i 'auto-fail\|Security.*<=.*3' '$EVAL_SYSTEM' | grep -q 'STEP 4'"
+check "AC11: evaluation-system.md AUTO-FAIL routes to DISPATCH (not GATE:PLAN)" \
+  "grep -i 'auto-fail\|Security.*<=.*3' '$EVAL_SYSTEM' | grep -q 'DISPATCH'"
 
 # --------------------------------------------------------------------------
 # Summary

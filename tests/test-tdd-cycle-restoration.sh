@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Test: TDD Cycle Restoration (Issue #4)
-# Verifies STEP 5a/5b/5c/5d sub-steps are present in template files.
+# Verifies RED/GREEN/VERIFY/REFINE sub-steps are present in template files.
 # All tests should FAIL (Red) before implementation.
 
 set -euo pipefail
@@ -25,94 +25,94 @@ fail() {
   FAIL_COUNT=$((FAIL_COUNT + 1))
 }
 
-# ---------- AC 1: Lifecycle table STEP 3 = "Plan Evaluation" ----------
+# ---------- AC 1: Lifecycle table GATE:PLAN = "Plan Evaluation" ----------
 test_ac1_step3_plan_evaluation() {
-  echo "AC1: CLAUDE.md.template lifecycle table shows STEP 3 as Plan Evaluation"
-  # Look for a table row with STEP 3 and "Plan Evaluation" (not "Implementation")
-  if grep -E '^\| *3 .*Plan Evaluation' "$TEMPLATE" >/dev/null 2>&1; then
-    pass "STEP 3 is Plan Evaluation"
+  echo "AC1: CLAUDE.md.template lifecycle table shows GATE:PLAN as Plan Evaluation"
+  # Look for a table row with GATE:PLAN and "Plan Evaluation" (not "Implementation")
+  if grep -E '^\| *GATE:PLAN .*Plan Evaluation' "$TEMPLATE" >/dev/null 2>&1; then
+    pass "GATE:PLAN is Plan Evaluation"
   else
-    fail "STEP 3 is not Plan Evaluation in lifecycle table"
+    fail "GATE:PLAN is not Plan Evaluation in lifecycle table"
   fi
 }
 
-# ---------- AC 2: Lifecycle table STEP 4 = "Task Assignment" ----------
+# ---------- AC 2: Lifecycle table DISPATCH = "Task Assignment" ----------
 test_ac2_step4_task_assignment() {
-  echo "AC2: CLAUDE.md.template lifecycle table shows STEP 4 as Task Assignment"
-  if grep -E '^\| *4 .*Task Assignment' "$TEMPLATE" >/dev/null 2>&1; then
-    pass "STEP 4 is Task Assignment"
+  echo "AC2: CLAUDE.md.template lifecycle table shows DISPATCH as Task Assignment"
+  if grep -E '^\| *DISPATCH .*Task Assignment' "$TEMPLATE" >/dev/null 2>&1; then
+    pass "DISPATCH is Task Assignment"
   else
-    fail "STEP 4 is not Task Assignment in lifecycle table"
+    fail "DISPATCH is not Task Assignment in lifecycle table"
   fi
 }
 
-# ---------- AC 3: Template contains STEP 5a, 5b, 5c, 5d references ----------
+# ---------- AC 3: Template contains RED, GREEN, VERIFY, REFINE references ----------
 test_ac3_step5_substeps() {
-  echo "AC3: CLAUDE.md.template contains STEP 5a, 5b, 5c, 5d references"
+  echo "AC3: CLAUDE.md.template contains RED, GREEN, VERIFY, REFINE references"
   local all_found=true
-  for sub in 5a 5b 5c 5d; do
-    if ! grep -q "STEP $sub" "$TEMPLATE" 2>/dev/null; then
+  for phase in RED GREEN VERIFY REFINE; do
+    if ! grep -q "$phase" "$TEMPLATE" 2>/dev/null; then
       all_found=false
       break
     fi
   done
   if $all_found; then
-    pass "All STEP 5a/5b/5c/5d references found"
+    pass "All RED/GREEN/VERIFY/REFINE references found"
   else
-    fail "Missing one or more STEP 5a/5b/5c/5d references"
+    fail "Missing one or more RED/GREEN/VERIFY/REFINE references"
   fi
 }
 
-# ---------- AC 4: Flow Control Table includes 5a->5b->5c->5d transitions ----------
+# ---------- AC 4: Flow Control Table includes RED->GREEN->VERIFY->REFINE transitions ----------
 test_ac4_flow_control_transitions() {
-  echo "AC4: Flow Control Table in CLAUDE.md.template includes 5a->5b->5c->5d transitions"
-  # Check for flow control rows mentioning 5a, 5b, 5c, 5d
+  echo "AC4: Flow Control Table in CLAUDE.md.template includes RED->GREEN->VERIFY->REFINE transitions"
+  # Check for flow control rows mentioning RED, GREEN, VERIFY, REFINE
   local count
-  count=$(grep -cE '^\|.*STEP 5[abcd]' "$TEMPLATE" 2>/dev/null || true)
+  count=$(grep -cE '^\|.*(RED|GREEN|VERIFY|REFINE)' "$TEMPLATE" 2>/dev/null || true)
   count=${count:-0}
   # Ensure count is a single number
   count=$(echo "$count" | tail -1)
   if [ "$count" -ge 4 ]; then
-    pass "Flow control table has 5a/5b/5c/5d transitions"
+    pass "Flow control table has RED/GREEN/VERIFY/REFINE transitions"
   else
-    fail "Flow control table missing 5a/5b/5c/5d transitions (found $count rows)"
+    fail "Flow control table missing RED/GREEN/VERIFY/REFINE transitions (found $count rows)"
   fi
 }
 
-# ---------- AC 5: STEP 5a requires Red confirmation ----------
+# ---------- AC 5: RED phase requires Red confirmation ----------
 test_ac5_red_confirmation() {
-  echo "AC5: STEP 5a section requires Red confirmation (tests must FAIL)"
+  echo "AC5: RED section requires Red confirmation (tests must FAIL)"
   if grep -qi 'red.*confirm\|must.*fail\|all.*fail' "$TEMPLATE" 2>/dev/null &&
-     grep -q '5a' "$TEMPLATE" 2>/dev/null; then
-    # More specific: check that Red confirmation appears in context of 5a
-    # Extract section around 5a and check for Red/FAIL
-    if sed -n '/STEP 5a/,/STEP 5[bcd]/p' "$TEMPLATE" 2>/dev/null | grep -qiE 'red|must.*fail|all.*fail'; then
-      pass "STEP 5a requires Red confirmation"
+     grep -q 'RED' "$TEMPLATE" 2>/dev/null; then
+    # More specific: check that Red confirmation appears in context of RED
+    # Extract section around RED and check for Red/FAIL
+    if sed -n '/^###* RED/,/^###* GREEN/p' "$TEMPLATE" 2>/dev/null | grep -qiE 'red|must.*fail|all.*fail'; then
+      pass "RED phase requires Red confirmation"
     else
-      fail "STEP 5a does not mention Red confirmation"
+      fail "RED phase does not mention Red confirmation"
     fi
   else
-    fail "STEP 5a section with Red confirmation not found"
+    fail "RED section with Red confirmation not found"
   fi
 }
 
-# ---------- AC 6: STEP 5b states minimum implementation principle ----------
+# ---------- AC 6: GREEN phase states minimum implementation principle ----------
 test_ac6_minimum_implementation() {
-  echo "AC6: STEP 5b states minimum implementation principle"
-  if sed -n '/STEP 5b/,/STEP 5[cd]/p' "$TEMPLATE" 2>/dev/null | grep -qiE 'minimum.*code|minimum.*implementation|not.*implement.*beyond.*test|do not implement.*not covered'; then
-    pass "STEP 5b states minimum implementation principle"
+  echo "AC6: GREEN section states minimum implementation principle"
+  if sed -n '/^###* GREEN/,/^###* VERIFY/p' "$TEMPLATE" 2>/dev/null | grep -qiE 'minimum.*code|minimum.*implementation|not.*implement.*beyond.*test|do not implement.*not covered'; then
+    pass "GREEN phase states minimum implementation principle"
   else
-    fail "STEP 5b minimum implementation principle not found"
+    fail "GREEN phase minimum implementation principle not found"
   fi
 }
 
-# ---------- AC 7: STEP 5c includes 4 failure paths ----------
+# ---------- AC 7: VERIFY phase includes 4 failure paths ----------
 test_ac7_four_failure_paths() {
-  echo "AC7: STEP 5c includes 4 failure paths (test issue, impl issue, both, deadlock)"
+  echo "AC7: VERIFY section includes 4 failure paths (test issue, impl issue, both, deadlock)"
   local section
-  section=$(sed -n '/STEP 5c/,/STEP 5d/p' "$TEMPLATE" 2>/dev/null)
+  section=$(sed -n '/^###* VERIFY/,/^###* REFINE/p' "$TEMPLATE" 2>/dev/null)
   if [ -z "$section" ]; then
-    fail "STEP 5c section not found"
+    fail "VERIFY section not found"
     return
   fi
   local paths_found=0
@@ -121,9 +121,9 @@ test_ac7_four_failure_paths() {
   echo "$section" | grep -qiE 'both' && paths_found=$((paths_found + 1))
   echo "$section" | grep -qiE 'deadlock' && paths_found=$((paths_found + 1))
   if [ "$paths_found" -ge 4 ]; then
-    pass "All 4 failure paths found in STEP 5c"
+    pass "All 4 failure paths found in VERIFY phase"
   else
-    fail "Only $paths_found of 4 failure paths found in STEP 5c"
+    fail "Only $paths_found of 4 failure paths found in VERIFY phase"
   fi
 }
 
@@ -131,9 +131,9 @@ test_ac7_four_failure_paths() {
 test_ac8_deadlock_fresh_eval() {
   echo "AC8: Deadlock path mentions fresh Evaluation AI"
   local section
-  section=$(sed -n '/STEP 5c/,/STEP 5d/p' "$TEMPLATE" 2>/dev/null)
+  section=$(sed -n '/^###* VERIFY/,/^###* REFINE/p' "$TEMPLATE" 2>/dev/null)
   if [ -z "$section" ]; then
-    fail "STEP 5c section not found for deadlock check"
+    fail "VERIFY section not found for deadlock check"
     return
   fi
   if echo "$section" | grep -qiE 'deadlock.*evaluation.*ai|evaluation.*ai.*arbitrat'; then
@@ -143,23 +143,23 @@ test_ac8_deadlock_fresh_eval() {
   fi
 }
 
-# ---------- AC 9: 5b<->5c round-trip limit: max 3 cycles ----------
+# ---------- AC 9: GREEN<->VERIFY round-trip limit: max 3 cycles ----------
 test_ac9_roundtrip_limit() {
-  echo "AC9: 5b<->5c round-trip limit: max 3 cycles documented"
-  if grep -qE '5b.*5c.*3|max.*3.*cycle|3.*round.?trip' "$TEMPLATE" 2>/dev/null; then
-    pass "5b<->5c max 3 cycle limit documented"
+  echo "AC9: GREEN<->VERIFY round-trip limit: max 3 cycles documented"
+  if grep -qE 'GREEN.*VERIFY.*3|VERIFY.*GREEN.*3|max.*3.*cycle|3.*round.?trip' "$TEMPLATE" 2>/dev/null; then
+    pass "GREEN<->VERIFY max 3 cycle limit documented"
   else
-    fail "5b<->5c max 3 cycle limit not found"
+    fail "GREEN<->VERIFY max 3 cycle limit not found"
   fi
 }
 
-# ---------- AC 10: STEP 5d includes refactor + Green re-confirmation + max 2 ----------
+# ---------- AC 10: REFINE phase includes refactor + Green re-confirmation + max 2 ----------
 test_ac10_refactor_green() {
-  echo "AC10: STEP 5d includes refactor with Green re-confirmation, max 2 attempts"
+  echo "AC10: REFINE section includes refactor with Green re-confirmation, max 2 attempts"
   local section
-  section=$(sed -n '/STEP 5d/,/STEP [67]/p' "$TEMPLATE" 2>/dev/null)
+  section=$(sed -n '/^###* REFINE/,/^###* GATE:QUALITY\|^###* REVISION\|^###* SHIP\|^###* LAND\|^## /p' "$TEMPLATE" 2>/dev/null)
   if [ -z "$section" ]; then
-    fail "STEP 5d section not found"
+    fail "REFINE section not found"
     return
   fi
   local checks=0
@@ -167,36 +167,36 @@ test_ac10_refactor_green() {
   echo "$section" | grep -qiE 'green|tests.*pass|re-run.*test' && checks=$((checks + 1))
   echo "$section" | grep -qiE 'max.*2|2.*attempt' && checks=$((checks + 1))
   if [ "$checks" -ge 3 ]; then
-    pass "STEP 5d has refactor, Green re-confirmation, max 2 attempts"
+    pass "REFINE phase has refactor, Green re-confirmation, max 2 attempts"
   else
-    fail "STEP 5d missing elements ($checks of 3 found)"
+    fail "REFINE phase missing elements ($checks of 3 found)"
   fi
 }
 
-# ---------- AC 11: autoflow-guide.md contains STEP 5a/5b/5c/5d subsections ----------
+# ---------- AC 11: autoflow-guide.md contains RED/GREEN/VERIFY/REFINE subsections ----------
 test_ac11_guide_substeps() {
-  echo "AC11: autoflow-guide.md contains STEP 5a/5b/5c/5d subsections"
+  echo "AC11: autoflow-guide.md contains RED/GREEN/VERIFY/REFINE subsections"
   local all_found=true
-  for sub in 5a 5b 5c 5d; do
-    if ! grep -qE '#+.*STEP '$sub'|#+.*5'${sub: -1} "$GUIDE" 2>/dev/null; then
+  for phase in RED GREEN VERIFY REFINE; do
+    if ! grep -qE '#+.*'"$phase" "$GUIDE" 2>/dev/null; then
       all_found=false
       break
     fi
   done
   if $all_found; then
-    pass "autoflow-guide.md has STEP 5a/5b/5c/5d subsections"
+    pass "autoflow-guide.md has RED/GREEN/VERIFY/REFINE subsections"
   else
-    fail "autoflow-guide.md missing STEP 5a/5b/5c/5d subsections"
+    fail "autoflow-guide.md missing RED/GREEN/VERIFY/REFINE subsections"
   fi
 }
 
-# ---------- AC 12: autoflow-guide.md regression rules include 5b<->5c cycle limits ----------
+# ---------- AC 12: autoflow-guide.md regression rules include GREEN<->VERIFY cycle limits ----------
 test_ac12_guide_regression() {
-  echo "AC12: autoflow-guide.md regression rules include 5b<->5c cycle limits"
-  if grep -qE '5b.*5c|5c.*5b' "$GUIDE" 2>/dev/null; then
-    pass "autoflow-guide.md regression rules include 5b<->5c cycle limits"
+  echo "AC12: autoflow-guide.md regression rules include GREEN<->VERIFY cycle limits"
+  if grep -qE 'GREEN.*VERIFY|VERIFY.*GREEN' "$GUIDE" 2>/dev/null; then
+    pass "autoflow-guide.md regression rules include GREEN<->VERIFY cycle limits"
   else
-    fail "autoflow-guide.md missing 5b<->5c cycle limits in regression rules"
+    fail "autoflow-guide.md missing GREEN<->VERIFY cycle limits in regression rules"
   fi
 }
 
@@ -220,25 +220,25 @@ test_ac14_no_5_7() {
   fi
 }
 
-# ---------- AC 15: evaluation-system.md references "STEP 5c" ----------
+# ---------- AC 15: evaluation-system.md references "VERIFY" ----------
 test_ac15_eval_step5c() {
-  echo "AC15: evaluation-system.md references STEP 5c (not flat STEP 5)"
-  if grep -q 'STEP 5c' "$EVAL_SYSTEM" 2>/dev/null; then
-    pass "evaluation-system.md references STEP 5c"
+  echo "AC15: evaluation-system.md references VERIFY (not generic TDD cycle)"
+  if grep -q 'VERIFY' "$EVAL_SYSTEM" 2>/dev/null; then
+    pass "evaluation-system.md references VERIFY"
   else
-    fail "evaluation-system.md does not reference STEP 5c"
+    fail "evaluation-system.md does not reference VERIFY"
   fi
 }
 
-# ---------- AC 16: README.md lifecycle table shows updated STEP 3/4/5 names ----------
+# ---------- AC 16: README.md lifecycle table shows updated GATE:PLAN/DISPATCH/RED names ----------
 test_ac16_readme_lifecycle() {
-  echo "AC16: README.md lifecycle table shows updated STEP 3/4/5 names"
+  echo "AC16: README.md lifecycle table shows updated GATE:PLAN/DISPATCH/RED names"
   local checks=0
-  grep -qE 'STEP 3.*Plan Evaluation' "$README" 2>/dev/null && checks=$((checks + 1))
-  grep -qE 'STEP 4.*Task Assignment' "$README" 2>/dev/null && checks=$((checks + 1))
-  grep -qE 'STEP 5a' "$README" 2>/dev/null && checks=$((checks + 1))
+  grep -qE 'GATE:PLAN.*Plan Evaluation' "$README" 2>/dev/null && checks=$((checks + 1))
+  grep -qE 'DISPATCH.*Task Assignment' "$README" 2>/dev/null && checks=$((checks + 1))
+  grep -qE '\bRED\b' "$README" 2>/dev/null && checks=$((checks + 1))
   if [ "$checks" -ge 3 ]; then
-    pass "README.md lifecycle table updated for STEP 3/4/5"
+    pass "README.md lifecycle table updated for GATE:PLAN/DISPATCH/RED"
   else
     fail "README.md lifecycle table not updated ($checks of 3 checks passed)"
   fi
@@ -247,7 +247,7 @@ test_ac16_readme_lifecycle() {
 # ---------- AC 17: Pure documentation changes bypass guidance ----------
 test_ac17_pure_docs_bypass() {
   echo "AC17: Pure documentation changes bypass guidance exists in CLAUDE.md.template"
-  if grep -qiE 'pure.*doc.*change|pure.*prose.*change|skip.*tdd|skip.*step.*5|bypass.*test' "$TEMPLATE" 2>/dev/null; then
+  if grep -qiE 'pure.*doc.*change|pure.*prose.*change|skip.*tdd|skip.*red\b|bypass.*test' "$TEMPLATE" 2>/dev/null; then
     pass "Pure documentation changes bypass guidance found"
   else
     fail "Pure documentation changes bypass guidance not found"

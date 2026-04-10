@@ -2,12 +2,17 @@
 # =============================================================================
 # Auto-Flow Gate Hook
 # =============================================================================
-# Enforces Auto-Flow STEP progression by validating state files before
+# Enforces Auto-Flow phase progression by validating state files before
 # allowing commits or PR creation.
+#
+# Phase names (in order):
+#   PREFLIGHT → DIAGNOSE → GATE:HYPOTHESIS → ARCHITECT → GATE:PLAN →
+#   DISPATCH → RED → GREEN → VERIFY → REFINE → GATE:SECURITY →
+#   GATE:QUALITY → SHIP → LAND
 #
 # Usage:
 #   This script is called by Claude Code hooks. It checks .autoflow-state/
-#   files to ensure the current STEP's exit criteria are met.
+#   files to ensure the current phase's exit criteria are met.
 #
 # Environment:
 #   CLAUDE_PROJECT_DIR — Root directory of the project (set by Claude Code)
@@ -51,17 +56,17 @@ get_current_issue() {
 }
 
 # ---------------------------------------------------------------------------
-# Read STEP status for an issue
+# Read phase status for an issue
 # ---------------------------------------------------------------------------
-get_current_step() {
+get_current_phase() {
   local issue="$1"
-  local step_file="${STATE_DIR}/${issue}/step"
-  if [ ! -f "$step_file" ]; then
-    log_fail "No step file found for issue #${issue}"
-    log_info "Expected: ${step_file}"
+  local phase_file="${STATE_DIR}/${issue}/phase"
+  if [ ! -f "$phase_file" ]; then
+    log_fail "No phase file found for issue #${issue}"
+    log_info "Expected: ${phase_file}"
     exit 1
   fi
-  cat "$step_file" | tr -d '[:space:]'
+  cat "$phase_file" | tr -d '[:space:]'
 }
 
 # ---------------------------------------------------------------------------
@@ -287,7 +292,7 @@ check_delegation_exists() {
   local delegation_file="${STATE_DIR}/${issue}/delegation.md"
   if [ ! -f "$delegation_file" ]; then
     log_fail "delegation.md not found: ${delegation_file}"
-    log_info "STEP 4 must produce delegation.md before proceeding"
+    log_info "DISPATCH must produce delegation.md before proceeding"
     return 1
   fi
   return 0
@@ -309,47 +314,42 @@ main() {
 
   log_info "Active issue: #${issue}"
 
-  local step
-  step=$(get_current_step "$issue")
-  log_info "Current STEP: ${step}"
+  local phase
+  phase=$(get_current_phase "$issue")
+  log_info "Current phase: ${phase}"
 
-  case "$step" in
-    # Steps 0-4: No gate block — these are pre-evaluation steps
-    [0-4])
-      log_pass "STEP ${step} — no gate restrictions"
+  case "$phase" in
+    # Pre-evaluation phases: no gate block (DISPATCH creates delegation.md during this phase)
+    PREFLIGHT|DIAGNOSE|GATE:HYPOTHESIS|ARCHITECT|GATE:PLAN|DISPATCH)
+      log_pass "${phase} — no gate restrictions"
       ;;
 
-    # Step 5: Delegation gate — delegation.md must exist
-    5)
+    # TDD phases: delegation must exist
+    RED|GREEN|VERIFY|REFINE)
       check_delegation_exists "$issue" || exit 1
-      log_pass "STEP ${step} — delegation.md found"
+      log_pass "${phase} — delegation.md found, TDD in progress"
       ;;
 
-    # Step 6: Evaluation in progress — block commits until evaluation completes
-    6)
+    # Evaluation gates: check scores
+    GATE:SECURITY|GATE:QUALITY)
       check_delegation_exists "$issue" || exit 1
-      log_info "STEP 6 — checking evaluation result..."
+      log_info "${phase} — checking evaluation result..."
       check_evaluation_pass "$issue"
       ;;
 
-    # Step 7: Revision — allow commits (working on fixes)
-    7)
-      log_pass "STEP 7 (revision) — commits allowed"
-      ;;
-
-    # Step 8: PR phase — evaluation must have passed
-    8)
-      log_info "STEP 8 — verifying evaluation before PR..."
+    # SHIP: evaluation must have passed
+    SHIP)
+      log_info "${phase} — verifying evaluation before PR..."
       check_evaluation_pass "$issue"
       ;;
 
-    # Step 9: Merge phase — human action required
-    9)
-      log_warn "STEP 9 — waiting for human merge approval"
+    # LAND: human action required
+    LAND)
+      log_warn "${phase} — waiting for human merge approval"
       ;;
 
     *)
-      log_warn "Unknown STEP: ${step} — allowing by default"
+      log_warn "Unknown phase: ${phase} — allowing by default"
       ;;
   esac
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Test Suite: STEP 0 Pre-Work Restoration (Issue #5)
-# Validates that STEP 0 is "Pre-Work" (Git Clean Check) across all docs
+# Test Suite: PREFLIGHT Pre-Work Restoration (Issue #5)
+# Validates that PREFLIGHT is "Pre-Work" (Git Clean Check) across all docs
 
 set -euo pipefail
 
@@ -37,78 +37,78 @@ GUIDE="docs/autoflow-guide.md"
 README="README.md"
 EVAL_SYSTEM="docs/evaluation-system.md"
 
-echo "=== Test Suite: STEP 0 Pre-Work Restoration ==="
+echo "=== Test Suite: PREFLIGHT Pre-Work Restoration ==="
 echo ""
 
 # --- CLAUDE.md.template tests ---
 echo "--- CLAUDE.md.template ---"
 
 assert_contains "$TEMPLATE" "Pre-Work" \
-  "T1: CLAUDE.md.template STEP 0 contains 'Pre-Work'"
+  "T1: CLAUDE.md.template PREFLIGHT contains 'Pre-Work'"
 
 assert_contains "$TEMPLATE" "git status" \
-  "T2: CLAUDE.md.template STEP 0 includes git status check"
+  "T2: CLAUDE.md.template PREFLIGHT includes git status check"
 
 assert_contains "$TEMPLATE" "git fetch" \
-  "T3: CLAUDE.md.template STEP 0 includes git fetch"
+  "T3: CLAUDE.md.template PREFLIGHT includes git fetch"
 
-assert_not_contains "$TEMPLATE" "| 0 | \*\*Issue Analysis\*\*" \
-  "T4: CLAUDE.md.template STEP 0 is NOT 'Issue Analysis'"
+assert_not_contains "$TEMPLATE" "| PREFLIGHT | \*\*Issue Analysis\*\*" \
+  "T4: CLAUDE.md.template PREFLIGHT is NOT 'Issue Analysis'"
 
 assert_contains "$TEMPLATE" "Git clean.*branch created\|branch created.*Git clean" \
-  "T5: CLAUDE.md.template Flow Control shows STEP 0 exit as git clean + branch"
+  "T5: CLAUDE.md.template Flow Control shows PREFLIGHT exit as git clean + branch"
 
 # --- docs/autoflow-guide.md tests ---
 echo ""
 echo "--- docs/autoflow-guide.md ---"
 
 assert_contains "$GUIDE" "Pre-Work" \
-  "T6: autoflow-guide.md STEP 0 contains 'Pre-Work'"
+  "T6: autoflow-guide.md PREFLIGHT contains 'Pre-Work'"
 
 assert_contains "$GUIDE" "git status" \
-  "T7: autoflow-guide.md STEP 0 includes git status check"
+  "T7: autoflow-guide.md PREFLIGHT includes git status check"
 
 assert_contains "$GUIDE" "git fetch" \
-  "T8: autoflow-guide.md STEP 0 includes git fetch"
+  "T8: autoflow-guide.md PREFLIGHT includes git fetch"
 
-assert_not_contains "$GUIDE" "## STEP 0: Issue Analysis" \
-  "T9: autoflow-guide.md STEP 0 is NOT titled 'Issue Analysis'"
+assert_not_contains "$GUIDE" "## PREFLIGHT: Issue Analysis" \
+  "T9: autoflow-guide.md PREFLIGHT is NOT titled 'Issue Analysis'"
 
 # --- README.md tests ---
 echo ""
 echo "--- README.md ---"
 
-assert_contains "$README" "STEP 0.*Pre-Work\|STEP 0.*Git Clean" \
-  "T10: README.md STEP 0 shows Pre-Work or Git Clean Check"
+assert_contains "$README" "PREFLIGHT.*Pre-Work\|PREFLIGHT.*Git Clean" \
+  "T10: README.md PREFLIGHT shows Pre-Work or Git Clean Check"
 
-assert_not_contains "$README" "STEP 0.*Issue Analysis" \
-  "T11: README.md STEP 0 is NOT 'Issue Analysis'"
+assert_not_contains "$README" "PREFLIGHT.*Issue Analysis" \
+  "T11: README.md PREFLIGHT is NOT 'Issue Analysis'"
 
 # --- Cross-file consistency ---
 echo ""
 echo "--- Cross-file consistency ---"
 
-assert_not_contains "$TEMPLATE" "| STEP 0 | Issue analyzed" \
-  "T12: Flow Control table does not reference 'Issue analyzed' for STEP 0"
+assert_not_contains "$TEMPLATE" "| PREFLIGHT | Issue analyzed" \
+  "T12: Flow Control table does not reference 'Issue analyzed' for PREFLIGHT"
 
 # --- Evaluation system unchanged ---
 echo ""
 echo "--- Evaluation system ---"
 
-# evaluation-system.md should not define STEP 0 content at all
-assert_not_contains "$EVAL_SYSTEM" "STEP 0" \
-  "T13: evaluation-system.md does not reference STEP 0"
+# evaluation-system.md should not define PREFLIGHT content at all
+assert_not_contains "$EVAL_SYSTEM" "PREFLIGHT" \
+  "T13: evaluation-system.md does not reference PREFLIGHT"
 
-# --- STEP 1 absorbs issue understanding ---
+# --- DIAGNOSE absorbs issue understanding ---
 echo ""
-echo "--- STEP 1 absorption ---"
+echo "--- DIAGNOSE absorption ---"
 
-assert_contains "$GUIDE" "## STEP 1" \
-  "T14: autoflow-guide.md has STEP 1 section"
+assert_contains "$GUIDE" "## DIAGNOSE" \
+  "T14: autoflow-guide.md has DIAGNOSE section"
 
-# State file structure: requirements.md annotation should reference Pre-Work or STEP 0-1
-assert_not_contains "$GUIDE" "requirements.md.*# STEP 0 output" \
-  "T15: State file annotation does not label requirements.md as 'STEP 0 output' specifically"
+# State file structure: requirements.md annotation should reference Pre-Work or PREFLIGHT/DIAGNOSE
+assert_not_contains "$GUIDE" "requirements.md.*# PREFLIGHT output" \
+  "T15: State file annotation does not label requirements.md as 'PREFLIGHT output' specifically"
 
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="

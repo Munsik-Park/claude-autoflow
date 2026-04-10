@@ -76,7 +76,7 @@ Refs: #87
 
 ## Pull Request Process
 
-### Creating a PR (STEP 8)
+### Creating a PR (SHIP)
 
 1. Ensure all commits are clean and well-described
 2. Push the feature branch to remote

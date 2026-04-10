@@ -57,7 +57,7 @@ The suggestion "let's give AI-A the issue for efficiency" destroys the core of t
 
 **What it does**
 
-The Evaluation AI at STEPs 1.5, 3, 5.7, and 6 is created new for each invocation. It carries no prior conversation history.
+The Evaluation AI at GATE:HYPOTHESIS, GATE:PLAN, SHIP, and GATE:QUALITY is created new for each invocation. It carries no prior conversation history.
 
 **Why it works this way**
 
@@ -101,21 +101,21 @@ Analysis of pass/fail patterns, modification of evaluation criteria, and identif
 
 **However, factual lookups are different**
 
-Injecting past evaluation results (bias injection) and looking up past code change history or issue context (factual lookup) are different things. Querying related issues and commit history at STEP 1 is allowed because it serves to accurately understand the current state.
+Injecting past evaluation results (bias injection) and looking up past code change history or issue context (factual lookup) are different things. Querying related issues and commit history at DIAGNOSE is allowed because it serves to accurately understand the current state.
 
 ---
 
-### Decision 5: STEP Transitions Are Completion-Condition Based
+### Decision 5: Phase Transitions Are Completion-Condition Based
 
 **What it does**
 
-Each STEP transitions to the next only when its stated completion conditions are met. All STEPs are performed regardless of change size.
+Each phase transitions to the next only when its stated completion conditions are met. All phases are performed regardless of change size.
 
 **Why it works this way**
 
-AI tends to judge "this change is small enough to skip STEPs." That judgment itself is a product of bias. The thought "this one is simple" causes verification to be skipped, and problems emerge from the skipped verification. Simplicity can be determined after the process, not before it.
+AI tends to judge "this change is small enough to skip phases." That judgment itself is a product of bias. The thought "this one is simple" causes verification to be skipped, and problems emerge from the skipped verification. Simplicity can be determined after the process, not before it.
 
-The act of judging "this change is simple" is itself a product of bias. That judgment is made before implementation. Before implementation, there is no way to know whether it is actually simple. The judgment may sometimes be correct, but when it is wrong, problems emerge from the verification that was skipped. Auto-Flow does not permit this judgment at all. Simplicity can be evaluated post-hoc, after all STEPs are completed. Pre-process judgment is not allowed.
+The act of judging "this change is simple" is itself a product of bias. That judgment is made before implementation. Before implementation, there is no way to know whether it is actually simple. The judgment may sometimes be correct, but when it is wrong, problems emerge from the verification that was skipped. Auto-Flow does not permit this judgment at all. Simplicity can be evaluated post-hoc, after all phases are completed. Pre-process judgment is not allowed.
 
 ---
 
@@ -123,7 +123,7 @@ The act of judging "this change is simple" is itself a product of bias. That jud
 
 **What it does**
 
-When the structure evaluation at STEPs 1–2 returns FAIL, Auto-Flow terminates and the issue is closed. It means the existing structure can already handle the concern — no code change needed.
+When the structure evaluation at PREFLIGHT–DIAGNOSE returns FAIL, Auto-Flow terminates and the issue is closed. It means the existing structure can already handle the concern — no code change needed.
 
 **Why it works this way**
 
@@ -135,11 +135,11 @@ The best code is code that is never written. AI feels pressure to create somethi
 
 **What it does**
 
-Every repetition in Auto-Flow (e.g., STEP 5b↔5c test-fix cycles, STEP 7→6 re-evaluation cycles, STEP 9 revision requests) has an explicit maximum retry count. No loop can run indefinitely.
+Every repetition in Auto-Flow (e.g., GREEN↔VERIFY test-fix cycles, REVISION→GATE:QUALITY re-evaluation cycles, LAND revision requests) has an explicit maximum retry count. No loop can run indefinitely.
 
 **Why it works this way**
 
-When a loop fails, the work does not simply stop. The failure cause is classified, and the flow regresses to the appropriate STEP. When all retries are exhausted, the work is handed to a human. There is no scenario where a loop never terminates.
+When a loop fails, the work does not simply stop. The failure cause is classified, and the flow regresses to the appropriate phase. When all retries are exhausted, the work is handed to a human. There is no scenario where a loop never terminates.
 
 For comparison: review gate structures where two models find problems in each other's output (e.g., Codex-style mutual review) lack explicit termination conditions, creating infinite loop risk. Auto-Flow blocks this through three mechanisms: **maximum regression count + cause classification + defined human escalation point.**
 
@@ -159,9 +159,9 @@ The evaluation categories and weights in CLAUDE.md must be customized per projec
 
 Lenient criteria create a pattern of "scoring high on easy items to raise the average while passing difficult items." This is why individual minimum thresholds exist. The reason security score <= 3 triggers mandatory rework is the same — some items cannot be diluted by averaging.
 
-### The Role of Issue Analysis Evaluation (STEP 1.5)
+### The Role of Issue Analysis Evaluation (GATE:HYPOTHESIS)
 
-The purpose is to ensure only well-analyzed issues proceed to implementation. Entering implementation with insufficient analysis incurs greater costs later. The stricter this gate, the higher the quality of subsequent STEPs.
+The purpose is to ensure only well-analyzed issues proceed to implementation. Entering implementation with insufficient analysis incurs greater costs later. The stricter this gate, the higher the quality of subsequent phases.
 
 ---
 
@@ -175,7 +175,7 @@ The following may look like "better approaches" but undermine core principles:
 | Reuse the Evaluation AI | Self-reinforcement bias → independence lost |
 | Trust the Hook's `pass` field | Trusting AI self-report → gate neutralized |
 | Inject past evaluation results into current analysis | Bias propagation → system hardens in one direction |
-| Allow STEP-skipping judgment | "This one is simple" is itself a biased judgment |
+| Allow phase-skipping judgment | "This one is simple" is itself a biased judgment |
 | Let the pipeline modify its own criteria | Judgment tracing impossible → trust chain collapse |
 | Design loops without termination conditions | No maximum retry → infinite loop risk → system hangs |
 
@@ -187,11 +187,11 @@ The following may look like "better approaches" but undermine core principles:
 
 - **No failure learning loop**: Currently accumulated manually via issue comments. Pass/fail pattern analysis is performed by humans externally.
 - **No cross-issue correlation detection**: Cannot automatically detect repeated similar-pattern issues. Under internal discussion.
-- **No lightweight mode**: Full STEP execution even for small changes. Overhead exists.
+- **No lightweight mode**: Full phase execution even for small changes. Overhead exists.
 
 ### Under Discussion
 
-- Including related issue and commit history lookup at STEP 1 entry (factual lookup, not bias injection)
+- Including related issue and commit history lookup at DIAGNOSE entry (factual lookup, not bias injection)
 - Systematizing issue preparation stages through external cross-issue correlation analysis
 
 ---
