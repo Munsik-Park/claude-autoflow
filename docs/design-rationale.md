@@ -81,7 +81,7 @@ To bring the trust chain down to the script level. An AI can implicitly decide "
 
 **What this means**
 
-No matter how eloquently an AI says "the plan is excellent," if the scores don't meet the threshold, it cannot advance to the next step. The gate operates on numbers, not explanations.
+No matter how eloquently an AI says "the plan is excellent," if the scores don't meet the threshold, it cannot advance to the next phase. The gate operates on numbers, not explanations.
 
 ---
 

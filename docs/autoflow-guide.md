@@ -111,7 +111,7 @@ If Git state is not clean after resolution attempts, **stop and report to user**
 
 **Goal**: Ensure only well-analyzed issues proceed to implementation. This gate is strict because insufficient analysis at this stage causes larger costs downstream.
 
-> **The Evaluation AI is spawned fresh** for this step — it carries no prior conversation history. This prevents self-reinforcement bias.
+> **The Evaluation AI is spawned fresh** for this phase — it carries no prior conversation history. This prevents self-reinforcement bias.
 
 ### Process
 1. A freshly spawned Evaluation AI receives: Phase A report, Phase B report, Phase 3 cross-verification
@@ -171,7 +171,7 @@ If Git state is not clean after resolution attempts, **stop and report to user**
 
 **Goal**: An independent Evaluation AI scores the implementation plan before coding begins.
 
-> **The Evaluation AI is spawned fresh** for this step — it carries no prior conversation history.
+> **The Evaluation AI is spawned fresh** for this phase — it carries no prior conversation history.
 
 ### Process
 1. A freshly spawned Evaluation AI receives the implementation plan from ARCHITECT
@@ -404,7 +404,7 @@ When spawning the Evaluation AI (at GATE:HYPOTHESIS, GATE:PLAN, and GATE:QUALITY
 
 **Goal**: Human merges the PR and closes the issue.
 
-### This Step Is Human-Only
+### This Phase Is Human-Only
 - Human reviews the PR
 - Human approves or requests changes
 - If changes requested → return to REVISION

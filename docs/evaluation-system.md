@@ -157,7 +157,7 @@ The Evaluation AI receives:
 3. **Code diff** (`git diff` of the changes)
 4. **Test results** (test output from VERIFY)
 
-### Evaluation Steps
+### Evaluation Process
 
 1. **Read** all inputs thoroughly
 2. **Verify correctness** against requirements

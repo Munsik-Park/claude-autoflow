@@ -17,7 +17,7 @@ A public template repository that generalizes the Auto-Flow methodology from `on
 |------|------|
 | `CLAUDE.md.template` | Core template users will generate CLAUDE.md from |
 | `docs/design-rationale.md` | Design philosophy — why every rule exists |
-| `docs/autoflow-guide.md` | Step-by-step Auto-Flow lifecycle |
+| `docs/autoflow-guide.md` | Phase-by-phase Auto-Flow lifecycle |
 | `.claude/hooks/check-autoflow-gate.sh` | Hook script enforcing evaluation gates |
 | `setup/init.sh` | Interactive project setup wizard |
 | `subrepo-templates/` | Sub-repo CLAUDE.md templates |
@@ -371,7 +371,7 @@ Developer AI teammate writes minimum code to pass tests. This is the **only** ph
       - Applies suggested fixes (no behavior change — tests must pass without modification)
       - If /simplify finds nothing → proceed to 5d-2 (DO NOT SKIP)
 5d-2. [MUST] Re-run ALL tests → Green maintained
-      - This step is NEVER skipped, even when 5d-1 made no changes
+      - This phase is NEVER skipped, even when 5d-1 made no changes
       - FAIL → simplify broke something → revert simplify changes (max 2 attempts, then keep pre-refactor state)
 5d-3. Commit (refactor type, or skip commit if no changes in 5d-1)
 ```

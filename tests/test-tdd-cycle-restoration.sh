@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Test: TDD Cycle Restoration (Issue #4)
-# Verifies RED/GREEN/VERIFY/REFINE sub-steps are present in template files.
+# Verifies RED/GREEN/VERIFY/REFINE sub-phases are present in template files.
 # All tests should FAIL (Red) before implementation.
 
 set -euo pipefail

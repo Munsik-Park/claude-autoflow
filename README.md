@@ -55,7 +55,7 @@ The setup wizard will ask for your project configuration and generate all files.
 
 ### Option B: Manual Setup
 
-See [setup/SETUP-GUIDE.md](setup/SETUP-GUIDE.md) for step-by-step manual instructions.
+See [setup/SETUP-GUIDE.md](setup/SETUP-GUIDE.md) for manual setup instructions.
 
 ---
 
@@ -73,7 +73,7 @@ claude-autoflow/
 │       └── check-autoflow-gate.sh     # Auto-Flow gate hook
 │
 ├── docs/
-│   ├── autoflow-guide.md              # Step-by-step Auto-Flow guide
+│   ├── autoflow-guide.md              # Phase-by-phase Auto-Flow guide
 │   ├── git-workflow.md                # Git procedures
 │   ├── repo-boundary-rules.md         # Cross-repo coordination rules
 │   ├── submodule-common-rules.md      # Sub-repo shared rules
@@ -136,7 +136,7 @@ At GATE:QUALITY, an independent Evaluation AI scores the work across 5 categorie
 The `check-autoflow-gate.sh` hook reads `.autoflow-state/` files to prevent:
 - Committing before evaluation passes
 - Creating PRs without meeting the PASS threshold
-- Skipping required steps
+- Skipping required phases
 
 ---
 
@@ -175,7 +175,7 @@ Templates use `{{UPPER_SNAKE_CASE}}` placeholders:
 | Document | Description |
 |----------|-------------|
 | [**Design Rationale**](docs/design-rationale.md) | **Read first** — why every design decision was made |
-| [Auto-Flow Guide](docs/autoflow-guide.md) | Detailed step-by-step lifecycle |
+| [Auto-Flow Guide](docs/autoflow-guide.md) | Detailed phase-by-phase lifecycle |
 | [Evaluation System](docs/evaluation-system.md) | Scoring, PASS criteria, output format |
 | [Git Workflow](docs/git-workflow.md) | Branch naming, commits, PR process |
 | [Repo Boundary Rules](docs/repo-boundary-rules.md) | Cross-repo coordination rules |
