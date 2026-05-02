@@ -26,6 +26,57 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
+# Early branch: PreToolUse gate on direct writes to phase file
+# ---------------------------------------------------------------------------
+# When invoked as a Claude Code PreToolUse hook, the script receives a JSON
+# payload on stdin describing the tool call. We block direct Write/Edit/
+# MultiEdit attempts on .autoflow-state/<issue>/phase unless the env sentinel
+# AUTOFLOW_PHASE_SET=1 is set (which only the .claude/scripts/phase-set
+# helper sets). Per Claude Code hook semantics, exit code 2 = blocking error
+# (model sees stderr + execution prevented). All non-matching cases exit 0
+# so the early branch never blocks unrelated operations. If stdin is a TTY
+# (CLI invocation) or empty, fall through to the existing main "$@" path.
+# ---------------------------------------------------------------------------
+if [ ! -t 0 ]; then
+  _autoflow_payload="$(cat || true)"
+  if [ -n "$_autoflow_payload" ]; then
+    # Single awk pass extracts hook_event_name, tool_name, file_path.
+    # Values are wrapped in single quotes via awk so eval is safe even if the
+    # JSON-extracted strings contain shell metacharacters.
+    eval "$(printf '%s' "$_autoflow_payload" | awk -F'"' '
+{
+  for (i=1; i<=NF; i++) {
+    if ($i=="hook_event_name" && ev=="") ev=$(i+2)
+    else if ($i=="tool_name" && tn=="") tn=$(i+2)
+    else if ($i=="file_path" && fp=="") fp=$(i+2)
+  }
+}
+END {
+  printf "_autoflow_event='\''%s'\''\n_autoflow_tool='\''%s'\''\n_autoflow_target='\''%s'\''\n", ev, tn, fp
+}')"
+    if [ "$_autoflow_event" = "PreToolUse" ]; then
+      case "$_autoflow_tool" in
+        Write|Edit|MultiEdit)
+          case "$_autoflow_target" in
+            *.autoflow-state/*/phase)
+              if [ -z "${AUTOFLOW_PHASE_SET:-}" ]; then
+                echo "[AutoFlow Gate] Direct write to phase file blocked: ${_autoflow_target}" >&2
+                echo "[AutoFlow Gate] Use the helper: .claude/scripts/phase-set <PHASE> [--note '<text>']" >&2
+                exit 2
+              fi
+              ;;
+          esac
+          ;;
+      esac
+      # PreToolUse event handled (allow / non-matching) — do not run main gate.
+      exit 0
+    fi
+    # Non-PreToolUse JSON payload: fall through to main (preserves existing
+    # commit/PR-time behavior when invoked with a payload that lacks event).
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 STATE_DIR="${CLAUDE_PROJECT_DIR:-.}/.autoflow-state"
