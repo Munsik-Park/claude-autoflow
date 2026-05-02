@@ -160,6 +160,8 @@ All other files require delegation to teammates:
 
 **No exceptions.** The previous "documentation bulk updates" exception was removed because it allowed the orchestrator to bypass delegation for nearly any file. If a file is not in the orchestrator's list above, it must go through a teammate — regardless of how simple the change appears.
 
+**The Orchestrator does not interpret evidence content.** When a Teammate emits a `transition-request`, the Orchestrator's only action is to invoke the `phase-set` helper passing the `evidence` field verbatim. Reading, summarizing, or judging the evidence is out of scope — that judgment belongs to the Hook (mechanical prerequisite checks) or to a fresh Evaluation AI (gate scoring).
+
 ### Evaluation AI Prompt Rules
 
 1. **[MUST]** Include: evaluation type, `CLAUDE.md > [section]` reference, target file paths
@@ -179,6 +181,29 @@ Test AI → Orchestrator: "All tests pass"
 Orchestrator → Evaluation AI: "Evaluate feature X implementation"
 Evaluation AI → Orchestrator: "Score: 8/10 — PASS"
 ```
+
+### Phase Transition Protocol
+
+Phase transitions follow a three-party split — see [docs/design-rationale.md > Decision 8](docs/design-rationale.md#decision-8-phase-transitions-use-a-three-party-split-teammate--orchestrator--hook).
+
+| Party | Responsibility at a phase transition |
+|-------|--------------------------------------|
+| Teammate | Produces the artifact required by the current phase and emits a `transition-request` to the Orchestrator citing the next phase and evidence. |
+| Orchestrator | Mechanical pass-through — invokes the `phase-set` helper with the `evidence` field passed verbatim. Does not interpret evidence content. |
+| Hook | Mechanical prerequisite verification (artifacts exist, GATE PASS where applicable, role marker correct); allows or blocks the transition. |
+
+A Teammate requests a transition by sending the Orchestrator a message in this canonical format:
+
+```
+@orchestrator transition-request
+from: <CURRENT_PHASE>
+to: <NEXT_PHASE>
+evidence: <artifact path or short factual statement>
+```
+
+- **[MUST]** A `transition-request` must address the Orchestrator. Sibling-to-sibling transition messages between Teammates are forbidden.
+- **[MUST]** The Orchestrator's response is to invoke the `phase-set` helper (see Item 2 / #28) with the `evidence` field passed verbatim — no reading, summarizing, or judging of the evidence content.
+- The `phase-set` helper is the mechanical pass-through that will be introduced by Item 2 (#28); until then, Orchestrators emulate it by writing the phase file directly while preserving the no-interpretation contract.
 
 ---
 
