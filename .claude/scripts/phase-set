@@ -1,0 +1,236 @@
+#!/usr/bin/env bash
+# =============================================================================
+# phase-set — sole writer of .autoflow-state/<issue>/phase
+#                and sole appender to .autoflow-state/<issue>/history.log
+# =============================================================================
+# Mechanical pass-through helper invoked by the Orchestrator after a Teammate
+# emits a `transition-request`. The Orchestrator does NOT interpret evidence —
+# it calls this helper with the new phase name and an optional --note.
+#
+# Usage:
+#   phase-set <PHASE> [--note "<text>"]
+#   phase-set --help
+#
+# Exit codes:
+#   0  — success or --help
+#   64 — usage / no args / unknown flag (EX_USAGE)
+#   65 — invalid phase or missing current-issue (EX_DATAERR)
+#   73 — I/O error (EX_CANTCREAT)
+#
+# Environment:
+#   CLAUDE_PROJECT_DIR — project root; defaults to $(pwd)
+#
+# This script sets AUTOFLOW_PHASE_SET=1 in its own environment so that the
+# PreToolUse hook (if it observes the write synchronously) recognizes the
+# helper as the legitimate writer and does not block.
+# =============================================================================
+
+set -euo pipefail
+
+AUTOFLOW_PHASE_SET=1
+export AUTOFLOW_PHASE_SET
+
+STATE_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}/.autoflow-state"
+
+# Single source of truth for valid phase names + standard exit codes.
+readonly VALID_PHASES="PREFLIGHT DIAGNOSE GATE:HYPOTHESIS ARCHITECT GATE:PLAN DISPATCH RED GREEN VERIFY REFINE GATE:SECURITY GATE:QUALITY REVISION SHIP LAND"
+readonly EX_USAGE=64 EX_DATAERR=65 EX_IOERR=73
+
+# ---------------------------------------------------------------------------
+# die_io — print I/O error to stderr, optionally clean up a temp file, exit 73
+# ---------------------------------------------------------------------------
+die_io() {
+  echo "phase-set: I/O error $1" >&2
+  [ -n "${2:-}" ] && rm -f "$2" 2>/dev/null || true
+  exit "$EX_IOERR"
+}
+
+# ---------------------------------------------------------------------------
+# usage — print synopsis to stdout (--help) or stderr (errors)
+# ---------------------------------------------------------------------------
+usage() {
+  local stream="${1:-stderr}"
+  local msg
+  msg=$(cat <<'EOF'
+Usage: phase-set <PHASE> [--note "<text>"]
+
+Sole writer of the Auto-Flow phase file and history log.
+
+Arguments:
+  <PHASE>           One of:
+                    PREFLIGHT, DIAGNOSE, GATE:HYPOTHESIS, ARCHITECT,
+                    GATE:PLAN, DISPATCH, RED, GREEN, VERIFY, REFINE,
+                    GATE:SECURITY, GATE:QUALITY, REVISION, SHIP, LAND
+  --note "<text>"   Optional note appended to the history.log line.
+  --help            Show this help and exit.
+
+Exit codes:
+  0   success or --help
+  64  usage error
+  65  invalid phase or missing current-issue
+  73  I/O error
+EOF
+)
+  if [ "$stream" = "stdout" ]; then
+    printf '%s\n' "$msg"
+  else
+    printf '%s\n' "$msg" >&2
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# iso8601_utc — portable ISO-8601 UTC timestamp (BSD + GNU date)
+# ---------------------------------------------------------------------------
+iso8601_utc() {
+  date -u +%Y-%m-%dT%H:%M:%SZ
+}
+
+# ---------------------------------------------------------------------------
+# resolve_issue — read .autoflow-state/current-issue
+# ---------------------------------------------------------------------------
+resolve_issue() {
+  local issue_file="${STATE_DIR}/current-issue"
+  if [ ! -f "$issue_file" ]; then
+    echo "phase-set: no active issue (.autoflow-state/current-issue missing or empty)" >&2
+    exit "$EX_DATAERR"
+  fi
+  local issue
+  issue=$(tr -d '[:space:]' < "$issue_file")
+  if [ -z "$issue" ]; then
+    echo "phase-set: no active issue (.autoflow-state/current-issue missing or empty)" >&2
+    exit "$EX_DATAERR"
+  fi
+  printf '%s' "$issue"
+}
+
+# ---------------------------------------------------------------------------
+# validate_phase — whitelist check
+# ---------------------------------------------------------------------------
+validate_phase() {
+  case " $VALID_PHASES " in
+    *" $1 "*) return 0 ;;
+  esac
+  echo "phase-set: unknown phase '$1' (valid: $VALID_PHASES)" >&2
+  exit "$EX_DATAERR"
+}
+
+# ---------------------------------------------------------------------------
+# atomic_write — write content atomically via tmp + rename
+# Trailing newline is REQUIRED (test T4b verifies byte length).
+# ---------------------------------------------------------------------------
+atomic_write() {
+  local path="$1"
+  local content="$2"
+  local tmp="${path}.tmp.$$"
+  printf '%s\n' "$content" > "$tmp" || die_io "writing ${tmp}" "$tmp"
+  # Atomic-write idiom: mv "${path}.tmp.$$" "$path" (POSIX rename(2)).
+  mv "$tmp" "$path" || die_io "renaming ${tmp} to ${path}" "$tmp"
+}
+
+# ---------------------------------------------------------------------------
+# append_history — pipe-separated append to history.log
+# Format: '<ts> | TRANSITION | <from>-><to> | <note>'
+# ---------------------------------------------------------------------------
+append_history() {
+  local file="$1"
+  local from="$2"
+  local to="$3"
+  local note="${4:-}"
+  local ts
+  ts=$(iso8601_utc)
+  # Single printf to history.log: under PIPE_BUF, O_APPEND atomic on POSIX.
+  printf '%s | TRANSITION | %s->%s | %s\n' "$ts" "$from" "$to" "$note" >> "$file" \
+    || die_io "appending to ${file}"
+}
+
+# ---------------------------------------------------------------------------
+# main
+# ---------------------------------------------------------------------------
+main() {
+  if [ "$#" -eq 0 ]; then
+    usage stderr
+    exit "$EX_USAGE"
+  fi
+
+  local phase=""
+  local note=""
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --help|-h)
+        usage stdout
+        exit 0
+        ;;
+      --note)
+        if [ "$#" -lt 2 ]; then
+          echo "phase-set: --note requires an argument" >&2
+          usage stderr
+          exit "$EX_USAGE"
+        fi
+        note="$2"
+        shift 2
+        ;;
+      --note=*)
+        note="${1#--note=}"
+        shift
+        ;;
+      --*)
+        echo "phase-set: unknown flag '$1'" >&2
+        usage stderr
+        exit "$EX_USAGE"
+        ;;
+      *)
+        if [ -z "$phase" ]; then
+          phase="$1"
+          shift
+        else
+          echo "phase-set: unexpected argument '$1'" >&2
+          usage stderr
+          exit "$EX_USAGE"
+        fi
+        ;;
+    esac
+  done
+
+  if [ -z "$phase" ]; then
+    usage stderr
+    exit "$EX_USAGE"
+  fi
+
+  # Resolve the active issue (exits 65 on missing/empty current-issue)
+  local issue
+  issue=$(resolve_issue)
+
+  # Validate the requested phase BEFORE touching any files (T3: file unchanged)
+  validate_phase "$phase"
+
+  # Determine the from-phase
+  local issue_dir="${STATE_DIR}/${issue}"
+  local phase_file="${issue_dir}/phase"
+  local history_file="${issue_dir}/history.log"
+
+  if [ ! -d "$issue_dir" ]; then
+    if ! mkdir -p "$issue_dir"; then
+      echo "phase-set: I/O error creating ${issue_dir}" >&2
+      exit 73
+    fi
+  fi
+
+  local from_phase="INIT"
+  if [ -f "$phase_file" ]; then
+    from_phase=$(tr -d '[:space:]' < "$phase_file")
+    if [ -z "$from_phase" ]; then
+      from_phase="INIT"
+    fi
+  fi
+
+  # Atomic write of the new phase
+  atomic_write "$phase_file" "$phase"
+
+  # Append a transition line to history.log
+  append_history "$history_file" "$from_phase" "$phase" "$note"
+
+  exit 0
+}
+
+main "$@"
