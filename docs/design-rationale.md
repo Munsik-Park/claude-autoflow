@@ -149,6 +149,31 @@ When introducing any new loop structure to this system, it must have an explicit
 
 ---
 
+### Decision 8: Phase Transitions Use a Three-Party Split (Teammate / Orchestrator / Hook)
+
+**What it does**
+
+Phase transitions in Auto-Flow are split across three parties so that no single party owns both the content judgment and the state mutation. Each party performs exactly one mechanical role at a transition.
+
+| Party | Responsibility at a phase transition |
+|-------|--------------------------------------|
+| Teammate | Produces the artifact required by the current phase and emits a `transition-request` message addressed to the Orchestrator, naming the next phase and citing the evidence path. |
+| Orchestrator | Acts as a mechanical pass-through — invokes the `phase-set` helper with the `evidence` field passed verbatim. Does not read, summarize, or judge the evidence content. |
+| Hook | Performs mechanical prerequisite verification (required artifacts exist, GATE evaluation PASS where applicable, role marker correct) and either allows or blocks the transition. |
+
+**Why it works this way**
+
+Bias isolation. Phase progression mixes two different concerns: *content correctness* (is the artifact good?) and *state mutation* (advance the phase pointer). If the same party owns both, the party that judges content also chooses whether to advance — and self-reinforcement bias creeps back in. The three-party split ensures the Teammate provides evidence but cannot self-promote, the Orchestrator advances state but cannot interpret content, and the Hook checks mechanical prerequisites without authoring or judging artifacts. Any party doing more than its row would force content judgment back into the loop.
+
+**Rejected alternatives**
+
+- **Model 1: Teammate-autonomous.** The teammate writes its own phase file at completion. Rejected because it produces a phase-file blind spot — neither the Orchestrator nor the Hook owns the update, so a teammate can advance the system into a phase it did not earn, and there is no mechanical record of who authorized the transition.
+- **Model 2: Orchestrator-gated.** The Orchestrator reads the evidence and decides whether the transition is justified. Rejected because gating forces the Orchestrator to interpret evidence content, which violates the Orchestrator-does-not-judge-content invariant established by the prompt rules and Decision 1. Once the Orchestrator interprets evidence in one place, the same justification ("just a quick check") leaks into evaluation prompts and DIAGNOSE inputs.
+
+The mechanical entry point invoked by the Orchestrator is the `phase-set` helper. The `phase-set` helper itself is tracked separately as Item 2 (#28) and will be introduced by that issue; this decision specifies the contract it must satisfy (mechanical pass-through, evidence verbatim, no content interpretation).
+
+---
+
 ## Evaluation System Design Intent
 
 ### Why Scoring Criteria Are Not Fixed
@@ -178,6 +203,7 @@ The following may look like "better approaches" but undermine core principles:
 | Allow phase-skipping judgment | "This one is simple" is itself a biased judgment |
 | Let the pipeline modify its own criteria | Judgment tracing impossible → trust chain collapse |
 | Design loops without termination conditions | No maximum retry → infinite loop risk → system hangs |
+| Let a Teammate send a phase-transition request to another Teammate | Bypasses the Orchestrator — no party authorizes peer transitions, breaks the three-party split |
 
 ---
 
