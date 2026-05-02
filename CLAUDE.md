@@ -56,7 +56,7 @@ This project follows Auto-Flow with Agent Teams. Even though this is a single re
 1. **[MUST]** Include: evaluation type, `CLAUDE.md > [section]` reference, target file paths
 2. **[MUST]** Do NOT copy evaluation criteria into the prompt — instruct the AI to read CLAUDE.md directly
 3. **[MUST]** Orchestrator-written portion must be 5 lines or fewer (excluding target file contents)
-4. **[DENY]** No opinions, interpretations, or leading phrases ("consider that ~", "note that ~", "this is ~ so")
+4. **[MUST]** State observations as direct facts — cite file paths and line numbers. Prohibited forms: "consider that ~", "note that ~", "this is ~ so".
 5. **[MUST]** Evaluation AI output MUST include `evaluator.role_marker` with the gate-specific value: `[role:eval-hypothesis]`, `[role:eval-plan]`, or `[role:eval-quality]`. The hook will block evaluation JSON writes that omit this field.
 
 ### Orchestrator Boundaries
