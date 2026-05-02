@@ -65,6 +65,18 @@ END {
                 exit 2
               fi
               ;;
+            *.autoflow-state/*/evaluation.json|*.autoflow-state/*/evaluation/*.json)
+              if [ "$_autoflow_tool" = "Write" ]; then
+                # Payload embeds file content as escaped JSON string — \"role_marker\" confirms evaluator object.
+                _autoflow_role_marker_found="$(awk \
+                  '/\\"role_marker\\"[[:space:]]*:[[:space:]]*\\"[^\\"\\\\]/ { print "found"; exit }' \
+                  <<< "$_autoflow_payload")"
+                if [ -z "$_autoflow_role_marker_found" ]; then
+                  echo "[AutoFlow Gate] evaluation.json blocked: evaluator.role_marker is missing. Evaluation AI must emit the standard schema." >&2
+                  exit 2
+                fi
+              fi
+              ;;
           esac
           ;;
       esac

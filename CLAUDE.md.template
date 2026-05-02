@@ -439,17 +439,19 @@ When the change is purely prose (no scripts, no templates with placeholders):
 {
   "phase": "GATE:QUALITY",
   "issue": "#123",
-  "evaluator": "evaluation-ai",
-  "scores": {
-    "correctness": 8,
-    "code_quality": 7,
-    "test_coverage": 7,
-    "security": 8,
-    "performance": 7
+  "evaluator": {
+    "role_marker": "[role:eval-quality]",
+    "session_id": "<session-id>"
   },
-  "overall": 7.5,
-  "pass": true,
-  "comments": "Implementation meets requirements. Minor suggestion: ..."
+  "scores": {
+    "correctness": { "score": 8, "reason": "..." },
+    "quality": { "score": 7, "reason": "..." }
+  },
+  "average": 7.6,
+  "verdict": "PASS",
+  "blocking_issues": [],
+  "suggestions": ["..."],
+  "rationale": "..."
 }
 ```
 

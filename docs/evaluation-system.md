@@ -108,14 +108,18 @@ overall:                   7.85  → FAIL (test_coverage 6 < minimum 7)
 
 ## Evaluation Output Format
 
+> This section is the **single source of truth** for the evaluation JSON schema. `CLAUDE.md.template` and `CLAUDE.md` reference this schema — keep them in sync.
+
 The Evaluation AI produces a JSON report saved to `.autoflow-state/<issue>/evaluation.json`:
 
 ```json
 {
   "phase": "GATE:QUALITY",
   "issue": "#123",
-  "evaluator": "evaluation-ai",
-  "timestamp": "2025-01-15T10:30:00Z",
+  "evaluator": {
+    "role_marker": "[role:eval-quality]",
+    "session_id": "<session-id>"
+  },
   "scores": {
     "correctness": { "score": 8, "reason": "All requirements met. Edge case for empty input handled correctly." },
     "quality": { "score": 7, "reason": "Clean implementation. Consider extracting the validation logic into a helper." },
@@ -123,11 +127,14 @@ The Evaluation AI produces a JSON report saved to `.autoflow-state/<issue>/evalu
     "consistency": { "score": 9, "reason": "Aligned with design-rationale.md principles throughout." },
     "documentation": { "score": 7, "reason": "Docs updated. Internal links valid." }
   },
+  "average": 7.8,
+  "verdict": "PASS",
   "blocking_issues": [],
   "suggestions": [
     "Consider adding a test for the concurrent access scenario",
     "The validation helper extraction would improve readability"
-  ]
+  ],
+  "rationale": "Implementation meets all acceptance criteria. Minor refactoring suggestions are non-blocking."
 }
 ```
 
@@ -137,13 +144,19 @@ The Evaluation AI produces a JSON report saved to `.autoflow-state/<issue>/evalu
 |-------|------|-------------|
 | `phase` | string | Always `"GATE:QUALITY"` for evaluation |
 | `issue` | string | Issue reference (e.g., "#123") |
-| `evaluator` | string | Agent identifier |
-| `timestamp` | string | ISO 8601 timestamp |
+| `evaluator` | object | Evaluation AI identity — must be an object, not a flat string |
+| `evaluator.role_marker` | string | Gate-specific role identifier — required, must be non-empty. Values: `[role:eval-hypothesis]`, `[role:eval-plan]`, `[role:eval-quality]` |
+| `evaluator.session_id` | string | Session identifier for traceability |
 | `scores` | object | Per-category scores — structured format with `score` and `reason` |
-| `blocking_issues` | array | Issues that must be fixed (empty if pass) |
-| `suggestions` | array | Non-blocking improvement ideas |
+| `average` | number | Weighted average score computed by the Evaluation AI |
+| `verdict` | string | `"PASS"` or `"FAIL"` — computed by the Evaluation AI (hook recalculates independently) |
+| `blocking_issues` | array | Issues that must be fixed before proceeding (empty array if no blockers) |
+| `suggestions` | array | Non-blocking improvement ideas for future consideration |
+| `rationale` | string | Overall narrative summary explaining the verdict |
 
-> **Note**: The hook does NOT read any AI-generated `pass` or `overall` fields. It calculates pass/fail independently from the raw `scores` values. Flat format (`"key": N`) is also supported for backward compatibility.
+> **Note**: The hook does NOT read any AI-generated `verdict`, `pass`, or `average` fields. It calculates pass/fail independently from the raw `scores` values. Flat format (`"key": N`) is also supported for backward compatibility.
+>
+> **Important**: The hook enforces that `evaluator.role_marker` is present and non-empty on every Write to an evaluation JSON file. A flat `"evaluator": "string"` will be blocked.
 
 ---
 
