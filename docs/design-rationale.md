@@ -222,6 +222,40 @@ The following may look like "better approaches" but undermine core principles:
 
 ---
 
+## Behavioral Rule Authoring Style
+
+Every behavioral rule in this system should have three elements:
+
+1. **The action** — stated in positive form: "the AI does X."
+2. **The reason** — why this action is required.
+3. **Step instructions** — how to perform it, if non-obvious.
+
+**Why positive form over negative prohibition**
+
+Negative rules ("do not do X") leave loopholes: an LLM can reason "I did not do X, I did Y instead" and satisfy the prohibition while violating the intent. Positive rules anchor the behavior — "cite file paths and line numbers" is harder to route around than "no vague statements."
+
+The classic failure mode: `[DENY] No opinions or leading phrases` — an LLM can silently reframe an opinion as a "neutral observation" and pass the check. The positive form breaks this: `[MUST] State observations as direct facts — cite file paths and line numbers` gives a concrete, verifiable action.
+
+**Example (before/after)**
+
+Before:
+```
+4. **[DENY]** No opinions, interpretations, or leading phrases ("consider that ~", "note that ~", "this is ~ so")
+```
+
+After:
+```
+4. **[MUST]** State observations as direct facts — cite file paths and line numbers. Prohibited forms: "consider that ~", "note that ~", "this is ~ so".
+```
+
+The "Prohibited forms" note is kept as a supplementary anchor. The rule is now anchored on the positive behavior first.
+
+**When the forbidden-form note is still needed**
+
+A forbidden-form note is appropriate when listing specific prohibited patterns (as above). It is NOT a substitute for stating what the AI should do. Rule of thumb: the `[MUST]` positive action comes first; the prohibited forms are the safety net.
+
+---
+
 ## Summary: The Design Philosophy of This System
 
 **The pipeline's goal is not to get better with each run, but to perform well without bias every single time.**
