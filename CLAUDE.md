@@ -57,6 +57,7 @@ This project follows Auto-Flow with Agent Teams. Even though this is a single re
 2. **[MUST]** Do NOT copy evaluation criteria into the prompt — instruct the AI to read CLAUDE.md directly
 3. **[MUST]** Orchestrator-written portion must be 5 lines or fewer (excluding target file contents)
 4. **[DENY]** No opinions, interpretations, or leading phrases ("consider that ~", "note that ~", "this is ~ so")
+5. **[MUST]** Evaluation AI output MUST include `evaluator.role_marker` with the gate-specific value: `[role:eval-hypothesis]`, `[role:eval-plan]`, or `[role:eval-quality]`. The hook will block evaluation JSON writes that omit this field.
 
 ### Orchestrator Boundaries
 
@@ -448,22 +449,32 @@ When the change is purely prose (no scripts, no templates with placeholders):
 
 ### Evaluation Output Format
 
+> See `docs/evaluation-system.md` for the full schema. This is the abbreviated reference.
+
 ```json
 {
   "phase": "GATE:QUALITY",
   "issue": "#N",
-  "evaluator": "evaluation-ai",
+  "evaluator": {
+    "role_marker": "[role:eval-quality]",
+    "session_id": "<session-id>"
+  },
   "scores": {
     "correctness": { "score": 8, "reason": "..." },
     "quality": { "score": 7, "reason": "..." },
     "test_coverage": { "score": 7, "reason": "..." },
     "consistency": { "score": 9, "reason": "..." },
     "documentation": { "score": 8, "reason": "..." }
-  }
+  },
+  "average": 7.8,
+  "verdict": "PASS",
+  "blocking_issues": [],
+  "suggestions": ["..."],
+  "rationale": "..."
 }
 ```
 
-The Hook calculates pass/fail from raw `scores` — it does NOT trust AI's `pass` field.
+The Hook calculates pass/fail from raw `scores` — it does NOT trust AI's `verdict`, `pass`, or `average` fields.
 
 ---
 
