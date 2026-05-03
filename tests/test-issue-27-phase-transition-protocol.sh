@@ -182,35 +182,51 @@ echo ""
 #   - docs/design-rationale.md
 #   - tests/test-issue-27-phase-transition-protocol.sh
 #   - .autoflow-state/27/...
+#
+# Branch-local scope: AC8 only enforces on issue-27's own branch
+# (per plan.md #45 Section 2.9). Outside that branch it is skipped so
+# the issue-27 PR-scope whitelist does not block unrelated work.
 # ============================================================
 echo "--- AC8: Only allowed files modified vs main ---"
 
-TOTAL=$((TOTAL + 1))
-DIFF_FILES=$(git -C "$REPO_ROOT" diff --name-only main..HEAD 2>/dev/null || true)
-FORBIDDEN_FILES=""
-if [ -n "$DIFF_FILES" ]; then
-  while IFS= read -r f; do
-    [ -z "$f" ] && continue
-    case "$f" in
-      CLAUDE.md) ;;
-      CLAUDE.md.template) ;;
-      docs/design-rationale.md) ;;
-      tests/test-issue-27-phase-transition-protocol.sh) ;;
-      .autoflow-state/27/*) ;;
-      .autoflow-state/27) ;;
-      *) FORBIDDEN_FILES="$FORBIDDEN_FILES$f"$'\n' ;;
-    esac
-  done <<EOF
+CURRENT_BRANCH=$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+CURRENT_BRANCH_LC=$(printf '%s' "$CURRENT_BRANCH" | tr '[:upper:]' '[:lower:]')
+AC8_IN_SCOPE=0
+case "$CURRENT_BRANCH_LC" in
+  *27-*|*phase-transition*) AC8_IN_SCOPE=1 ;;
+esac
+
+if [ "$AC8_IN_SCOPE" -eq 1 ]; then
+  TOTAL=$((TOTAL + 1))
+  DIFF_FILES=$(git -C "$REPO_ROOT" diff --name-only main..HEAD 2>/dev/null || true)
+  FORBIDDEN_FILES=""
+  if [ -n "$DIFF_FILES" ]; then
+    while IFS= read -r f; do
+      [ -z "$f" ] && continue
+      case "$f" in
+        CLAUDE.md) ;;
+        CLAUDE.md.template) ;;
+        docs/design-rationale.md) ;;
+        tests/test-issue-27-phase-transition-protocol.sh) ;;
+        .autoflow-state/27/*) ;;
+        .autoflow-state/27) ;;
+        *) FORBIDDEN_FILES="$FORBIDDEN_FILES$f"$'\n' ;;
+      esac
+    done <<EOF
 $DIFF_FILES
 EOF
-fi
+  fi
 
-if [ -z "$FORBIDDEN_FILES" ]; then
-  echo "PASS: 8a. git diff main..HEAD contains no forbidden paths"
+  if [ -z "$FORBIDDEN_FILES" ]; then
+    echo "PASS: 8a. git diff main..HEAD contains no forbidden paths"
+  else
+    FAILURES=$((FAILURES + 1))
+    echo "FAIL: 8a. git diff main..HEAD contains forbidden paths:"
+    printf '%s' "$FORBIDDEN_FILES" | sed 's/^/      /'
+  fi
 else
-  FAILURES=$((FAILURES + 1))
-  echo "FAIL: 8a. git diff main..HEAD contains forbidden paths:"
-  printf '%s' "$FORBIDDEN_FILES" | sed 's/^/      /'
+  TOTAL=$((TOTAL + 1))
+  echo "PASS: 8a. Skipped (branch-local scope; AC8 only enforces on issue-27 branch)"
 fi
 
 echo ""
