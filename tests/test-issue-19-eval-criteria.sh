@@ -95,8 +95,8 @@ check "2a. CLAUDE.md Phase 3 has Structural Overlap category" \
 check "2b. CLAUDE.md Phase 3 has Code Change Necessity category" \
   "echo \"\$CLAUDE_PHASE3\" | grep -q 'Code Change Necessity'"
 
-check "2c. CLAUDE.md Phase 3 has New Mechanism Necessity category" \
-  "echo \"\$CLAUDE_PHASE3\" | grep -q 'New Mechanism Necessity'"
+check "2c. CLAUDE.md Phase 3 has Structural Change Necessity category" \
+  "echo \"\$CLAUDE_PHASE3\" | grep -q 'Structural Change Necessity'"
 
 # Type 2 categories
 check "2d. CLAUDE.md Phase 3 has Content Gap category" \

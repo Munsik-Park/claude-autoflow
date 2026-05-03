@@ -247,7 +247,9 @@ Spawn AI-A again with Phase A results + AI-B's resolution approaches.
 |---|---|
 | Structural Overlap | Does the proposed resolution duplicate existing mechanisms? (high = no overlap) |
 | Code Change Necessity | Is actual code change needed, vs. data/config addition? (high = code change needed) |
-| New Mechanism Necessity | Does this require a new type of mechanism? (high = new mechanism needed) |
+| Structural Change Necessity | Does this require structural change to existing mechanisms? (high = structural change needed — by introducing OR removing a mechanism) |
+
+> **Note**: "Structural Change Necessity" is intentionally direction-symmetric — additive, extending, reverting, and removing proposals all reach the same numerical ceiling on this axis when the structural change is justified.
 
 **Type 2 (Documentation/Consistency) Scoring:**
 
