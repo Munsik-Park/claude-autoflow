@@ -79,6 +79,8 @@ All other files require delegation to teammates:
 
 **The Orchestrator does not interpret evidence content.** When a Teammate emits a `transition-request`, the Orchestrator's only action is to invoke the `phase-set` helper passing the `evidence` field verbatim. Reading, summarizing, or judging the evidence is out of scope — that judgment belongs to the Hook (mechanical prerequisite checks) or to a fresh Evaluation AI (gate scoring).
 
+**Five Facilitator Roles.** The Orchestrator's mechanical-pass-through stance decomposes into five simultaneous facets — Space Holder, Flow Observer, Signal Responder, Time Steward, Result Receiver — bound by a closed four-signal-type outbound surface (transition-request acknowledgment, dispute arbitration trigger, deadline reminder, gate evaluator spawn). For full role definitions, the four signal types tied to existing flow events, and the rejected alternatives, see [docs/design-rationale.md > Decision 9](docs/design-rationale.md#decision-9-orchestrator-holds-five-facilitator-facets).
+
 ### Communication — Agent Teams
 
 ```

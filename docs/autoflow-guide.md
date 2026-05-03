@@ -206,6 +206,8 @@ The orchestrator coordinates only — it does **not** implement. File-level boun
 
 **No exceptions.** If a file is not in the orchestrator's list above, it must go through a teammate — regardless of how simple the change appears.
 
+For the orchestrator's five facilitator facets and four-signal-type outbound surface, see [docs/design-rationale.md > Decision 9](design-rationale.md#decision-9-orchestrator-holds-five-facilitator-facets).
+
 ---
 
 ## DISPATCH: Task Assignment
