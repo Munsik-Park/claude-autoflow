@@ -122,20 +122,21 @@ evidence: <artifact path or short factual statement>
 ### Phase Definitions
 
 ```
-PREFLIGHT:       Pre-Work         → Git Clean Check, branch creation
-DIAGNOSE:        Issue Analysis    → 3-Phase independent analysis (bias prevention)
-GATE:HYPOTHESIS: Structure Eval   → Evaluation AI (fresh spawn): PASS → continue, FAIL → close issue
-ARCHITECT:       Plan Synthesis    → Merge analyses into implementation plan + acceptance criteria
-GATE:PLAN:       Plan Evaluation   → Evaluation AI (fresh spawn): 5 categories × 10 points
-DISPATCH:        Task Assignment   → TeamCreate + SendMessage to Test AI and Developer AI
-RED:             Test Writing      → Test AI writes tests → Red confirmation
-GREEN:           Implementation    → Developer AI writes minimum code to pass tests
-VERIFY:          Green + Verify    → All tests pass + minimal implementation check
-REFINE:          Refactor          → Developer AI code cleanup, Green re-confirmation
-GATE:QUALITY:    Evaluation        → Evaluation AI (fresh spawn): scored quality assessment
-REVISION:        Revision          → Fix evaluation feedback (if GATE:QUALITY FAIL)
-SHIP:            PR & Review       → Create PR for human review
-LAND:            Merge & Close     → Human approves and merges
+PREFLIGHT:              Pre-Work          → Git Clean Check, branch creation
+DIAGNOSE:               Issue Analysis    → 3-Phase independent analysis (bias prevention)
+GATE:HYPOTHESIS:        Structure Eval    → Evaluation AI (fresh spawn): PASS → continue, FAIL → close issue
+ARCHITECT:              Plan Synthesis    → Merge analyses into implementation plan + acceptance criteria
+GATE:PLAN:              Plan Evaluation   → Evaluation AI (fresh spawn): 5 categories × 10 points
+DISPATCH:               Task Assignment   → TeamCreate + SendMessage to Test AI and Developer AI
+RED:                    Test Writing      → Test AI writes tests → Red confirmation
+GREEN:                  Implementation    → Developer AI writes minimum code to pass tests
+VERIFY:                 Green + Verify    → All tests pass + minimal implementation check
+REFINE:                 Refactor          → Developer AI code cleanup, Green re-confirmation
+GATE:QUALITY:           Evaluation        → Evaluation AI (fresh spawn): scored quality assessment
+REVISION:               Revision          → Fix evaluation feedback (if GATE:QUALITY FAIL)
+SHIP:                   PR & Review       → Create PR for human review
+LAND:                   Merge & Close     → Human approves and merges
+TERMINAL:VERIFY-FAILED: Terminal Failure  → Forensic-recorder writes detailed-failure-analysis.md; run terminates (no retry)
 ```
 
 ### Execution Principles
@@ -167,7 +168,7 @@ LAND:            Merge & Close     → Human approves and merges
 | VERIFY PASS | All Green + minimal impl check | → REFINE |
 | VERIFY FAIL (test issue) | Test incorrect | → RED (fix test → re-Red) |
 | VERIFY FAIL (impl issue) | Implementation incorrect | → GREEN (fix impl) |
-| VERIFY DEADLOCK | Both claim "no problem" | → Evaluation AI arbitrates |
+| VERIFY (Pattern A/B/C signal observed) | Self-reinterpretation, mutual-innocence (round-trip ≥ 1), or counterparty-invalidation message | → TERMINAL:VERIFY-FAILED (no retry, no arbitration) |
 | REFINE | Refactor done, Green maintained | → GATE:QUALITY |
 | GATE:QUALITY PASS | Score >= 7.5, all >= 7 | → SHIP |
 | GATE:QUALITY FAIL | Below threshold | → REVISION |
@@ -185,6 +186,7 @@ LAND:            Merge & Close     → Human approves and merges
 | GREEN↔VERIFY cycle | 3 round-trips | Human intervention |
 | REFINE FAIL | 2 | Skip refactor, keep Green state |
 | GATE:QUALITY FAIL | 3 → REVISION | Human intervention |
+| TERMINAL:VERIFY-FAILED | 0 | Run terminates; human reads detailed-failure-analysis.md and revises issue body before re-running |
 
 ---
 
@@ -382,7 +384,7 @@ Developer AI teammate writes minimum code to pass tests. This is the **only** ph
     ├─ Test issue → fix test → re-Red → GREEN re-entry
     ├─ Implementation issue → fix implementation → VERIFY retry
     ├─ Both need fixes → fix test first → Red → fix impl → Green
-    └─ Deadlock (both claim "no problem") → fresh Evaluation AI arbitrates
+    └─ Pattern A/B/C signal observed → forensic-recorder spawn → TERMINAL:VERIFY-FAILED
 
 5c-3. Minimal implementation check:
     Diff analysis: is there code NOT covered by any test?
