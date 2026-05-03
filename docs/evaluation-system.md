@@ -158,15 +158,6 @@ The Evaluation AI produces a JSON report saved to `.autoflow-state/<issue>/evalu
 >
 > **Important**: The hook enforces that `evaluator.role_marker` is present and non-empty on every Write to an evaluation JSON file. A flat `"evaluator": "string"` will be blocked.
 
-### Non-Evaluation Role Markers
-
-`[role:forensic-recorder]` names the fresh Teammate spawned by the Orchestrator at TERMINAL:VERIFY-FAILED to write `detailed-failure-analysis.md` (see [design-rationale.md > Decision 11](design-rationale.md#decision-11-verify-failures-exit-fail-closed-via-forensic-recording)). This role is intentionally **excluded** from the evaluator role-marker schema and from the `evaluator.role_marker` Hook check, for two reasons:
-
-1. `detailed-failure-analysis.md` is markdown, not JSON. The `evaluator.role_marker` enforcement at the Hook applies to evaluation JSON paths only (`evaluation.json` and the per-gate evaluation files under `.autoflow-state/<id>/<n>/evaluation/*.json`).
-2. The forensic-recorder records facts and never emits a verdict, score, or pass/fail field. Subjecting it to the evaluation-JSON schema would imply a verdict surface the role does not have.
-
-The role marker itself is named here so that Teammates spawned for forensic recording self-identify, but no schema-level check exists for this artifact class — by design.
-
 ---
 
 ## Evaluation Process

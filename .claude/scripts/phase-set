@@ -59,7 +59,7 @@ fi
 SUBREPO_ID="${AUTOFLOW_SUBREPO_ID:-self}"
 
 # Single source of truth for valid phase names + standard exit codes.
-readonly VALID_PHASES="PREFLIGHT DIAGNOSE GATE:HYPOTHESIS ARCHITECT GATE:PLAN DISPATCH RED GREEN VERIFY REFINE GATE:SECURITY GATE:QUALITY REVISION SHIP LAND TERMINAL:VERIFY-FAILED"
+readonly VALID_PHASES="PREFLIGHT DIAGNOSE GATE:HYPOTHESIS ARCHITECT GATE:PLAN DISPATCH RED GREEN VERIFY REFINE GATE:SECURITY GATE:QUALITY REVISION SHIP LAND"
 readonly EX_USAGE=64 EX_DATAERR=65 EX_IOERR=73
 
 # ---------------------------------------------------------------------------
@@ -86,8 +86,7 @@ Arguments:
   <PHASE>           One of:
                     PREFLIGHT, DIAGNOSE, GATE:HYPOTHESIS, ARCHITECT,
                     GATE:PLAN, DISPATCH, RED, GREEN, VERIFY, REFINE,
-                    GATE:SECURITY, GATE:QUALITY, REVISION, SHIP, LAND,
-                    TERMINAL:VERIFY-FAILED
+                    GATE:SECURITY, GATE:QUALITY, REVISION, SHIP, LAND
   --note "<text>"   Optional note appended to the history.log line.
   --help            Show this help and exit.
 
