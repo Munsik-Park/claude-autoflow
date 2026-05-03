@@ -32,6 +32,32 @@ export AUTOFLOW_PHASE_SET
 
 STATE_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}/.autoflow-state"
 
+# ---------------------------------------------------------------------------
+# Submodule rejection (Issue #40, Decision 4)
+# ---------------------------------------------------------------------------
+# `.autoflow-state/` is host-repo-only. If CLAUDE_PROJECT_DIR resolves inside
+# a submodule working tree (its superproject probe returns a non-empty path),
+# refuse to write — unless the AUTOFLOW_ALLOW_SUBMODULE_STATE escape hatch is
+# set (testing/CI only). Failure of `git rev-parse` (no git, not a repo) is
+# treated as "no superproject" and the write is allowed.
+# ---------------------------------------------------------------------------
+_AUTOFLOW_IN_SUBMODULE=0
+_superproj=$(git -C "${CLAUDE_PROJECT_DIR:-$(pwd)}" rev-parse --show-superproject-working-tree 2>/dev/null || true)
+if [ -n "$_superproj" ]; then
+  if [ -z "${AUTOFLOW_ALLOW_SUBMODULE_STATE:-}" ]; then
+    echo "phase-set: refusing to write state inside a submodule working tree (superproject: ${_superproj})." >&2
+    echo "phase-set: Set CLAUDE_PROJECT_DIR to the host repo, or set AUTOFLOW_ALLOW_SUBMODULE_STATE=1 to override (testing/CI only)." >&2
+    exit 65
+  fi
+  _AUTOFLOW_IN_SUBMODULE=1
+fi
+
+# Sub-repo namespace for this orchestrator session. The orchestrator (or an
+# external setup script) is responsible for setting AUTOFLOW_SUBREPO_ID to a
+# meaningful identifier (e.g., the submodule path basename). The script does
+# NOT auto-compute it — `self` is the single-repo default.
+SUBREPO_ID="${AUTOFLOW_SUBREPO_ID:-self}"
+
 # Single source of truth for valid phase names + standard exit codes.
 readonly VALID_PHASES="PREFLIGHT DIAGNOSE GATE:HYPOTHESIS ARCHITECT GATE:PLAN DISPATCH RED GREEN VERIFY REFINE GATE:SECURITY GATE:QUALITY REVISION SHIP LAND"
 readonly EX_USAGE=64 EX_DATAERR=65 EX_IOERR=73
@@ -86,7 +112,13 @@ iso8601_utc() {
 }
 
 # ---------------------------------------------------------------------------
-# resolve_issue — read .autoflow-state/current-issue
+# resolve_issue — read .autoflow-state/current-issue and set exported globals
+# (Issue #40, Decision 2 / plan §2.2):
+#   - `<sub-repo-id>/<issue-number>` form parses on the slash.
+#   - Bare integer (legacy) synthesizes `_SUBREPO_ID=$SUBREPO_ID` (default
+#     `self`), keeping the namespaced-write contract uniform.
+# Side-effect interface (not stdout-return) so callers see exit code 65 on
+# failure without subshell capture eating the trap.
 # ---------------------------------------------------------------------------
 resolve_issue() {
   local issue_file="${STATE_DIR}/current-issue"
@@ -94,13 +126,38 @@ resolve_issue() {
     echo "phase-set: no active issue (.autoflow-state/current-issue missing or empty)" >&2
     exit "$EX_DATAERR"
   fi
-  local issue
-  issue=$(tr -d '[:space:]' < "$issue_file")
-  if [ -z "$issue" ]; then
+  local raw
+  raw=$(tr -d '[:space:]' < "$issue_file")
+  if [ -z "$raw" ]; then
     echo "phase-set: no active issue (.autoflow-state/current-issue missing or empty)" >&2
     exit "$EX_DATAERR"
   fi
-  printf '%s' "$issue"
+  case "$raw" in
+    */*)
+      _SUBREPO_ID="${raw%/*}"
+      _ISSUE="${raw##*/}"
+      ;;
+    *)
+      # Legacy bare integer: prefer the new namespaced layout, but if the
+      # caller's fixture already has a flat-layout state dir at
+      # ${STATE_DIR}/<N>/ (and no namespaced ${STATE_DIR}/${SUBREPO_ID}/<N>/),
+      # write to the existing flat dir. Keeps pre-#40 state dirs operational
+      # without auto-migration. See plan §4 (migration handling).
+      # Suppressed when running inside a submodule with the escape hatch
+      # active — in that mode we always emit the new namespaced layout so
+      # CI/test scenarios get a clean writeable target.
+      if [ "$_AUTOFLOW_IN_SUBMODULE" -eq 0 ] \
+          && [ -d "${STATE_DIR}/${raw}" ] \
+          && [ ! -d "${STATE_DIR}/${SUBREPO_ID}/${raw}" ]; then
+        _SUBREPO_ID=""
+        _ISSUE="$raw"
+      else
+        _SUBREPO_ID="$SUBREPO_ID"
+        _ISSUE="$raw"
+      fi
+      ;;
+  esac
+  export _SUBREPO_ID _ISSUE
 }
 
 # ---------------------------------------------------------------------------
@@ -197,15 +254,22 @@ main() {
     exit "$EX_USAGE"
   fi
 
-  # Resolve the active issue (exits 65 on missing/empty current-issue)
-  local issue
-  issue=$(resolve_issue)
+  # Resolve the active issue (exits 65 on missing/empty current-issue).
+  # Side-effect: sets exported globals _SUBREPO_ID and _ISSUE.
+  resolve_issue
 
   # Validate the requested phase BEFORE touching any files (T3: file unchanged)
   validate_phase "$phase"
 
-  # Determine the from-phase
-  local issue_dir="${STATE_DIR}/${issue}"
+  # Determine the from-phase. Issue #40: prefer the namespaced two-segment
+  # path; legacy bare-integer fixtures with an existing flat layout collapse
+  # _SUBREPO_ID to empty so the original `${STATE_DIR}/${issue}` path is used.
+  local issue_dir
+  if [ -n "$_SUBREPO_ID" ]; then
+    issue_dir="${STATE_DIR}/${_SUBREPO_ID}/${_ISSUE}"
+  else
+    issue_dir="${STATE_DIR}/${_ISSUE}"
+  fi
   local phase_file="${issue_dir}/phase"
   local history_file="${issue_dir}/history.log"
 

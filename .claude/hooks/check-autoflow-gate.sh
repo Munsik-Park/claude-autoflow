@@ -57,15 +57,19 @@ END {
     if [ "$_autoflow_event" = "PreToolUse" ]; then
       case "$_autoflow_tool" in
         Write|Edit|MultiEdit)
+          # Issue #40 / Decision 6: dual-pattern glob matches both the legacy
+          # flat layout (`.autoflow-state/<N>/phase`) and the new namespaced
+          # layout (`.autoflow-state/<sub-repo-id>/<N>/phase`). POSIX `*`
+          # does not cross `/`, so the two patterns are non-overlapping.
           case "$_autoflow_target" in
-            *.autoflow-state/*/phase)
+            *.autoflow-state/*/*/phase|*.autoflow-state/*/phase)
               if [ -z "${AUTOFLOW_PHASE_SET:-}" ]; then
                 echo "[AutoFlow Gate] Direct write to phase file blocked: ${_autoflow_target}" >&2
                 echo "[AutoFlow Gate] Use the helper: .claude/scripts/phase-set <PHASE> [--note '<text>']" >&2
                 exit 2
               fi
               ;;
-            *.autoflow-state/*/evaluation.json|*.autoflow-state/*/evaluation/*.json)
+            *.autoflow-state/*/*/evaluation.json|*.autoflow-state/*/evaluation.json|*.autoflow-state/*/*/evaluation/*.json|*.autoflow-state/*/evaluation/*.json)
               if [ "$_autoflow_tool" = "Write" ]; then
                 # Payload embeds file content as escaped JSON string — \"role_marker\" confirms evaluator object.
                 _autoflow_role_marker_found="$(awk \
@@ -106,7 +110,11 @@ log_fail()  { echo "[AutoFlow Gate] ❌ $*"; }
 log_warn()  { echo "[AutoFlow Gate] ⚠️  $*"; }
 
 # ---------------------------------------------------------------------------
-# Resolve current issue
+# Resolve current issue (Issue #40, Decision 2 / plan §3.2):
+# Returns a qualified `<sub-repo-id>/<issue-number>` string. The slash form is
+# returned as-is; a bare integer (legacy) is normalized to `self/<N>`. Legacy
+# flat-layout state directories (`.autoflow-state/<N>/`) without a matching
+# namespaced directory are honored for back-compat reads — see plan §4.
 # ---------------------------------------------------------------------------
 get_current_issue() {
   local issue_file="${STATE_DIR}/current-issue"
@@ -115,7 +123,24 @@ get_current_issue() {
     log_info "Skipping gate check (no active Auto-Flow session)"
     exit 0
   fi
-  cat "$issue_file" | tr -d '[:space:]'
+  local raw subrepo
+  raw=$(cat "$issue_file" | tr -d '[:space:]')
+  case "$raw" in
+    */*)
+      printf '%s' "$raw"
+      ;;
+    *)
+      subrepo="${AUTOFLOW_SUBREPO_ID:-self}"
+      if [ -d "${STATE_DIR}/${raw}" ] && [ ! -d "${STATE_DIR}/${subrepo}/${raw}" ]; then
+        # Legacy flat-layout state directory still in use — return bare form
+        # so downstream `${STATE_DIR}/${qualified_issue}/...` resolves to the
+        # existing directory.
+        printf '%s' "$raw"
+      else
+        printf '%s/%s' "$subrepo" "$raw"
+      fi
+      ;;
+  esac
 }
 
 # ---------------------------------------------------------------------------
@@ -362,6 +387,30 @@ check_delegation_exists() {
 }
 
 # ---------------------------------------------------------------------------
+# Check: Does intake.md exist (Issue #40, Decision 5 / plan §3.4)?
+# Mirrors check_delegation_exists. Verifies file presence AND the three
+# required section tokens (`## Sub-Repo`, `## Branch`, `## State Location`)
+# so a placeholder file does not silently satisfy the gate.
+# ---------------------------------------------------------------------------
+check_intake_exists() {
+  local issue="$1"
+  local intake_file="${STATE_DIR}/${issue}/intake.md"
+  if [ ! -f "$intake_file" ]; then
+    log_fail "intake.md not found: ${intake_file}"
+    log_info "PREFLIGHT must produce intake.md before DIAGNOSE"
+    return 1
+  fi
+  local token
+  for token in '## Sub-Repo' '## Branch' '## State Location'; do
+    if ! grep -F -q "$token" "$intake_file" 2>/dev/null; then
+      log_fail "intake.md missing required section: ${token}"
+      return 1
+    fi
+  done
+  return 0
+}
+
+# ---------------------------------------------------------------------------
 # Main gate logic
 # ---------------------------------------------------------------------------
 main() {
@@ -381,14 +430,40 @@ main() {
   phase=$(get_current_phase "$issue")
   log_info "Current phase: ${phase}"
 
+  # Issue #40: intake gate applies only when the orchestrator is using the new
+  # namespaced layout (qualified `<sub-repo-id>/<issue-number>`). Legacy bare-
+  # integer state remains exempt to keep pre-#40 fixtures and in-flight issues
+  # unblocked. PREFLIGHT warns; DIAGNOSE+ hard-blocks. See plan §3.5.
+  case "$issue" in
+    */*) _namespaced=1 ;;
+    *)   _namespaced=0 ;;
+  esac
+
   case "$phase" in
-    # Pre-evaluation phases: no gate block (DISPATCH creates delegation.md during this phase)
-    PREFLIGHT|DIAGNOSE|GATE:HYPOTHESIS|ARCHITECT|GATE:PLAN|DISPATCH)
+    # PREFLIGHT: intake.md is the artifact this very phase produces, so a
+    # missing file warns rather than blocks (avoids chicken-and-egg with the
+    # first phase-set PREFLIGHT call).
+    PREFLIGHT)
+      if [ "$_namespaced" -eq 1 ] \
+          && ! check_intake_exists "$issue" >/dev/null 2>&1; then
+        log_warn "intake.md not yet present at ${STATE_DIR}/${issue}/intake.md — PREFLIGHT must produce it before DIAGNOSE"
+      fi
       log_pass "${phase} — no gate restrictions"
       ;;
 
-    # TDD phases: delegation must exist
+    # DIAGNOSE+: intake.md is required (hard-block) under namespaced layout.
+    DIAGNOSE|GATE:HYPOTHESIS|ARCHITECT|GATE:PLAN|DISPATCH)
+      if [ "$_namespaced" -eq 1 ]; then
+        check_intake_exists "$issue" || exit 1
+      fi
+      log_pass "${phase} — no gate restrictions"
+      ;;
+
+    # TDD phases: delegation must exist (intake also required when namespaced)
     RED|GREEN|VERIFY|REFINE)
+      if [ "$_namespaced" -eq 1 ]; then
+        check_intake_exists "$issue" || exit 1
+      fi
       check_delegation_exists "$issue" || exit 1
       log_pass "${phase} — delegation.md found, TDD in progress"
       ;;

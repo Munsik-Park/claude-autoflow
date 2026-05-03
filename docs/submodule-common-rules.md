@@ -22,6 +22,18 @@ Every sub-repository **must** contain:
 
 ---
 
+## Auto-Flow State Ownership
+
+Sub-repos **must NOT contain `.autoflow-state/`**. Auto-Flow state belongs exclusively to the orchestrator's host repo working tree. The host repo records every issue under `.autoflow-state/<sub-repo-id>/<issue-number>/`, where `<sub-repo-id>` is the submodule path basename (or `self` for single-repo deployments).
+
+The `.claude/scripts/phase-set` helper enforces this boundary at write time: when `git -C "$CLAUDE_PROJECT_DIR" rev-parse --show-superproject-working-tree` returns a non-empty path (i.e., `CLAUDE_PROJECT_DIR` is inside a sub-repo working tree), `phase-set` exits with code 65 instead of writing. The `AUTOFLOW_ALLOW_SUBMODULE_STATE=1` escape hatch exists for testing/CI only — production orchestrator sessions must run from the host repo.
+
+For the full design intent (host-vs-sub-repo separation, namespaced layout, intake artifact), see [design-rationale.md > Decision 10](design-rationale.md#decision-10-state-tree-is-namespaced-by-sub-repo-identifier).
+
+The `.gitignore` requirement above is therefore a defense-in-depth measure: even if a misconfigured `phase-set` invocation slips through, the resulting `.autoflow-state/` directory inside a sub-repo never lands in version control.
+
+---
+
 ## CLAUDE.md Requirements
 
 Each sub-repo's `CLAUDE.md` must define:
