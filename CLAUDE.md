@@ -249,6 +249,8 @@ Spawn AI-A again with Phase A results + AI-B's resolution approaches.
 | Code Change Necessity | Is actual code change needed, vs. data/config addition? (high = code change needed) |
 | Structural Change Necessity | Does this require structural change to existing mechanisms? (high = structural change needed — by introducing OR removing a mechanism) |
 
+> **Note**: "Structural Change Necessity" is intentionally direction-symmetric — additive, extending, reverting, and removing proposals all reach the same numerical ceiling on this axis when the structural change is justified.
+
 **Type 2 (Documentation/Consistency) Scoring:**
 
 | Category | Measures |

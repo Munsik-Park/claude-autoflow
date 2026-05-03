@@ -193,7 +193,7 @@ CURRENT_BRANCH=$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || 
 CURRENT_BRANCH_LC=$(printf '%s' "$CURRENT_BRANCH" | tr '[:upper:]' '[:lower:]')
 AC8_IN_SCOPE=0
 case "$CURRENT_BRANCH_LC" in
-  *27-*|*phase-transition*) AC8_IN_SCOPE=1 ;;
+  27-*|*/27-*|*phase-transition*) AC8_IN_SCOPE=1 ;;
 esac
 
 if [ "$AC8_IN_SCOPE" -eq 1 ]; then
