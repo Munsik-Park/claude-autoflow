@@ -43,6 +43,19 @@ Use `CLAUDE.local.md` for:
 - Focus on issue #42 only
 ```
 
+### Parent-Repo Sync Procedure (if applicable)
+
+If your host repo tracks an upstream sub-repo via patch-apply, document the sync commands here. The sync runs at **PREFLIGHT step `0-2b`** (see `CLAUDE.md` or `docs/autoflow-guide.md` PREFLIGHT section) — not at an arbitrary time. PREFLIGHT step `0-2b` is the canonical scheduling site; this file holds only the host-specific commands.
+
+```bash
+## Parent-Repo Sync (invoked from PREFLIGHT 0-2b)
+# Example — replace with the procedure for your layout:
+# cd <sub-repo-path> && git pull
+# git diff <previous-tag>..<new-tag> > ../patch/upstream.patch
+# cd .. && git apply patch/upstream.patch
+# git commit -m "chore: apply upstream <version> changes"
+```
+
 ---
 
 ## Setup

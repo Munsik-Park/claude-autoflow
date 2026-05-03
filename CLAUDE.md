@@ -195,6 +195,7 @@ LAND:            Merge & Close     → Human approves and merges
 ```
 0-1. git status — no uncommitted changes, no untracked files in working area
 0-2. git fetch origin — sync with remote
+0-2b. If this repo tracks an upstream sub-repo via patch-apply (parent-repo / sub-repo layout), bring the host working tree current with the just-fetched sub-repo state per the host's local procedure (e.g., `CLAUDE.local.md`). Skip if the project is single-repo.
 0-3. Resolve any dirty state (stash, commit, or discard with user approval)
 0-4. git checkout -b <branch-type>/<issue>-<desc> main
 ```

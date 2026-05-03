@@ -84,6 +84,10 @@ Auto-Flow is a structured development lifecycle that ensures quality through eva
 ```
 0-1. git status — no uncommitted changes, no untracked files in working area
 0-2. git fetch origin — sync with remote
+<!-- BEGIN: OPTIONAL PARENT-REPO SYNC -->
+<!-- Remove this 0-2b line if your project does not use a parent-repo / submodule layout -->
+0-2b. If this repo tracks an upstream sub-repo via patch-apply (parent-repo / sub-repo layout), bring the host working tree current with the just-fetched sub-repo state per the host's local procedure (e.g., `CLAUDE.local.md`). Skip if the project is single-repo.
+<!-- END: OPTIONAL PARENT-REPO SYNC -->
 0-3. Resolve any dirty state (stash, commit, or discard with user approval)
 0-4. git checkout -b <branch-type>/<issue>-<desc> main
 ```

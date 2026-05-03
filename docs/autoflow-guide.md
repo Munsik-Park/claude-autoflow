@@ -23,6 +23,7 @@ The key principles:
 ### Activities
 - `git status` — verify no uncommitted changes or untracked files in working area
 - `git fetch origin` — sync with remote
+- **(Optional, parent-repo / sub-repo layout only)** If this repo tracks an upstream sub-repo via patch-apply, bring the host working tree current with the just-fetched sub-repo state per the host's local procedure (e.g., `CLAUDE.local.md`). Skip if the project is single-repo.
 - Resolve any dirty state (stash, commit, or discard with user approval)
 - `git checkout -b <branch-type>/<issue>-<desc> main` — create feature branch from latest main
 
