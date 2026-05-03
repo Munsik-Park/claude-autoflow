@@ -219,6 +219,31 @@ The five facets are simultaneous facets of one stance, not alternating modes and
 
 ---
 
+### Decision 10: State Tree Is Namespaced by Sub-Repo Identifier
+
+**What it does**
+
+`.autoflow-state/` lives in the orchestrator's host repo working tree only. It never appears inside a sub-repo working tree. The state directory is uniformly namespaced as `.autoflow-state/<sub-repo-id>/<issue-number>/`, with `<sub-repo-id>` defaulting to `self` for single-repo deployments. The `current-issue` file holds a single line of the form `<sub-repo-id>/<issue-number>` (legacy bare-integer values are honored as `self/<integer>`). The `phase-set` helper refuses to write when `git -C "$CLAUDE_PROJECT_DIR" rev-parse --show-superproject-working-tree` returns a non-empty path, exiting with code 65; the env override `AUTOFLOW_ALLOW_SUBMODULE_STATE=1` exists for testing/CI only. PREFLIGHT additionally produces an `intake.md` artifact at `${STATE_DIR}/<sub-repo-id>/<issue-number>/intake.md` with three required sections (`## Sub-Repo`, `## Branch`, `## State Location`); the gate hook warns at PREFLIGHT and hard-blocks at DIAGNOSE+ if the artifact is missing.
+
+**Why it works this way**
+
+Without a namespace key the state layout has no separation between *where work happens* (a sub-repo) and *where orchestration is recorded* (the host repo that owns the orchestrator session). Issue #40's reference incident — state for issue #31 written under `services/autoflow-upstream/.autoflow-state/31/` — happened because `phase-set` and `check-autoflow-gate.sh` trusted `CLAUDE_PROJECT_DIR` verbatim and the directory layout had no slot to record which sub-repo the issue belonged to. Anchoring all state to the host repo makes the host the single auditable authority, and prefixing every issue with a sub-repo identifier preserves multi-repo deployments without creating cross-host fragmentation. The submodule-rejection probe at the writer (not the gate) catches the misroute the moment it would happen, and the env override exists so test fixtures can still create state inside a fixture submodule. `intake.md` exists because `requirements.md` is consumed by Test/Developer AI and conflating provenance crowds it; intake records the routing facts (sub-repo identifier, branch, state path) once at PREFLIGHT and is read by the gate hook to confirm the orchestrator declared its anchor before any analysis begins.
+
+**Rejected alternatives**
+
+- **Use `git rev-parse --show-toplevel` basename to compute `<sub-repo-id>` inside `phase-set`.** Rejected because the script then has to know which clone is the host and which is the sub-repo; the orchestrator already has that knowledge and can pass it via `AUTOFLOW_SUBREPO_ID`. Keeping computation outside the script preserves the single-responsibility boundary.
+- **Auto-migrate legacy `.autoflow-state/<N>/` directories into `.autoflow-state/self/<N>/`.** Rejected because in-flight phase transitions would silently relocate mid-run; the cost of one manual `mv` is bounded, the cost of a wrong migration is unbounded.
+- **JSON `current-issue` carrying explicit `{ "subrepo": ..., "issue": ... }`.** Rejected because every shell consumer would need a parser; the slash-separated text form is parseable by `case "$raw" in */*) ... esac` in two lines and cannot grow extra fields by accident.
+- **Remote-URL slug as the sub-repo identifier.** Rejected because remote URLs require network access to canonicalize, change when a fork is renamed, and disagree with the on-disk submodule path that contributors actually navigate.
+- **Cross-host aggregation tooling that merges multiple host-repo state trees.** Rejected because it reintroduces the fragmentation the host repo was chosen to eliminate; if multiple hosts coordinate, that coordination belongs at the protocol layer (e.g., GitHub Issues), not in `.autoflow-state/`.
+- **Enforce intake schema in `phase-set` rather than the gate hook.** Rejected because it would conflate the writer (sole appender of phase/history) with the validator (sole reader of artifact preconditions); the writer/gate split established by Decision 8 must be preserved.
+
+**What this means**
+
+The host repo is the only writeable home for `.autoflow-state/`. A sub-repo containing an `.autoflow-state/` directory is a misconfiguration that `phase-set` will catch the next time the orchestrator tries to write. New issues land at `.autoflow-state/<sub-repo-id>/<issue-number>/` regardless of whether the project is single-repo (`<sub-repo-id>=self`) or multi-repo (`<sub-repo-id>=<submodule-basename>`); the gate hook treats the namespaced layout as the authoritative shape and reads legacy flat-layout directories only as a transitional accommodation. PREFLIGHT must declare the routing facts in `intake.md` before DIAGNOSE; this declaration is what the gate hook checks, not the orchestrator's own assertions about where it is running.
+
+---
+
 ## Evaluation System Design Intent
 
 ### Why Scoring Criteria Are Not Fixed

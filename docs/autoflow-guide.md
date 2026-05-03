@@ -29,10 +29,31 @@ The key principles:
 ### Exit Criteria
 - Git working tree is clean
 - Branch created from latest main
+- `intake.md` created at `.autoflow-state/<sub-repo-id>/<issue-number>/intake.md` recording the sub-repo identifier, branch, and host state location (see [design-rationale.md > Decision 10](design-rationale.md#decision-10-state-tree-is-namespaced-by-sub-repo-identifier))
 - Ready for DIAGNOSE analysis
 
 ### Hard Stop Rule
 If Git state is not clean after resolution attempts, **stop and report to user**. Do NOT proceed to DIAGNOSE. Starting work on a dirty Git state causes merge conflicts, lost changes, and broken state downstream.
+
+### intake.md Format
+
+`intake.md` is the PREFLIGHT artifact that records *where* the orchestrator anchored the work (host repo, sub-repo identifier, branch). The gate hook reads it at DIAGNOSE+ and hard-blocks if absent. The three required section headers are `## Sub-Repo`, `## Branch`, `## State Location`.
+
+```markdown
+# Intake — Issue #<issue-number>
+
+## Sub-Repo
+<sub-repo-id>
+
+## Branch
+<branch-name>
+
+## State Location
+.autoflow-state/<sub-repo-id>/<issue-number>/
+
+## Source Issue URL
+<github-issue-url>
+```
 
 ---
 
@@ -438,20 +459,24 @@ When a phase fails, the flow regresses — or terminates:
 
 ## State File Structure
 
+`.autoflow-state/` lives in the orchestrator's host repo working tree only — never in a sub-repo. The layout is uniformly namespaced by sub-repo identifier; single-repo deployments use `self`. See [design-rationale.md > Decision 10](design-rationale.md#decision-10-state-tree-is-namespaced-by-sub-repo-identifier).
+
 ```
-.autoflow-state/
-├── current-issue          # Contains: issue number
-└── <issue-number>/
-    ├── phase              # Contains: current phase name
-    ├── requirements.md    # DIAGNOSE output (issue requirements)
-    ├── analysis/
-    │   ├── phase-a.md     # Structure analysis
-    │   ├── phase-b.md     # Issue analysis
-    │   └── phase-3.md     # Cross-verification
-    ├── plan.md            # ARCHITECT output
-    ├── delegation.md      # DISPATCH output (task assignments)
-    ├── evaluation.json    # GATE:QUALITY output
-    └── history.log        # Phase transition log
+.autoflow-state/                                # in host repo only
+├── current-issue                               # contains: <sub-repo-id>/<issue-number>
+└── <sub-repo-id>/                              # e.g., autoflow-upstream, or "self"
+    └── <issue-number>/
+        ├── phase                               # current phase name
+        ├── intake.md                           # PREFLIGHT artifact (sub-repo, branch, state location)
+        ├── requirements.md                     # DIAGNOSE output (issue requirements)
+        ├── analysis/
+        │   ├── phase-a.md                      # Structure analysis
+        │   ├── phase-b.md                      # Issue analysis
+        │   └── phase-3.md                      # Cross-verification
+        ├── plan.md                             # ARCHITECT output
+        ├── delegation.md                       # DISPATCH output (task assignments)
+        ├── evaluation.json                     # GATE:QUALITY output
+        └── history.log                         # Phase transition log
 ```
 
-> **Note**: Add `.autoflow-state/` to `.gitignore` — these are working files, not committed.
+> **Note**: Add `.autoflow-state/` to `.gitignore` — these are working files, not committed. `current-issue` is a single line of the form `<sub-repo-id>/<issue-number>`. Legacy bare-integer values (e.g., `42`) are honored as `self/42` for backward compatibility; new issues should use the slash-qualified form.

@@ -540,6 +540,256 @@ fi
 echo ""
 
 # ===========================================================================
+# T16: phase-set rejects writes inside a submodule working tree (Issue #40 AC 1)
+# Decision 4: trigger = `git rev-parse --show-superproject-working-tree` returns
+# non-empty AND `AUTOFLOW_ALLOW_SUBMODULE_STATE` is unset → exit 65 (EX_DATAERR).
+# Stderr message MUST mention both `submodule` and `AUTOFLOW_ALLOW_SUBMODULE_STATE`
+# so the user knows what went wrong and how to override (testing/CI only).
+# ===========================================================================
+echo "--- T16: phase-set refuses to write inside a submodule (exit 65) ---"
+setup_test_dir
+setup_state_dir 99
+# Build a tiny shim directory that intercepts `git` calls. The shim
+# unconditionally returns a non-empty path for
+# `rev-parse --show-superproject-working-tree`, simulating "we are inside a
+# submodule whose superproject lives at /fake/superproject". All other `git`
+# subcommands delegate to the real git found in $REAL_PATH so behavior in
+# phase-set's other code paths remains intact.
+SHIM_DIR_T16="${TEST_DIR}/bin"
+mkdir -p "$SHIM_DIR_T16"
+cat > "${SHIM_DIR_T16}/git" <<'GITSHIM'
+#!/usr/bin/env bash
+# Stub: only the superproject probe is intercepted; everything else delegates.
+for arg in "$@"; do
+  if [ "$arg" = "--show-superproject-working-tree" ]; then
+    echo "/fake/superproject"
+    exit 0
+  fi
+done
+exec /usr/bin/env -i PATH="$REAL_PATH" git "$@"
+GITSHIM
+chmod +x "${SHIM_DIR_T16}/git"
+REAL_PATH="$PATH"
+export REAL_PATH
+exit_code=0
+PATH="${SHIM_DIR_T16}:${PATH}" \
+  CLAUDE_PROJECT_DIR="$TEST_DIR" \
+  bash "$PHASE_SET" DIAGNOSE \
+    > "${TEST_DIR}/stdout.txt" 2> "${TEST_DIR}/stderr.txt" \
+    || exit_code=$?
+assert_exit_code 65 "$exit_code" \
+  "T16a: phase-set DIAGNOSE inside submodule exits 65"
+assert_file_contains "${TEST_DIR}/stderr.txt" "submodule" \
+  "T16b: stderr mentions 'submodule' (Decision 4)"
+assert_file_contains "${TEST_DIR}/stderr.txt" "AUTOFLOW_ALLOW_SUBMODULE_STATE" \
+  "T16c: stderr names AUTOFLOW_ALLOW_SUBMODULE_STATE escape hatch (Decision 4)"
+# Phase file MUST NOT have been created — rejection precedes any write.
+if [ ! -f "${TEST_DIR}/.autoflow-state/99/phase" ] \
+    && [ ! -f "${TEST_DIR}/.autoflow-state/self/99/phase" ]; then
+  PASS=$((PASS + 1))
+  echo "  PASS: T16d: no phase file created on rejection"
+else
+  FAIL=$((FAIL + 1))
+  ERRORS+=("FAIL: T16d: phase file was created despite rejection")
+  echo "  FAIL: T16d: phase file was created despite rejection"
+fi
+cleanup_test_dir
+echo ""
+
+# ===========================================================================
+# T17: AUTOFLOW_ALLOW_SUBMODULE_STATE=1 escape hatch (Issue #40 AC 2)
+# Same fixture as T16 (git-shim pretends we're in a submodule), but with
+# the env override set the rejection block is bypassed; phase write succeeds
+# and lands under the namespaced layout `<state>/self/<N>/`.
+# ===========================================================================
+echo "--- T17: AUTOFLOW_ALLOW_SUBMODULE_STATE=1 bypasses submodule rejection ---"
+setup_test_dir
+setup_state_dir 99
+SHIM_DIR_T17="${TEST_DIR}/bin"
+mkdir -p "$SHIM_DIR_T17"
+cat > "${SHIM_DIR_T17}/git" <<'GITSHIM'
+#!/usr/bin/env bash
+for arg in "$@"; do
+  if [ "$arg" = "--show-superproject-working-tree" ]; then
+    echo "/fake/superproject"
+    exit 0
+  fi
+done
+exec /usr/bin/env -i PATH="$REAL_PATH" git "$@"
+GITSHIM
+chmod +x "${SHIM_DIR_T17}/git"
+REAL_PATH="$PATH"
+export REAL_PATH
+exit_code=0
+PATH="${SHIM_DIR_T17}:${PATH}" \
+  AUTOFLOW_ALLOW_SUBMODULE_STATE=1 \
+  CLAUDE_PROJECT_DIR="$TEST_DIR" \
+  bash "$PHASE_SET" DIAGNOSE \
+    > "${TEST_DIR}/stdout.txt" 2> "${TEST_DIR}/stderr.txt" \
+    || exit_code=$?
+assert_exit_code 0 "$exit_code" \
+  "T17a: phase-set with AUTOFLOW_ALLOW_SUBMODULE_STATE=1 exits 0"
+T17_PHASE="${TEST_DIR}/.autoflow-state/self/99/phase"
+if [ -f "$T17_PHASE" ]; then
+  PASS=$((PASS + 1))
+  echo "  PASS: T17b: phase file created at .autoflow-state/self/99/phase"
+  # Content must equal exactly "DIAGNOSE\n" (9 bytes).
+  if [ "$(cat "$T17_PHASE")" = "DIAGNOSE" ] \
+      && [ "$(wc -c < "$T17_PHASE")" -eq 9 ]; then
+    PASS=$((PASS + 1))
+    echo "  PASS: T17c: phase file equals 'DIAGNOSE\\n' (9 bytes)"
+  else
+    FAIL=$((FAIL + 1))
+    ERRORS+=("FAIL: T17c: phase file content not 'DIAGNOSE\\n'")
+    echo "  FAIL: T17c: phase file content not 'DIAGNOSE\\n'"
+  fi
+else
+  FAIL=$((FAIL + 1))
+  ERRORS+=("FAIL: T17b: phase file not created at .autoflow-state/self/99/phase")
+  echo "  FAIL: T17b: phase file not created at .autoflow-state/self/99/phase"
+fi
+cleanup_test_dir
+echo ""
+
+# ===========================================================================
+# T18: namespaced write — current-issue=mysubrepo/77 (Issue #40 AC 3)
+# Decision 2: `current-issue` of the form `<sub-repo-id>/<issue-number>` writes
+# state to `${STATE_DIR}/<sub-repo-id>/<issue-number>/`.
+# ===========================================================================
+echo "--- T18: namespaced current-issue=mysubrepo/77 → two-segment path ---"
+setup_test_dir
+mkdir -p "${TEST_DIR}/.autoflow-state"
+echo "mysubrepo/77" > "${TEST_DIR}/.autoflow-state/current-issue"
+exit_code=$(run_phase_set DIAGNOSE)
+assert_exit_code 0 "$exit_code" \
+  "T18a: phase-set with namespaced current-issue exits 0"
+T18_PHASE="${TEST_DIR}/.autoflow-state/mysubrepo/77/phase"
+T18_HIST="${TEST_DIR}/.autoflow-state/mysubrepo/77/history.log"
+if [ -f "$T18_PHASE" ]; then
+  PASS=$((PASS + 1))
+  echo "  PASS: T18b: phase file at .autoflow-state/mysubrepo/77/phase exists"
+  if [ "$(cat "$T18_PHASE")" = "DIAGNOSE" ] \
+      && [ "$(wc -c < "$T18_PHASE")" -eq 9 ]; then
+    PASS=$((PASS + 1))
+    echo "  PASS: T18c: phase file equals 'DIAGNOSE\\n' (9 bytes)"
+  else
+    FAIL=$((FAIL + 1))
+    ERRORS+=("FAIL: T18c: phase file content not 'DIAGNOSE\\n'")
+    echo "  FAIL: T18c: phase file content not 'DIAGNOSE\\n'"
+  fi
+else
+  FAIL=$((FAIL + 1))
+  ERRORS+=("FAIL: T18b: phase file missing at .autoflow-state/mysubrepo/77/phase")
+  echo "  FAIL: T18b: phase file missing at .autoflow-state/mysubrepo/77/phase"
+fi
+if [ -f "$T18_HIST" ]; then
+  T18_LINES=$(wc -l < "$T18_HIST" | tr -d '[:space:]')
+  if [ "$T18_LINES" = "1" ]; then
+    PASS=$((PASS + 1))
+    echo "  PASS: T18d: history.log has exactly 1 transition line"
+  else
+    FAIL=$((FAIL + 1))
+    ERRORS+=("FAIL: T18d: history.log has $T18_LINES lines, expected 1")
+    echo "  FAIL: T18d: history.log has $T18_LINES lines, expected 1"
+  fi
+else
+  FAIL=$((FAIL + 1))
+  ERRORS+=("FAIL: T18d: history.log missing at .autoflow-state/mysubrepo/77/history.log")
+  echo "  FAIL: T18d: history.log missing"
+fi
+cleanup_test_dir
+echo ""
+
+# ===========================================================================
+# T19: legacy bare-integer fallback (Issue #40 AC 4)
+# Decision 3: a `current-issue` containing a bare integer (no slash) is parsed
+# as `self/<integer>` so all writes land under the namespaced layout.
+# Note: this expects the NEW layout `.autoflow-state/self/99/`, NOT the old
+# `.autoflow-state/99/`.
+# ===========================================================================
+echo "--- T19: legacy bare-integer current-issue=99 → self/99/ ---"
+setup_test_dir
+mkdir -p "${TEST_DIR}/.autoflow-state"
+echo "99" > "${TEST_DIR}/.autoflow-state/current-issue"
+exit_code=$(run_phase_set DIAGNOSE)
+assert_exit_code 0 "$exit_code" \
+  "T19a: phase-set with bare-integer current-issue exits 0"
+T19_NEW="${TEST_DIR}/.autoflow-state/self/99/phase"
+T19_OLD="${TEST_DIR}/.autoflow-state/99/phase"
+if [ -f "$T19_NEW" ]; then
+  PASS=$((PASS + 1))
+  echo "  PASS: T19b: phase file at .autoflow-state/self/99/phase (new layout)"
+else
+  FAIL=$((FAIL + 1))
+  ERRORS+=("FAIL: T19b: phase file missing at .autoflow-state/self/99/phase")
+  echo "  FAIL: T19b: phase file missing at .autoflow-state/self/99/phase"
+fi
+# The legacy flat path MUST NOT be created — Decision 3 mandates uniform
+# layout, no flat fallback writes.
+if [ ! -f "$T19_OLD" ]; then
+  PASS=$((PASS + 1))
+  echo "  PASS: T19c: legacy flat path .autoflow-state/99/phase NOT created"
+else
+  FAIL=$((FAIL + 1))
+  ERRORS+=("FAIL: T19c: legacy flat path .autoflow-state/99/phase was created")
+  echo "  FAIL: T19c: legacy flat path .autoflow-state/99/phase was created"
+fi
+cleanup_test_dir
+echo ""
+
+# ===========================================================================
+# T10c: PreToolUse blocks new-depth namespaced phase path (Issue #40 AC 5)
+# Decision 6: dual-pattern glob in the hook's PreToolUse case must catch both
+# legacy (.autoflow-state/<N>/phase) and new (.autoflow-state/<sub>/<N>/phase)
+# write attempts. T10 already covers legacy depth; T10c covers the new depth.
+# ===========================================================================
+echo "--- T10c: hook blocks PreToolUse Write to new-depth phase path (exit 2) ---"
+setup_test_dir
+PAYLOAD_T10C='{"hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":"/tmp/x/.autoflow-state/sub/99/phase"}}'
+exit_code=0
+printf '%s' "$PAYLOAD_T10C" \
+  | env -u AUTOFLOW_PHASE_SET CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$HOOK" \
+    > "${TEST_DIR}/hook.out" 2> "${TEST_DIR}/hook.err" \
+    || exit_code=$?
+assert_exit_code 2 "$exit_code" \
+  "T10c: hook exits 2 for new-depth .autoflow-state/<sub>/<N>/phase write"
+cleanup_test_dir
+echo ""
+
+# ===========================================================================
+# T20: PREFLIGHT warn-only intake gate (Issue #40 GATE:PLAN suggestion #2)
+# Decision 5 / plan §3.5: missing intake.md at PREFLIGHT WARNS but does not
+# block (avoids chicken-and-egg with the very first phase-set PREFLIGHT
+# call). DIAGNOSE+ would hard-block (covered by T-intake-missing in the
+# sibling test file). This test pins down the warn-only behavior at PREFLIGHT.
+# ===========================================================================
+echo "--- T20: hook warns (exit 0) on missing intake.md at PREFLIGHT ---"
+setup_test_dir
+mkdir -p "${TEST_DIR}/.autoflow-state/self/50"
+echo "self/50" > "${TEST_DIR}/.autoflow-state/current-issue"
+echo "PREFLIGHT" > "${TEST_DIR}/.autoflow-state/self/50/phase"
+# Deliberately NO intake.md
+exit_code=0
+CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$HOOK" \
+  > "${TEST_DIR}/hook.out" 2> "${TEST_DIR}/hook.err" \
+  || exit_code=$?
+assert_exit_code 0 "$exit_code" \
+  "T20a: PREFLIGHT without intake.md exits 0 (warn-only, not block)"
+# Stderr (or stdout — log_warn writes to stdout in current hook, but plan §3.5
+# says "warning"; the warning text must mention intake.md regardless of stream).
+if grep -q "intake.md" "${TEST_DIR}/hook.err" 2>/dev/null \
+    || grep -q "intake.md" "${TEST_DIR}/hook.out" 2>/dev/null; then
+  PASS=$((PASS + 1))
+  echo "  PASS: T20b: hook output names 'intake.md' as warning subject"
+else
+  FAIL=$((FAIL + 1))
+  ERRORS+=("FAIL: T20b: hook output does not mention 'intake.md' at PREFLIGHT")
+  echo "  FAIL: T20b: hook output does not mention 'intake.md' at PREFLIGHT"
+fi
+cleanup_test_dir
+echo ""
+
+# ===========================================================================
 # Summary
 # ===========================================================================
 echo "==========================="

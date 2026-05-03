@@ -77,6 +77,8 @@ All other files require delegation to teammates:
 
 **No exceptions.** The previous "documentation bulk updates" exception was removed because it allowed the orchestrator to bypass delegation for nearly any file. If a file is not in the orchestrator's list above, it must go through a teammate — regardless of how simple the change appears.
 
+**State location is host-only.** `.autoflow-state/` lives in the orchestrator's host repo working tree, never inside a sub-repo. When the orchestrator session executes from inside a sub-repo working tree (i.e., `git -C "$CLAUDE_PROJECT_DIR" rev-parse --show-superproject-working-tree` returns a non-empty path), `phase-set` refuses to write — see [docs/design-rationale.md > Decision 10](docs/design-rationale.md#decision-10-state-tree-is-namespaced-by-sub-repo-identifier). The escape hatch `AUTOFLOW_ALLOW_SUBMODULE_STATE=1` is reserved for testing/CI only.
+
 **The Orchestrator does not interpret evidence content.** When a Teammate emits a `transition-request`, the Orchestrator's only action is to invoke the `phase-set` helper passing the `evidence` field verbatim. Reading, summarizing, or judging the evidence is out of scope — that judgment belongs to the Hook (mechanical prerequisite checks) or to a fresh Evaluation AI (gate scoring).
 
 **Five Facilitator Roles.** The Orchestrator's mechanical-pass-through stance decomposes into five simultaneous facets — Space Holder, Flow Observer, Signal Responder, Time Steward, Result Receiver — bound by a closed four-signal-type outbound surface (transition-request acknowledgment, dispute arbitration trigger, deadline reminder, gate evaluator spawn). For full role definitions, the four signal types tied to existing flow events, and the rejected alternatives, see [docs/design-rationale.md > Decision 9](docs/design-rationale.md#decision-9-orchestrator-holds-five-facilitator-facets).
@@ -573,28 +575,34 @@ git checkout -b <branch> main
 
 ## Auto-Flow State Tracking
 
-State files in `.autoflow-state/` track progress per issue.
+State files in `.autoflow-state/` track progress per issue. The directory lives in the orchestrator's **host repo only** — never inside a sub-repo working tree (see [docs/design-rationale.md > Decision 10](docs/design-rationale.md#decision-10-state-tree-is-namespaced-by-sub-repo-identifier)). The layout is uniformly namespaced by sub-repo identifier; single-repo deployments use `self`.
 
 **File structure**:
 ```
-.autoflow-state/
-├── current-issue          # Contains: issue number
-└── <issue-number>/
-    ├── phase              # Current phase name
-    ├── requirements.md    # PREFLIGHT–DIAGNOSE output
-    ├── analysis/
-    │   ├── phase-a.md     # Structure analysis
-    │   ├── phase-b.md     # Issue analysis
-    │   └── phase-3.md     # Cross-verification
-    ├── plan.md            # ARCHITECT output
-    ├── delegation.md      # DISPATCH output (task assignments)
-    ├── evaluation.json    # GATE:QUALITY output
-    └── history.log        # Phase transition log
+.autoflow-state/                                # in host repo only
+├── current-issue                               # contains: <sub-repo-id>/<issue-number>
+└── <sub-repo-id>/                              # e.g., autoflow-upstream, or "self" for single-repo
+    └── <issue-number>/
+        ├── phase                               # Current phase name
+        ├── intake.md                           # PREFLIGHT artifact (sub-repo, branch, state location)
+        ├── requirements.md                     # PREFLIGHT–DIAGNOSE output
+        ├── analysis/
+        │   ├── phase-a.md                      # Structure analysis
+        │   ├── phase-b.md                      # Issue analysis
+        │   └── phase-3.md                      # Cross-verification
+        ├── plan.md                             # ARCHITECT output
+        ├── delegation.md                       # DISPATCH output (task assignments)
+        ├── evaluation.json                     # GATE:QUALITY output
+        └── history.log                         # Phase transition log
 ```
 
-**Creation**: PREFLIGHT completion.
+**Creation**: PREFLIGHT completion (writes `intake.md` first, then `phase-set` populates the namespaced subtree).
 **Completion**: LAND → clean up or archive.
 **`.gitignore`**: `.autoflow-state/` must be gitignored.
+
+**`current-issue` format**: a single line `<sub-repo-id>/<issue-number>` (slash-separated, no `#`). Legacy bare-integer values are honored as `self/<integer>` for backward compatibility.
+
+**Sub-repo identifier source**: the orchestrator (or external setup) sets `AUTOFLOW_SUBREPO_ID` to the submodule path basename — typically computed as `basename "$(git rev-parse --show-toplevel)"`. The `phase-set` script defaults to `self` and does NOT auto-compute the basename.
 
 ---
 

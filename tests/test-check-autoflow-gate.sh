@@ -808,6 +808,59 @@ cleanup_test_dir
 echo ""
 
 # ==========================================================================
+# GROUP 18: Intake gate (Issue #40 — host-vs-sub-repo state separation)
+# ==========================================================================
+# Plan §3.4–3.5 / Decision 5: `intake.md` must exist under
+# `${STATE_DIR}/<sub-repo-id>/<issue-number>/` once the orchestrator passes
+# PREFLIGHT. PREFLIGHT itself warns (covered in test-phase-set.sh T20);
+# DIAGNOSE+ hard-blocks. Required tokens inside intake.md are
+# `## Sub-Repo`, `## Branch`, `## State Location` (mirrors delegation.md
+# token-presence pattern in check_delegation_exists at lines 353–362).
+echo "--- GROUP 18: Intake gate (Issue #40) ---"
+
+# T-intake-missing: namespaced layout, phase=DIAGNOSE, no intake.md → exit 1
+setup_test_dir
+mkdir -p "${TEST_DIR}/.autoflow-state/self/50"
+echo "self/50" > "${TEST_DIR}/.autoflow-state/current-issue"
+echo "DIAGNOSE" > "${TEST_DIR}/.autoflow-state/self/50/phase"
+# Deliberately do NOT create intake.md
+exit_code=$(run_hook)
+assert_exit_code 1 "$exit_code" \
+  "T-intake-missing: DIAGNOSE without intake.md → exit 1"
+assert_output_contains "${TEST_DIR}/output.txt" "intake.md" \
+  "T-intake-missing-msg: stderr/output mentions 'intake.md'"
+cleanup_test_dir
+
+echo ""
+
+# T-intake-present: same fixture + valid intake.md → exit 0
+setup_test_dir
+mkdir -p "${TEST_DIR}/.autoflow-state/self/50"
+echo "self/50" > "${TEST_DIR}/.autoflow-state/current-issue"
+echo "DIAGNOSE" > "${TEST_DIR}/.autoflow-state/self/50/phase"
+cat > "${TEST_DIR}/.autoflow-state/self/50/intake.md" <<'INTAKE'
+# Intake — Issue #50
+
+## Sub-Repo
+self
+
+## Branch
+fix/50-test
+
+## State Location
+.autoflow-state/self/50/
+
+## Source Issue URL
+https://example.invalid/issues/50
+INTAKE
+exit_code=$(run_hook)
+assert_exit_code 0 "$exit_code" \
+  "T-intake-present: DIAGNOSE with valid intake.md → exit 0"
+cleanup_test_dir
+
+echo ""
+
+# ==========================================================================
 # Summary
 # ==========================================================================
 echo "==========================="
