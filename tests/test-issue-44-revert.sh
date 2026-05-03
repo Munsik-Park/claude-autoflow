@@ -27,7 +27,7 @@ fail() {
 # ---------- AC1: Forbidden token zero — TERMINAL:VERIFY-FAILED ----------
 test_ac1_forbidden_terminal_token() {
   echo "AC1: 'TERMINAL:VERIFY-FAILED' must not appear anywhere in the working tree"
-  if ! grep -rF 'TERMINAL:VERIFY-FAILED' --exclude-dir='.git' --exclude-dir='node_modules' . >/dev/null 2>&1; then
+  if ! grep -rF 'TERMINAL:VERIFY-FAILED' --exclude-dir='.git' --exclude-dir='node_modules' --exclude='test-issue-44-revert.sh' . >/dev/null 2>&1; then
     pass "no occurrences of 'TERMINAL:VERIFY-FAILED'"
   else
     fail "'TERMINAL:VERIFY-FAILED' still appears in the tree" "AC1"
@@ -37,7 +37,7 @@ test_ac1_forbidden_terminal_token() {
 # ---------- AC2: Forbidden token zero — forensic-recorder ----------
 test_ac2_forbidden_forensic_recorder() {
   echo "AC2: 'forensic-recorder' must not appear anywhere in the working tree"
-  if ! grep -rF 'forensic-recorder' --exclude-dir='.git' --exclude-dir='node_modules' . >/dev/null 2>&1; then
+  if ! grep -rF 'forensic-recorder' --exclude-dir='.git' --exclude-dir='node_modules' --exclude='test-issue-44-revert.sh' . >/dev/null 2>&1; then
     pass "no occurrences of 'forensic-recorder'"
   else
     fail "'forensic-recorder' still appears in the tree" "AC2"
@@ -47,7 +47,7 @@ test_ac2_forbidden_forensic_recorder() {
 # ---------- AC3: Forbidden token zero — detailed-failure-analysis ----------
 test_ac3_forbidden_detailed_failure_analysis() {
   echo "AC3: 'detailed-failure-analysis' must not appear anywhere in the working tree"
-  if ! grep -rF 'detailed-failure-analysis' --exclude-dir='.git' --exclude-dir='node_modules' . >/dev/null 2>&1; then
+  if ! grep -rF 'detailed-failure-analysis' --exclude-dir='.git' --exclude-dir='node_modules' --exclude='test-issue-44-revert.sh' . >/dev/null 2>&1; then
     pass "no occurrences of 'detailed-failure-analysis'"
   else
     fail "'detailed-failure-analysis' still appears in the tree" "AC3"
@@ -86,11 +86,11 @@ test_ac6_template_fresh_eval_narrative() {
 
 # ---------- AC7: Required token — narrative line, autoflow-guide.md ----------
 test_ac7_guide_fresh_eval_narrative() {
-  echo "AC7: docs/autoflow-guide.md must contain 'fresh Evaluation AI arbitrates' narrative line"
-  if grep -F 'fresh Evaluation AI arbitrates' docs/autoflow-guide.md >/dev/null 2>&1; then
-    pass "'fresh Evaluation AI arbitrates' present in docs/autoflow-guide.md"
+  echo "AC7: docs/autoflow-guide.md must contain 'Fresh Evaluation AI arbitrates' narrative line"
+  if grep -F 'Fresh Evaluation AI arbitrates' docs/autoflow-guide.md >/dev/null 2>&1; then
+    pass "'Fresh Evaluation AI arbitrates' present in docs/autoflow-guide.md"
   else
-    fail "'fresh Evaluation AI arbitrates' missing from docs/autoflow-guide.md" "AC7"
+    fail "'Fresh Evaluation AI arbitrates' missing from docs/autoflow-guide.md" "AC7"
   fi
 }
 
