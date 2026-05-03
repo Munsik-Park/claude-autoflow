@@ -193,11 +193,11 @@ The four signal types — and the only signal types — that authorize an outbou
 | # | Signal type | Anchored flow event |
 |---|-------------|---------------------|
 | 1 | transition-request acknowledgment | `CLAUDE.md:109-118` — the Orchestrator invokes `phase-set` after a Teammate emits a `transition-request`. |
-| 2 | dispute arbitration trigger | `CLAUDE.md:168` — the Orchestrator spawns a fresh Evaluation AI when VERIFY DEADLOCK occurs. |
+| 2 | forensic-recorder spawn | `CLAUDE.md` Flow Control row "VERIFY (Pattern A/B/C signal observed)" — the Orchestrator spawns a fresh forensic-recorder Teammate (role marker `[role:forensic-recorder]`) when any of the unified VERIFY-failure patterns (A: self-reinterpretation, B: mutual innocence after round-trip ≥ 1, C: counterparty invalidation) fires during VERIFY. The forensic-recorder records facts to `detailed-failure-analysis.md`; it does not arbitrate, score, or issue a verdict. |
 | 3 | deadline reminder | Time Steward — exactly one outbound reminder per task, sent at or after the up-front deadline communicated at DISPATCH. |
 | 4 | gate evaluator spawn | `CLAUDE.md:92` — the Orchestrator spawns a fresh Evaluation AI when entering GATE:HYPOTHESIS, GATE:PLAN, or GATE:QUALITY. The spawn does not violate the no-interpret-evidence invariant because the Orchestrator hands raw artifacts to the Evaluation AI without reading or summarizing them; the Evaluation AI performs all content judgment. |
 
-Signal 2 and signal 4 are listed separately even though both spawn a fresh Evaluation AI. Signal 2 is reactive to a deadlock; signal 4 is proactive at gate entry. Conflating them would suppress the difference between "evaluator as referee" and "evaluator as gatekeeper."
+Signal 2 and signal 4 are distinct: signal 4 spawns a fresh Evaluation AI that scores work and authorizes a gate transition; signal 2 spawns a fresh forensic-recorder Teammate that records facts and authorizes only the transition into TERMINAL:VERIFY-FAILED. Signal 2 has no decision authority — that is what removes the previous arbitration stance.
 
 **Why it works this way**
 
@@ -244,6 +244,24 @@ The host repo is the only writeable home for `.autoflow-state/`. A sub-repo cont
 
 ---
 
+### Decision 11: VERIFY Failures Exit Fail-Closed via Forensic Recording
+
+**What it does**
+
+When any of three signals fires inside VERIFY — Pattern A (self-reinterpretation), Pattern B (mutual innocence after at least one GREEN↔VERIFY round-trip), or Pattern C (counterparty invalidation) — the run terminates in a new non-regressing phase, `TERMINAL:VERIFY-FAILED`. The Orchestrator spawns a fresh forensic-recorder Teammate (role marker `[role:forensic-recorder]`, no team, no history) which writes `.autoflow-state/<sub-repo-id>/<issue>/detailed-failure-analysis.md` with four required `##` section headers (`## Pattern Classification`, `## Triggering Message`, `## Failing Test Output`, `## RED Decision Basis`). The Hook validates the artifact's presence and headers before allowing the phase write; the run is over. There is no verdict, no automatic re-classification, no retry, no message to the user. Out-of-band issue clarification by a human is the resolution.
+
+**Why it works this way**
+
+Auto-Flow cannot solve everything; it must allow clear failure. Three previously distinct patterns — a Teammate reframing its own RED/GREEN artifact, both Teammates simultaneously claiming "no problem on my side" while a test still fails, and one Teammate invalidating the other's artifact — share a common shape: the system has reached a state where Auto-Flow's mechanical guardrails (test pass/fail, GREEN↔VERIFY 3-cycle cap) cannot distinguish "the work is done" from "the participants disagree about what done means." Continuing the cycle in this state propagates the disagreement; spawning an arbitrator-style Evaluator (the previous design) reintroduces content-judgment into a phase whose mechanical guards are exhausted, which is exactly the Decision 8 Model 2 defect re-emerging under a new label. The fail-closed handler instead records the disagreement as fact and stops, returning the judgment to the human at the issue level — the only party with the authority to revise the issue body, the AC list, or the implementation contract.
+
+The forensic-recorder is intentionally constrained to recording, not arbitration. Forbidden contents — verdicts, recommendations, scoring numbers, "next steps" suggestions — are forbidden specifically because the moment the recorder offers a recommendation, the next iteration's Orchestrator or Teammate will treat the recommendation as authoritative and the fail-closed boundary collapses back into arbitration. Symmetrically, no new verdict enumeration is introduced anywhere in this design; `[role:forensic-recorder]` is purely a recording role and no arbitration role marker exists.
+
+**What this means**
+
+Out of scope for this decision: no new verdict enumeration, no automatic re-classification of test artifacts during VERIFY, no arbitration-style Evaluator spawn at VERIFY, no message to the user on terminal failure. The previous arbitration path is gone, not paused — re-introducing it requires a separate decision with its own rationale (and a separate signal type in the Decision 9 table). The GREEN↔VERIFY 3-cycle cap continues to operate independently for runs that never emit a Pattern A/B/C trigger; the new path is parallel, not a replacement.
+
+---
+
 ## Evaluation System Design Intent
 
 ### Why Scoring Criteria Are Not Fixed
@@ -275,6 +293,7 @@ The following may look like "better approaches" but undermine core principles:
 | Design loops without termination conditions | No maximum retry → infinite loop risk → system hangs |
 | Let a Teammate send a phase-transition request to another Teammate | Bypasses the Orchestrator — no party authorizes peer transitions, breaks the three-party split |
 | Send Orchestrator messages outside the four enumerated signal types | Discretionary outbound messaging reintroduces content judgment by the Orchestrator and breaks the closed signal surface defined in Decision 9 |
+| Auto-reclassify a test artifact during VERIFY (e.g., silently mark an AC as SKIP, relocate it to a manual checklist, or redefine its expected output) | Pattern A self-reinterpretation — collapses the RED contract and bypasses TERMINAL:VERIFY-FAILED; the forensic-recorder must record the attempt, not honor it (Decision 11) |
 
 ---
 

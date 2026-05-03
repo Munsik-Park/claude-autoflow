@@ -66,6 +66,7 @@ Auto-Flow is a structured development lifecycle that ensures quality through eva
 | REVISION | **Revision** | Fix issues from evaluation (if needed) | Re-evaluation PASS |
 | SHIP | **PR & Review** | Create PR for human review | PR submitted |
 | LAND | **Merge & Close** | Merge after human approval | Issue closed |
+| TERMINAL:VERIFY-FAILED | **Terminal Failure** | Forensic-recorder writes detailed-failure-analysis.md when a Pattern A/B/C signal fires during VERIFY; run terminates (no retry, no arbitration) | Artifact written, run halted |
 
 ### Execution Principles
 
@@ -109,7 +110,7 @@ If Git state is not clean after 0-3, stop and report to user. Do NOT proceed to 
 | VERIFY PASS | All Green + minimal impl check | → REFINE |
 | VERIFY FAIL (test issue) | Test incorrect | → RED (fix test → re-Red) |
 | VERIFY FAIL (impl issue) | Implementation incorrect | → GREEN (fix impl) |
-| VERIFY DEADLOCK | Both claim "no problem" | → Evaluation AI arbitrates |
+| VERIFY (Pattern A/B/C signal observed) | Self-reinterpretation, mutual-innocence (round-trip ≥ 1), or counterparty-invalidation message | → TERMINAL:VERIFY-FAILED (no retry, no arbitration) |
 | REFINE | Refactor done, Green maintained | → GATE:QUALITY |
 | GATE:QUALITY (score >= 7.5, all categories >= 7) | PASS | → SHIP |
 | GATE:QUALITY (score < 7.5 or category < 7) | FAIL | → REVISION |
@@ -359,7 +360,7 @@ Developer AI writes minimum code to pass tests. This is the **only** phase where
     ├─ Test issue → fix test → re-Red → GREEN re-entry
     ├─ Implementation issue → fix implementation → VERIFY retry
     ├─ Both need fixes → fix test first → Red → fix impl → Green
-    └─ Deadlock (both claim "no problem") → fresh Evaluation AI arbitrates
+    └─ Pattern A/B/C signal observed → forensic-recorder spawn → TERMINAL:VERIFY-FAILED
 
 5c-3. Minimal implementation check:
     Diff analysis: is there code NOT covered by any test?
@@ -403,6 +404,7 @@ When the change is purely prose (no scripts, no templates with placeholders):
 | GREEN↔VERIFY cycle | 3 round-trips | Human intervention |
 | REFINE FAIL | 2 | Skip refactor, keep Green state |
 | GATE:QUALITY FAIL | 3 → REVISION | Human intervention |
+| TERMINAL:VERIFY-FAILED | 0 | Run terminates; human reads detailed-failure-analysis.md and revises issue body before re-running |
 
 ---
 
