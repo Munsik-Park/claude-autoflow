@@ -68,31 +68,6 @@ END {
                 echo "[AutoFlow Gate] Use the helper: .claude/scripts/phase-set <PHASE> [--note '<text>']" >&2
                 exit 2
               fi
-              # Issue #33: TERMINAL:VERIFY-FAILED writes carry an additional
-              # mechanical prerequisite — the forensic-recorder artifact must
-              # exist alongside the phase file. We inspect the payload content
-              # for the new phase token and, when present, derive the issue
-              # directory from the target path and call the helper. The check
-              # is mechanical (file presence + four required `##` headers); no
-              # message-body interpretation occurs.
-              if printf '%s' "$_autoflow_payload" \
-                  | grep -F -q "TERMINAL:VERIFY-FAILED"; then
-                _autoflow_issue_dir="${_autoflow_target%/phase}"
-                _autoflow_artifact="${_autoflow_issue_dir}/detailed-failure-analysis.md"
-                if [ ! -f "$_autoflow_artifact" ]; then
-                  echo "[AutoFlow Gate] TERMINAL:VERIFY-FAILED blocked: detailed-failure-analysis.md missing at ${_autoflow_artifact}" >&2
-                  echo "[AutoFlow Gate] The forensic-recorder Teammate must produce the artifact before phase-set." >&2
-                  exit 2
-                fi
-                # Header presence check (mechanical; content within each
-                # section is free-form per plan.md §"New artifacts introduced").
-                for _autoflow_hdr in '## Pattern Classification' '## Triggering Message' '## Failing Test Output' '## RED Decision Basis'; do
-                  if ! grep -F -q "$_autoflow_hdr" "$_autoflow_artifact"; then
-                    echo "[AutoFlow Gate] TERMINAL:VERIFY-FAILED blocked: detailed-failure-analysis.md missing required section: ${_autoflow_hdr}" >&2
-                    exit 2
-                  fi
-                done
-              fi
               ;;
             *.autoflow-state/*/*/evaluation.json|*.autoflow-state/*/evaluation.json|*.autoflow-state/*/*/evaluation/*.json|*.autoflow-state/*/evaluation/*.json)
               if [ "$_autoflow_tool" = "Write" ]; then
@@ -436,50 +411,6 @@ check_intake_exists() {
 }
 
 # ---------------------------------------------------------------------------
-# check_detailed_failure_artifact — Issue #33 forensic-recorder gate
-# ---------------------------------------------------------------------------
-# Validates the artifact written by the fresh forensic-recorder Teammate when
-# VERIFY terminates via the unified fail-closed handler (patterns A/B/C).
-#
-# Required section headers (presence-checked; content within each section is
-# free-form per plan.md §"New artifacts introduced"):
-#   ## Pattern Classification
-#   ## Triggering Message
-#   ## Failing Test Output
-#   ## RED Decision Basis
-#
-# Exit codes:
-#   0 — artifact present with all four headers (allow TERMINAL:VERIFY-FAILED)
-#   1 — artifact missing or any required header absent (block transition)
-#
-# role_marker enforcement is intentionally skipped for this artifact:
-# detailed-failure-analysis.md is markdown, not evaluation JSON. The
-# evaluator.role_marker schema applies to evaluation.json paths only (see
-# docs/evaluation-system.md). The forensic-recorder identifies itself via the
-# `[role:forensic-recorder]` role marker named in design-rationale.md and
-# evaluation-system.md, but no JSON-schema check exists for this artifact
-# class — by design, since the forensic-recorder records facts and never
-# emits a verdict, score, or pass/fail field.
-# ---------------------------------------------------------------------------
-check_detailed_failure_artifact() {
-  local issue="$1"
-  local artifact="${STATE_DIR}/${issue}/detailed-failure-analysis.md"
-  if [ ! -f "$artifact" ]; then
-    log_fail "detailed-failure-analysis.md not found: ${artifact}"
-    log_info "TERMINAL:VERIFY-FAILED requires the forensic-recorder artifact"
-    return 1
-  fi
-  local hdr
-  for hdr in '## Pattern Classification' '## Triggering Message' '## Failing Test Output' '## RED Decision Basis'; do
-    if ! grep -F -q "$hdr" "$artifact" 2>/dev/null; then
-      log_fail "detailed-failure-analysis.md missing required section: ${hdr}"
-      return 1
-    fi
-  done
-  return 0
-}
-
-# ---------------------------------------------------------------------------
 # Main gate logic
 # ---------------------------------------------------------------------------
 main() {
@@ -553,14 +484,6 @@ main() {
     # LAND: human action required
     LAND)
       log_warn "${phase} — waiting for human merge approval"
-      ;;
-
-    # Issue #33: terminal-failure exit from VERIFY. Requires the
-    # forensic-recorder artifact (detailed-failure-analysis.md) with the
-    # four required `##` section headers. No retry, no arbitration.
-    TERMINAL:VERIFY-FAILED)
-      check_detailed_failure_artifact "$issue" || exit 1
-      log_warn "${phase} — run terminated; human reads detailed-failure-analysis.md and revises issue body before re-running"
       ;;
 
     *)

@@ -108,7 +108,7 @@ test_ac6_minimum_implementation() {
 
 # ---------- AC 7: VERIFY phase includes 4 failure paths ----------
 test_ac7_four_failure_paths() {
-  echo "AC7: VERIFY section includes 4 failure paths (test issue, impl issue, both, Pattern A/B/C -> TERMINAL:VERIFY-FAILED)"
+  echo "AC7: VERIFY section includes 4 failure paths (test issue, impl issue, both, deadlock)"
   local section
   section=$(sed -n '/^###* VERIFY/,/^###* REFINE/p' "$TEMPLATE" 2>/dev/null)
   if [ -z "$section" ]; then
@@ -119,28 +119,27 @@ test_ac7_four_failure_paths() {
   echo "$section" | grep -qiE 'test issue|test incorrect' && paths_found=$((paths_found + 1))
   echo "$section" | grep -qiE 'impl.* issue|implementation.* issue|implementation incorrect' && paths_found=$((paths_found + 1))
   echo "$section" | grep -qiE 'both' && paths_found=$((paths_found + 1))
-  echo "$section" | grep -qiE 'pattern.*a/b/c|terminal:verify-failed|forensic-recorder' && paths_found=$((paths_found + 1))
+  echo "$section" | grep -qiE 'deadlock' && paths_found=$((paths_found + 1))
   if [ "$paths_found" -ge 4 ]; then
-    pass "All 4 failure paths found in VERIFY phase (test issue, impl issue, both, Pattern A/B/C -> TERMINAL:VERIFY-FAILED)"
+    pass "All 4 failure paths found in VERIFY phase"
   else
-    fail "Only $paths_found of 4 failure paths found in VERIFY phase (expected: test issue, impl issue, both, Pattern A/B/C -> TERMINAL:VERIFY-FAILED)"
+    fail "Only $paths_found of 4 failure paths found in VERIFY phase"
   fi
 }
 
-# ---------- AC 8: VERIFY section references TERMINAL:VERIFY-FAILED handler ----------
-test_ac8_terminal_verify_failed() {
-  echo "AC8: VERIFY section references TERMINAL:VERIFY-FAILED handler with forensic-recorder"
+# ---------- AC 8: Deadlock path mentions fresh Evaluation AI ----------
+test_ac8_deadlock_fresh_eval() {
+  echo "AC8: Deadlock path mentions fresh Evaluation AI"
   local section
   section=$(sed -n '/^###* VERIFY/,/^###* REFINE/p' "$TEMPLATE" 2>/dev/null)
   if [ -z "$section" ]; then
-    fail "VERIFY section not found for TERMINAL:VERIFY-FAILED check"
+    fail "VERIFY section not found for deadlock check"
     return
   fi
-  if echo "$section" | grep -qiE 'terminal:verify-failed' &&
-     echo "$section" | grep -qiE 'forensic-recorder'; then
-    pass "VERIFY section references TERMINAL:VERIFY-FAILED and forensic-recorder"
+  if echo "$section" | grep -qiE 'deadlock.*evaluation.*ai|evaluation.*ai.*arbitrat'; then
+    pass "Deadlock path mentions fresh Evaluation AI"
   else
-    fail "VERIFY section missing TERMINAL:VERIFY-FAILED and/or forensic-recorder reference"
+    fail "Deadlock path does not mention fresh Evaluation AI"
   fi
 }
 
@@ -268,7 +267,7 @@ test_ac4_flow_control_transitions
 test_ac5_red_confirmation
 test_ac6_minimum_implementation
 test_ac7_four_failure_paths
-test_ac8_terminal_verify_failed
+test_ac8_deadlock_fresh_eval
 test_ac9_roundtrip_limit
 test_ac10_refactor_green
 test_ac11_guide_substeps
