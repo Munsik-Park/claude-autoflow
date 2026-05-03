@@ -174,6 +174,51 @@ The mechanical entry point invoked by the Orchestrator is the `phase-set` helper
 
 ---
 
+### Decision 9: Orchestrator Holds Five Facilitator Facets
+
+**What it does**
+
+The Orchestrator's mechanical-pass-through stance decomposes into five simultaneous facets. The Orchestrator holds all five at all times during autoflow execution; no facet activates or deactivates based on situation.
+
+| Facet | Behavior |
+|-------|----------|
+| Space Holder | The Orchestrator reads pending Teammate messages on a pull cadence and waits silently between reads. Reading is the only inbound action. |
+| Flow Observer | The Orchestrator records the inbound stream — `transition-request` messages, status reports, questions — without interpreting their content. |
+| Signal Responder | The Orchestrator emits outbound messages only when one of the four enumerated signal types fires (see signal-type table below). |
+| Time Steward | The Orchestrator tracks the up-front deadline communicated to each Teammate at DISPATCH (`CLAUDE.md:301-323`) and emits exactly one reminder at or after that deadline. After the single reminder, the post-reminder path is the Regression Rules table at `CLAUDE.md:179-185` — never a second reminder. |
+| Result Receiver | The Orchestrator verifies that an inbound `transition-request` matches the canonical format. The verification is mechanical: it checks the presence of the `@orchestrator transition-request` header, the `from`, `to`, and `evidence` fields, that the addressee is the Orchestrator (not a sibling Teammate per `CLAUDE.md:116`), and — for evaluator outputs — the `evaluator.role_marker` field per `CLAUDE.md:60`. The verification excludes reading the contents of `evidence`, judging whether the artifact at the cited path is correct, and judging whether the `from`/`to` pair is a valid transition; all three exclusions belong to the Hook or to a fresh Evaluation AI. |
+
+The four signal types — and the only signal types — that authorize an outbound message from the Orchestrator are:
+
+| # | Signal type | Anchored flow event |
+|---|-------------|---------------------|
+| 1 | transition-request acknowledgment | `CLAUDE.md:109-118` — the Orchestrator invokes `phase-set` after a Teammate emits a `transition-request`. |
+| 2 | dispute arbitration trigger | `CLAUDE.md:168` — the Orchestrator spawns a fresh Evaluation AI when VERIFY DEADLOCK occurs. |
+| 3 | deadline reminder | Time Steward — exactly one outbound reminder per task, sent at or after the up-front deadline communicated at DISPATCH. |
+| 4 | gate evaluator spawn | `CLAUDE.md:92` — the Orchestrator spawns a fresh Evaluation AI when entering GATE:HYPOTHESIS, GATE:PLAN, or GATE:QUALITY. The spawn does not violate the no-interpret-evidence invariant because the Orchestrator hands raw artifacts to the Evaluation AI without reading or summarizing them; the Evaluation AI performs all content judgment. |
+
+Signal 2 and signal 4 are listed separately even though both spawn a fresh Evaluation AI. Signal 2 is reactive to a deadlock; signal 4 is proactive at gate entry. Conflating them would suppress the difference between "evaluator as referee" and "evaluator as gatekeeper."
+
+**Why it works this way**
+
+Negative-form constraints alone leave loopholes — an LLM can rationalize an outbound message as "not a nudge, just a check-in" and satisfy a prohibition while violating its intent (the same failure mode named in the Behavioral Rule Authoring Style section). Naming five positive facets and four enumerated signal types replaces "do not message outside the protocol" with "the Orchestrator emits one of these four signals." The positive enumeration is mechanically observable: any outbound message either matches one of the four signal types or it does not.
+
+The five facets operationalize the existing invariants — "Orchestrator does not implement" (`CLAUDE.md:144`) and "Orchestrator does not interpret evidence content" (`CLAUDE.md:80,117`). They do not introduce new responsibilities. They make the existing stance discoverable in one place rather than scattered across negative-form rules.
+
+**Rejected alternatives**
+
+- **Alternating modes for Flow Observer and Signal Responder.** Treating the inbound and outbound facets as modes the Orchestrator switches between would require the Orchestrator to decide which mode it is in. That decision is itself a content judgment and would re-introduce the Model 2 defect rejected at Decision 8. The two facets are therefore framed as simultaneous facets of one stance.
+- **Numeric polling interval for Space Holder.** Prescribing "poll every N minutes" creates a discretionary outbound signal — the Orchestrator could rationalize a poll as a courtesy ping. The Space Holder facet is bounded instead by what each poll does: read inbound messages, do not send.
+- **Recurring or fixed-fraction deadline reminders.** "Remind at 80% elapsed" and "remind every hour after the deadline" are both rejected because each creates a class of outbound message that can be rationalized into many outbound messages. The Time Steward facet permits exactly one reminder, at or after the up-front deadline.
+- **Result Receiver verifying evidence content.** Extending verification to "is the artifact at the cited path correct?" reintroduces the Model 2 defect rejected at Decision 8. Result Receiver verification therefore terminates at the canonical `transition-request` shape.
+- **Human escalation as the fourth signal type.** Rejected because escalation is the result of an exhausted retry loop (`CLAUDE.md:144`), not a routine outbound signal. Folding it into the four-signal-type table would conflate routine flow with terminal handoff.
+
+**What this means**
+
+The five facets are simultaneous facets of one stance, not alternating modes and not a checklist. The Orchestrator does not select which facet is active. The Orchestrator's outbound surface is closed: any message the Orchestrator sends matches one of the four signal types in the table above, or the Orchestrator does not send it. The Result Receiver bound is mechanical: structural checks on the `transition-request` shape only, no reading of `evidence` content, no judgment of artifact correctness — those judgments remain with the Hook and with fresh Evaluation AIs.
+
+---
+
 ## Evaluation System Design Intent
 
 ### Why Scoring Criteria Are Not Fixed
@@ -204,6 +249,7 @@ The following may look like "better approaches" but undermine core principles:
 | Let the pipeline modify its own criteria | Judgment tracing impossible → trust chain collapse |
 | Design loops without termination conditions | No maximum retry → infinite loop risk → system hangs |
 | Let a Teammate send a phase-transition request to another Teammate | Bypasses the Orchestrator — no party authorizes peer transitions, breaks the three-party split |
+| Send Orchestrator messages outside the four enumerated signal types | Discretionary outbound messaging reintroduces content judgment by the Orchestrator and breaks the closed signal surface defined in Decision 9 |
 
 ---
 
