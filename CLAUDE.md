@@ -195,6 +195,17 @@ LAND:            Merge & Close     → Human approves and merges
 ```
 0-1. git status — no uncommitted changes, no untracked files in working area
 0-2. git fetch origin — sync with remote
+0-2b. [CONDITIONAL: multi-repo projects only] Multi sub-repo sync —
+      run `.claude/scripts/preflight-sync` to fetch and verify each registered
+      sub-repo. Registry source: `.autoflow/sub-repos.yml` (preferred) or
+      `.gitmodules` (fallback). Auto-skipped (exit 0) when both registries are
+      empty — single-repo projects pay no cost.
+      Exit codes: 0 success/skip, 65 registry format error, 66 pre-existing
+      dirty sub-repo (refusing sync), 67 sync mid-run failure. SYNC_FORCE=1
+      bypasses the dirty guard for testing/CI.
+      On exit 67, PREFLIGHT aborts and DIAGNOSE must NOT begin.
+      See [docs/design-rationale.md > Decision 12](docs/design-rationale.md#decision-12-multi-sub-repo-sync-uses-git-submodule-foreach-pattern)
+      for why this skip is consistent with 'Never skip phases'.
 0-3. Resolve any dirty state (stash, commit, or discard with user approval)
 0-4. git checkout -b <branch-type>/<issue>-<desc> main
 ```

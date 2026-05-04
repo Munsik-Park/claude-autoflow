@@ -20,7 +20,13 @@
 This repository follows the Auto-Flow lifecycle defined in:
 **`{{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}/CLAUDE.md`**
 
-All STEPs (0–9), evaluation criteria, and gate rules from the orchestrator apply here.
+All phases (PREFLIGHT → LAND), evaluation criteria, and gate rules from the orchestrator apply here.
+
+### Parent-repo sync timing
+
+This sub-repo is fetched and clean-checked by the parent (orchestrator) repo at **PREFLIGHT sub-step 0-2b** via `.claude/scripts/preflight-sync`. That sub-step carries the `[CONDITIONAL: multi-repo projects only]` marker and is the single, well-defined point where parent → sub-repo synchronisation happens during an Auto-Flow run. There is no free-floating "sync whenever" rule in this sub-repo — if the parent is at PREFLIGHT, the parent's helper drives the sync; otherwise this sub-repo does not initiate parent-side sync on its own.
+
+If the parent's `preflight-sync` reports this sub-repo as dirty (exit 66), commit or stash the working tree before re-running; if it reports a fetch failure (exit 67), check the upstream URL and retry. See [docs/design-rationale.md > Decision 12](../../docs/design-rationale.md) in the orchestrator repo for the full rationale.
 
 ---
 

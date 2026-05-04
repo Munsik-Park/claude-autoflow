@@ -244,6 +244,39 @@ The host repo is the only writeable home for `.autoflow-state/`. A sub-repo cont
 
 ---
 
+### Decision 12: Multi sub-repo sync uses `git submodule foreach` pattern
+
+**What it does**
+
+PREFLIGHT carries a sub-step `0-2b` that iterates all registered sub-repos and runs `git fetch` per sub-repo through a small helper, `.claude/scripts/preflight-sync`. The helper reads `.autoflow/sub-repos.yml` first (a minimal `sub_repos:` list of relative paths) and falls back to `.gitmodules` (`path = ...` lines) when the YAML registry is absent. When neither registry yields any entry, the sub-step exits 0 with a "skipped" notice and PREFLIGHT continues. The helper exits 65 on registry format error, 66 when any sub-repo is already dirty (refusing to start sync), and 67 when a `git fetch` fails mid-run. The marker `[CONDITIONAL: multi-repo projects only]` is attached to 0-2b in CLAUDE.md, CLAUDE.md.template, and docs/autoflow-guide.md to signal to readers that the sub-step is structurally optional. The escape hatch `SYNC_FORCE=1` bypasses only the exit-66 dirty guard (testing/CI).
+
+**Why it works this way**
+
+The reference deployment (ontology-platform) already runs an in-house `git submodule foreach` loop to fetch every sub-repo before issue analysis begins. Generalising that pattern as a small helper keeps the mechanism readable and dependency-free (pure bash + grep + awk — no `yq`, no Python). Choosing `.autoflow/sub-repos.yml` as the preferred registry lets users register plain directory paths that are not git submodules (monorepo subdirs, vendored trees), while `.gitmodules` fallback keeps the zero-configuration path working for projects that already use submodules. Splitting the failure modes across distinct exit codes (65/66/67) lets the orchestrator and gate hook react differently — 65 demands a registry fix, 66 lets the user choose between cleaning up or `SYNC_FORCE=1`, 67 is an upstream/network problem that requires retry. Refusing to start sync when any sub-repo is already dirty is the same Git Clean Check discipline applied at the sub-repo level — partial sync mixed with unsaved local edits is the failure mode we explicitly avoid.
+
+**`[CONDITIONAL]` marker and the relationship with "Never skip phases"**
+
+Execution Principle 1 in CLAUDE.md states "Never skip phases — every phase is executed in order." The marker `[CONDITIONAL: multi-repo projects only]` does not contradict this principle, and the distinction is load-bearing:
+
+- **Forbidden**: skipping a phase based on a *judgment* about complexity or risk ("this one is simple, we can drop GATE:QUALITY"). That judgment is itself a bias, which the pipeline exists to neutralise.
+- **Permitted**: a sub-step whose execution is gated by an *objective precondition* whose absence makes the sub-step a no-op. 0-2b runs in every PREFLIGHT; the helper is invoked unconditionally and exits 0 with a "skipped" notice when no registry yields any entry. There is no human or AI deciding "we don't need this today" — the helper inspects the filesystem and the registry tells it whether work exists.
+
+The `[CONDITIONAL]` marker exists so a human reader (and, downstream, an Evaluation AI) can see at a glance that a sub-step is structurally optional by registry, not by discretion. A sub-step without the marker is mandatory regardless of project topology.
+
+**Rejected alternatives**
+
+- **Maintain a separate `last-sync` metadata file per sub-repo.** Rejected because the submodule pointer recorded by the parent repo already represents "the last commit the parent acknowledged," which is the same information last-sync would track. Adding a parallel store creates two sources of truth that can diverge. ontology-platform's working pattern relies entirely on the submodule pointer.
+- **Use `yq`/`python` to parse `.autoflow/sub-repos.yml`.** Rejected because PREFLIGHT runs before any project-level dependency setup; requiring an external parser adds an installation barrier that breaks `init.sh`-and-go adoption. The minimal `sub_repos: <list>` form is parseable by `awk`+`bash` in well under 100 lines.
+- **Treat sub-repos like first-class phases (a separate "sub-repo PREFLIGHT" phase).** Rejected because the per-sub-repo work is bounded and uniform (fetch + clean check); promoting it to a phase would force the gate hook and `phase-set` to track per-sub-repo state, which is wildly disproportionate to the actual coupling.
+- **Drop the dirty-guard and let sync proceed regardless.** Rejected because sync failure mid-run on a dirty sub-repo leaves a state where the user cannot tell which changes are theirs and which arrived from upstream. The exit 66 path forces the user to make the choice explicitly, with `SYNC_FORCE=1` available when they really mean it.
+- **Single combined exit code on any sync error.** Rejected because the orchestrator's response differs by failure mode — 65 is "configuration error, retry impossible without edit," 66 is "user-recoverable, opt-in override exists," 67 is "transient or upstream, retry may help." Collapsing them removes the orchestrator's ability to act sensibly.
+
+**What this means**
+
+A single-repo project sees no behaviour change at all — `preflight-sync` finds no registry, prints a "skipped" line, and PREFLIGHT continues. A multi-repo project gets a uniform fetch-and-validate pass at the start of every issue, with three distinct failure modes whose exit codes the orchestrator already knows how to interpret. The `[CONDITIONAL]` marker formalises the language we use when a sub-step is structurally optional, so future additions of similar sub-steps can reuse the same convention without revisiting the "Never skip phases" debate each time.
+
+---
+
 ## Evaluation System Design Intent
 
 ### Why Scoring Criteria Are Not Fixed
