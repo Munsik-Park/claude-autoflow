@@ -124,7 +124,7 @@ evidence: <artifact path or short factual statement>
 ```
 PREFLIGHT:       Pre-Work         → Git Clean Check, branch creation
 DIAGNOSE:        Issue Analysis    → 3-Phase independent analysis (bias prevention)
-GATE:HYPOTHESIS: Structure Eval   → Evaluation AI (fresh spawn): PASS → continue, FAIL → close issue
+GATE:HYPOTHESIS: Structure Eval   → Evaluation AI (fresh spawn): PASS → continue, FAIL → post evaluation comment + archive local state, leave issue open for human disposition
 ARCHITECT:       Plan Synthesis    → Merge analyses into implementation plan + acceptance criteria
 GATE:PLAN:       Plan Evaluation   → Evaluation AI (fresh spawn): 5 categories × 10 points
 DISPATCH:        Task Assignment   → TeamCreate + SendMessage to Test AI and Developer AI
@@ -142,7 +142,7 @@ LAND:            Merge & Close     → Human approves and merges
 
 1. **Never skip phases.** Every phase executes regardless of change size. "This one is simple" is itself a biased judgment.
 2. **PREFLIGHT is mandatory.** If Git state is not clean, DIAGNOSE does not begin.
-3. **GATE:HYPOTHESIS FAIL = issue close.** Existing structure handles the concern — no code change needed.
+3. **GATE:HYPOTHESIS FAIL = evaluation observation, not disposition.** A FAIL verdict means the evaluator judges that existing structure may handle the concern. The orchestrator posts a canonical evaluation comment, archives local state, and leaves the issue open. Disposition (close as superseded / rescope / leave open / split) is a human decision. Orchestrator-initiated `gh issue close` in this path is forbidden — see [docs/gate-hypothesis-fail-comment.md](docs/gate-hypothesis-fail-comment.md) for the canonical comment template.
 4. **Orchestrator does not implement.** The orchestrator coordinates — teammates do the work.
 5. **Evaluator is always fresh.** Never reuse an evaluation agent — self-reinforcement bias.
 6. **All loops terminate.** Every retry has a maximum count and human escalation point.
@@ -157,7 +157,7 @@ LAND:            Merge & Close     → Human approves and merges
 | PREFLIGHT | Git clean, branch created | → DIAGNOSE |
 | DIAGNOSE | 3 isolated analyses done | → GATE:HYPOTHESIS |
 | GATE:HYPOTHESIS PASS | Score >= 7.5 | → ARCHITECT |
-| GATE:HYPOTHESIS FAIL | Existing structure sufficient | → **Issue closed** |
+| GATE:HYPOTHESIS FAIL | Existing structure may handle the concern | → **Comment posted + Auto-Flow terminated locally; disposition left to human author** |
 | ARCHITECT | Plan documented | → GATE:PLAN |
 | GATE:PLAN PASS | Score >= 7.5, all >= 7 | → DISPATCH |
 | GATE:PLAN FAIL | Below threshold | → ARCHITECT (max 3x) |
@@ -180,7 +180,7 @@ LAND:            Merge & Close     → Human approves and merges
 
 | Failure | Max Retries | Escalation |
 |---|---|---|
-| GATE:HYPOTHESIS FAIL | 0 | Issue closed (by design) |
+| GATE:HYPOTHESIS FAIL | 0 | Comment posted + local termination + human disposition |
 | GATE:PLAN FAIL | 3 → ARCHITECT | Human intervention |
 | GREEN↔VERIFY cycle | 3 round-trips | Human intervention |
 | REFINE FAIL | 2 | Skip refactor, keep Green state |
@@ -269,7 +269,7 @@ Spawn AI-A again with Phase A results + AI-B's resolution approaches.
 | Propagation Scope | Is the propagation scope appropriate — not too broad, not missing targets? (high = appropriate scope) |
 
 - **PASS** (avg >= 7.5, all >= 7): Change needed → proceed to GATE:HYPOTHESIS
-- **FAIL**: Existing structure handles it → close issue with rationale
+- **FAIL**: Existing structure may handle the concern → orchestrator runs `.claude/scripts/post-hypothesis-fail`, which posts the canonical evaluation comment, archives local state under `.autoflow-state/archive/`, and clears `current-issue`. The issue remains open for human disposition. Orchestrator-initiated `gh issue close` is forbidden in this path.
 
 ---
 
