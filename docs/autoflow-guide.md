@@ -21,19 +21,39 @@ The key principles:
 **Goal**: Ensure a clean Git state before any analysis or coding begins.
 
 ### Activities
-- `git status` — verify no uncommitted changes or untracked files in working area
-- `git fetch origin` — sync with remote
-- Resolve any dirty state (stash, commit, or discard with user approval)
-- `git checkout -b <branch-type>/<issue>-<desc> main` — create feature branch from latest main
+
+| Sub-step | Action | Notes |
+|---------|--------|-------|
+| 0-1 | `git status` — verify no uncommitted changes or untracked files in working area | Host repo only |
+| 0-2 | `git fetch origin` — sync with remote | Host repo only |
+| 0-2b | **[CONDITIONAL: multi-repo projects only]** Multi sub-repo sync — run `.claude/scripts/preflight-sync` | Auto-skipped when no registry exists. See "Multi sub-repo sync" below. |
+| 0-3 | Resolve any dirty state (stash, commit, or discard with user approval) | |
+| 0-4 | `git checkout -b <branch-type>/<issue>-<desc> main` — create feature branch from latest main | |
+
+### Multi sub-repo sync (0-2b)
+
+The 0-2b sub-step iterates registered sub-repos via the `.claude/scripts/preflight-sync` helper. The helper reads `.autoflow/sub-repos.yml` first; if absent, it falls back to `.gitmodules`. When neither registry yields an entry, the sub-step exits 0 (skip) — single-repo projects pay no cost. This skip is an **objective precondition skip**, not a biased "this one is simple" judgment, and is therefore consistent with Execution Principle 1 ("Never skip phases"). See [design-rationale.md > Decision 12](design-rationale.md#decision-12-multi-sub-repo-sync-uses-git-submodule-foreach-pattern).
+
+Helper exit codes:
+
+| Code | Meaning | PREFLIGHT effect |
+|------|---------|------------------|
+| 0 | Sync success or registry empty | Continue to 0-3 |
+| 65 | Registry format error (`.autoflow/sub-repos.yml` malformed) | Abort PREFLIGHT — fix registry |
+| 66 | Pre-existing dirty sub-repo (sync refused) | Abort PREFLIGHT — clean sub-repos or set `SYNC_FORCE=1` |
+| 67 | Sync mid-run failure (e.g. `git fetch` failed) | Abort PREFLIGHT — DIAGNOSE must NOT begin |
+
+`SYNC_FORCE=1` is an escape hatch that bypasses the dirty-guard (exit 66 path). It does NOT bypass exit 65 or 67.
 
 ### Exit Criteria
-- Git working tree is clean
+- Git working tree is clean (host repo)
+- 0-2b: all registered sub-repos are clean and at the recorded pointer (or no registry exists → skip)
 - Branch created from latest main
 - `intake.md` created at `.autoflow-state/<sub-repo-id>/<issue-number>/intake.md` recording the sub-repo identifier, branch, and host state location (see [design-rationale.md > Decision 10](design-rationale.md#decision-10-state-tree-is-namespaced-by-sub-repo-identifier))
 - Ready for DIAGNOSE analysis
 
 ### Hard Stop Rule
-If Git state is not clean after resolution attempts, **stop and report to user**. Do NOT proceed to DIAGNOSE. Starting work on a dirty Git state causes merge conflicts, lost changes, and broken state downstream.
+If Git state is not clean after resolution attempts, **stop and report to user**. Do NOT proceed to DIAGNOSE. Starting work on a dirty Git state causes merge conflicts, lost changes, and broken state downstream. The same applies if `preflight-sync` exits non-zero at 0-2b — the orchestrator must NOT advance the phase to DIAGNOSE.
 
 ### intake.md Format
 
