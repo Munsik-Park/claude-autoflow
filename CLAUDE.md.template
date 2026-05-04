@@ -11,10 +11,10 @@ It explains _why_ every rule exists. Understanding the design intent takes prior
 ## Table of Contents
 
 1. [Project Overview](#project-overview)
-2. [Auto-Flow Lifecycle](#auto-flow-lifecycle)
+2. [Auto-Flow Lifecycle](#auto-flow-lifecycle-preflight-land)
 3. [Flow Control Table](#flow-control-table)
 4. [Agent Roles](#agent-roles)
-5. [3-Phase Independent Analysis](#3-phase-independent-analysis)
+5. [3-Phase Independent Analysis](#3-phase-independent-analysis-information-isolation)
 6. [Evaluation System](#evaluation-system)
 7. [Discussion Protocol](#discussion-protocol)
 8. [Hook Gate](#hook-gate)
@@ -197,7 +197,7 @@ Evaluation AI → Orchestrator: "Score: 8/10 — PASS"
 
 ### Phase Transition Protocol
 
-Phase transitions follow a three-party split — see [docs/design-rationale.md > Decision 8](docs/design-rationale.md#decision-8-phase-transitions-use-a-three-party-split-teammate--orchestrator--hook).
+Phase transitions follow a three-party split — see [docs/design-rationale.md > Decision 8](docs/design-rationale.md#decision-8-phase-transitions-use-a-three-party-split-teammate-orchestrator-hook).
 
 | Party | Responsibility at a phase transition |
 |-------|--------------------------------------|
@@ -436,17 +436,28 @@ When the change is purely prose (no scripts, no templates with placeholders):
 ### PASS Criteria
 - **Overall weighted score >= 7.5** to proceed to SHIP
 - **No individual category below 7**
-- **Security score <= 3 → automatic FAIL** (mandatory rework → DISPATCH, cannot be diluted by averaging)
+- **Consistency score <= 3 → automatic FAIL** (mandatory rework → DISPATCH, cannot be diluted by averaging)
 
 ### Evaluation Categories
 
+> The category set is project-determined. See [docs/evaluation-system.md](docs/evaluation-system.md) for customization.
+
+<!--
+The category set below is the project-default. The category names and the
+AUTO-FAIL key are project-determined: customize via per-issue weights.json
+and the AUTO_FAIL_KEY env var. For general-software projects, swap
+Consistency/Documentation for Security/Performance and set
+AUTO_FAIL_KEY=security. See docs/evaluation-system.md > Meta vs. Instance
+Context.
+-->
+
 | Category | Weight | Description |
 |----------|--------|-------------|
-| Correctness | 30% | Does it work as specified? |
-| Code Quality | 20% | Clean, readable, maintainable? |
+| Correctness | 25% | Does it work as specified? |
+| Quality | 20% | Clean, readable, maintainable? |
 | Test Coverage | 20% | Are critical paths tested? |
-| Security | 15% | No new vulnerabilities introduced? |
-| Performance | 15% | No regressions, reasonable efficiency? |
+| Consistency | 20% | Aligned with design-rationale.md principles? |
+| Documentation | 15% | Are docs updated, links valid, examples accurate? |
 
 ### Output Format (JSON)
 

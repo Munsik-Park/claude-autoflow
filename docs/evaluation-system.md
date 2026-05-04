@@ -71,6 +71,17 @@ Lenient criteria create a pattern of "scoring high on easy categories to raise t
 
 This is a template project. The critical risk is not security vulnerabilities but **violating core design principles** (e.g., giving AI-A the issue content "for efficiency"). Consistency scoring catches this. Consistency <= 3 triggers AUTO-FAIL because undermining a core principle from design-rationale.md requires mandatory rework regardless of other scores.
 
+### Meta vs. Instance Context
+
+The evaluation category set is project-determined, not universal. Two distinct contexts apply to this template:
+
+- **Meta context (this repository, `claude-autoflow-rename`)**: the dogfood instance scoring its own template, documentation, and script changes. The dominant risk surface is design-principle violation, so `consistency` is the AUTO-FAIL key and the canonical 5-category set above (Correctness / Quality / Test Coverage / Consistency / Documentation) applies.
+- **Instance context (a user applying this template to general software)**: evaluations score application code, where the dominant risk surface is runtime vulnerability and regression. `security` is typically the AUTO-FAIL key, and Security / Performance categories typically replace Consistency / Documentation.
+
+The mechanism for Instance customisation is unchanged from the [Customizing the Evaluation System](#customizing-the-evaluation-system) section below: per-issue `weights.json` plus the `AUTO_FAIL_KEY` environment variable. The hook reads both at runtime (`check-autoflow-gate.sh:101` for `AUTO_FAIL_KEY`; `check-autoflow-gate.sh:265-273` for the discovery loop) and never depends on hard-coded category names, so swapping the category set requires no code change.
+
+See [docs/design-rationale.md > Decision 13](design-rationale.md#decision-13-single-shape-gatequality-with-meta-context-categories) for why a single category shape is held at the source-of-truth level despite Meta and Instance using different category names.
+
 ### Weighted Score Calculation
 
 The gate hook dynamically reads all categories from the `scores` object and calculates the weighted average. If a `weights.json` file exists for the issue, those weights are used. Otherwise, equal weights (1/N) are applied across all categories.

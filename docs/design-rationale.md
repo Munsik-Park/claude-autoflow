@@ -285,6 +285,28 @@ A single-repo project sees no behaviour change at all — `preflight-sync` finds
 
 ---
 
+### Decision 13: Single-Shape GATE:QUALITY with Meta-Context Categories
+
+**What it does**
+
+GATE:QUALITY uses a single 5-category scoring set regardless of issue type: Correctness 25%, Quality 20%, Test Coverage 20%, Consistency 20%, Documentation 15%. The AUTO-FAIL key is `consistency` for this template repository because the dogfood instance evaluates template, documentation, and script changes — design-principle violation is the dominant risk surface, not runtime vulnerabilities. User instances applying the template select their own AUTO-FAIL key (e.g., `security` for general software) via the `AUTO_FAIL_KEY` environment variable plus per-issue `weights.json`. GATE:HYPOTHESIS retains a 3-category Type 1 / Type 2 branch (introduced by Issue #19); this branch is intentionally narrower than full per-evaluation-type restoration and is preserved unchanged.
+
+**Why it works this way**
+
+The hook is category-agnostic by design: it discovers categories at runtime from the evaluation JSON (check-autoflow-gate.sh:294-302) and reads the AUTO-FAIL key from the `AUTO_FAIL_KEY` env var with `consistency` as the default (check-autoflow-gate.sh:101). A single shape at the source-of-truth level keeps CLAUDE.md, CLAUDE.md.template, and docs/evaluation-system.md mutually consistent without per-type fan-out — every per-type set we add is another way the three documents can drift. Meta-context category choice (Consistency over Security) reflects that this repository's dominant risk surface is design-principle violations, not runtime vulnerabilities (cite docs/evaluation-system.md:70-72). Type 1 / Type 2 at GATE:HYPOTHESIS only is justified because hypothesis evaluation precedes implementation: the categories that make a not-yet-built change worth pursuing differ from the categories that judge a finished artifact, so a single shape there would force one set to score the wrong thing.
+
+**Rejected alternatives**
+
+- **Option A — full per-evaluation-type restoration (six per-type sets from ontology-platform).** Rejected for this Decision because the case for restoration cannot be settled before the flattening rationale is documented. Tracked as a deferred follow-up issue (deferred — follow-up issue to be filed at SHIP). Archive paths from this DIAGNOSE run cited as the evidence base for the deferred work: `.autoflow-state/self/51/analysis/phase-a.md`, `.autoflow-state/self/51/analysis/phase-b.md`, `.autoflow-state/self/51/analysis/phase-3.md`, `.autoflow-state/self/51/evaluation-hypothesis.json`.
+- **Option B.2 — context discriminator field (`context: meta|instance`) in evaluation JSON.** Rejected because the per-issue `weights.json` plus `AUTO_FAIL_KEY` env override already provides the per-context discrimination machinery (cite check-autoflow-gate.sh:265-273). Adding a schema field duplicates that mechanism and forces every evaluator to declare context, expanding the JSON contract for no new behaviour.
+- **Embedding Meta-context categories (Consistency / Documentation) in CLAUDE.md.template.** Rejected because the template is the user-facing default; Meta-context category names would propagate Consistency/Documentation into user instances where Security/Performance is more appropriate. Resolved by treating CLAUDE.md.template as the canonical Instance default and CLAUDE.md as the Meta-context (dogfood) instance — the two are allowed to diverge on category names, with the divergence documented here.
+
+**What this means**
+
+Three concrete invariants for future contributors: (a) CLAUDE.md may diverge from CLAUDE.md.template on category names by design — divergence on this axis is not a consistency bug; (b) the hook never gains hard-coded category names — runtime discovery and `AUTO_FAIL_KEY` are the only customisation points; (c) any proposal to revisit the single-shape flattening must first cite the deferred follow-up issue and add to its evidence rather than re-opening the question here.
+
+---
+
 ## Evaluation System Design Intent
 
 ### Why Scoring Criteria Are Not Fixed

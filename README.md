@@ -123,11 +123,13 @@ At GATE:QUALITY, an independent Evaluation AI scores the work across 5 categorie
 
 | Category | Weight |
 |----------|--------|
-| Correctness | 30% |
-| Code Quality | 20% |
+| Correctness | 25% |
+| Quality | 20% |
 | Test Coverage | 20% |
-| Security | 15% |
-| Performance | 15% |
+| Consistency | 20% |
+| Documentation | 15% |
+
+> This is the Meta (template-repo) default. Instance projects typically swap Consistency/Documentation for Security/Performance — see [docs/evaluation-system.md > Meta vs. Instance Context](docs/evaluation-system.md#meta-vs-instance-context).
 
 **Overall score >= 7.5** is required to proceed, with no individual category below 7.
 
@@ -164,9 +166,9 @@ Templates use `{{UPPER_SNAKE_CASE}}` placeholders:
 
 ### Evaluation Tuning
 
-- Adjust category **weights** to match your priorities (e.g., increase Security for compliance-heavy projects)
+- Adjust category **weights** to match your priorities (e.g., raise the AUTO-FAIL category's weight for higher-risk projects) — set `AUTO_FAIL_KEY` to switch the AUTO-FAIL category between contexts
 - Adjust **PASS threshold** in both `CLAUDE.md` and `check-autoflow-gate.sh`
-- Add **custom categories** (e.g., Accessibility for frontend-heavy projects)
+- Add **custom categories** (e.g., Accessibility for frontend-heavy projects) — see [docs/evaluation-system.md](docs/evaluation-system.md) for the customization mechanism
 
 ---
 
