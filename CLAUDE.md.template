@@ -54,7 +54,7 @@ Auto-Flow is a structured development lifecycle that ensures quality through eva
 |-------|------|-------------|---------------|
 | PREFLIGHT | **Pre-Work** | Git clean check, upstream sync, branch creation | Git clean, branch created |
 | DIAGNOSE | **3-Phase Analysis** | Understand the issue + information-isolated structure analysis (bias prevention) | 3 isolated analyses completed |
-| GATE:HYPOTHESIS | **Issue Analysis Eval** | Gate: is the analysis sufficient? | Score >= 7.5 or issue closed |
+| GATE:HYPOTHESIS | **Issue Analysis Eval** | Gate: is the analysis sufficient? | PASS (Score >= 7.5) → ARCHITECT; FAIL → post evaluation comment + archive local state, leave issue open for human disposition |
 | ARCHITECT | **Plan Synthesis** | Merge analyses into implementation plan | Plan approved |
 | GATE:PLAN | **Plan Evaluation** | Fresh Evaluation AI scores the plan | Score >= 7.5, all >= 7 |
 | DISPATCH | **Task Assignment** | Delegate to Test AI and Developer AI | Tasks assigned to teammates |
@@ -72,7 +72,7 @@ Auto-Flow is a structured development lifecycle that ensures quality through eva
 1. **Never skip phases.** Each phase builds on the previous one — regardless of change size. "This one is simple" is itself a biased judgment.
 2. **PREFLIGHT is mandatory.** If Git state is not clean, DIAGNOSE does not begin.
 3. **Regression is allowed.** If GATE:QUALITY fails, return to REVISION (or GATE:PLAN for major issues).
-4. **GATE:HYPOTHESIS FAIL = issue close.** If existing structure handles the concern, no code change is needed.
+4. **GATE:HYPOTHESIS FAIL = evaluation observation, not disposition.** A FAIL verdict means the evaluator judges that existing structure may handle the concern. The orchestrator posts a canonical evaluation comment, archives local state, and leaves the issue open. Disposition (close as superseded / rescope / leave open / split) is a human decision. Orchestrator-initiated closure in this path is forbidden — see [docs/gate-hypothesis-fail-comment.md](docs/gate-hypothesis-fail-comment.md) for the canonical comment template.
 5. **Human gates exist.** SHIP→LAND always requires human approval.
 6. **State is tracked.** Use `.autoflow-state/` files to persist phase status.
 7. **Pipeline is stateless.** Past issue evaluations do not influence current analysis. Improvement happens outside the pipeline, through human-driven CLAUDE.md updates.
@@ -110,7 +110,7 @@ If Git state is not clean after 0-3, stop and report to user. Do NOT proceed to 
 | PREFLIGHT | Git clean, branch created | → DIAGNOSE |
 | DIAGNOSE | 3 isolated analyses done | → GATE:HYPOTHESIS |
 | GATE:HYPOTHESIS (score >= 7.5) | PASS | → ARCHITECT |
-| GATE:HYPOTHESIS (FAIL) | Existing structure sufficient | → **Issue closed** |
+| GATE:HYPOTHESIS (FAIL) | Existing structure may handle the concern | → **Comment posted + Auto-Flow terminated locally; disposition left to human author** |
 | ARCHITECT | Plan approved | → GATE:PLAN |
 | GATE:PLAN PASS | Score >= 7.5, all >= 7 | → DISPATCH |
 | GATE:PLAN FAIL | Below threshold | → ARCHITECT (max 3x) |
@@ -269,7 +269,7 @@ To prevent tunnel-vision bias, DIAGNOSE uses **information isolation** — not j
 | Propagation Scope | Is the propagation scope appropriate — not too broad, not missing targets? (high = appropriate scope) |
 
 - **PASS** (avg >= 7.5, all >= 7): Change needed → proceed to GATE:HYPOTHESIS
-- **FAIL**: Existing structure handles it → close issue with rationale
+- **FAIL**: Existing structure may handle the concern → orchestrator runs `.claude/scripts/post-hypothesis-fail`, which posts the canonical evaluation comment, archives local state under `.autoflow-state/archive/`, and clears `current-issue`. The issue remains open for human disposition. Orchestrator-initiated closure is forbidden in this path.
 
 ### Synthesis (ARCHITECT)
 Merge all three analyses into a single implementation plan. Conflicts between phases must be explicitly resolved with rationale.
@@ -411,7 +411,7 @@ When the change is purely prose (no scripts, no templates with placeholders):
 
 | Failure | Max Retries | Escalation |
 |---|---|---|
-| GATE:HYPOTHESIS FAIL | 0 | Issue closed (by design) |
+| GATE:HYPOTHESIS FAIL | 0 | Comment posted + local termination + human disposition |
 | GATE:PLAN FAIL | 3 → ARCHITECT | Human intervention |
 | GREEN↔VERIFY cycle | 3 round-trips | Human intervention |
 | REFINE FAIL | 2 | Skip refactor, keep Green state |

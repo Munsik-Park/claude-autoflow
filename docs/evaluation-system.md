@@ -142,7 +142,7 @@ The Evaluation AI produces a JSON report saved to `.autoflow-state/<issue>/evalu
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `phase` | string | Always `"GATE:QUALITY"` for evaluation |
+| `phase` | string | Gate-specific value: `"GATE:HYPOTHESIS"`, `"GATE:PLAN"`, or `"GATE:QUALITY"` — matches the evaluator's role_marker |
 | `issue` | string | Issue reference (e.g., "#123") |
 | `evaluator` | object | Evaluation AI identity — must be an object, not a flat string |
 | `evaluator.role_marker` | string | Gate-specific role identifier — required, must be non-empty. Values: `[role:eval-hypothesis]`, `[role:eval-plan]`, `[role:eval-quality]` |

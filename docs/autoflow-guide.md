@@ -140,7 +140,7 @@ If Git state is not clean after resolution attempts, **stop and report to user**
 | Propagation Scope | Is the propagation scope appropriate — not too broad, not missing targets? (high = appropriate scope) |
 
 - **PASS** (avg >= 7.5, all >= 7): Change needed → proceed to GATE:HYPOTHESIS
-- **FAIL**: Existing structure handles it → close issue with rationale
+- **FAIL**: Existing structure may handle the concern → orchestrator runs `.claude/scripts/post-hypothesis-fail`, which posts the canonical evaluation comment, archives local state, and clears `current-issue`. The issue remains open for human disposition. Orchestrator-initiated closure is forbidden in this path.
 
 ### Exit Criteria
 - Phase A analysis documented (structure only, no issue awareness)
@@ -163,12 +163,12 @@ If Git state is not clean after resolution attempts, **stop and report to user**
 
 ### PASS / FAIL
 - **PASS** (score >= 7.5): Proceed to ARCHITECT
-- **FAIL**: **Close the issue.** If the structure already handles the concern, no code change is needed. This is not a regression — it is the system working correctly. The best code is code that is never written.
+- **FAIL**: A FAIL verdict is an **evaluation observation, not a disposition decision** — the evaluator judges that existing structure may handle the concern. The orchestrator runs `.claude/scripts/post-hypothesis-fail` to post the canonical evaluation comment to the issue, archive local state under `.autoflow-state/archive/`, and clear `current-issue`. The issue is left open; disposition (close as superseded / rescope / leave open / split) is a human decision. Orchestrator-initiated closure is forbidden in this path. See [docs/gate-hypothesis-fail-comment.md](gate-hypothesis-fail-comment.md) for the comment template and [design-rationale.md > Decision 6](design-rationale.md#decision-6-structure-evaluation-fail-is-an-observation-not-a-disposition) for the rationale.
 
 ### Exit Criteria
 - Evaluation report saved
 - PASS → proceed to ARCHITECT
-- FAIL → issue closed (existing structure sufficient)
+- FAIL → post evaluation comment, archive local state, leave issue open (Auto-Flow terminates locally; disposition left to human)
 
 ---
 
@@ -468,7 +468,7 @@ When a phase fails, the flow regresses — or terminates:
 
 | Failure Point | Action | Reason |
 |--------------|--------|--------|
-| GATE:HYPOTHESIS (structure eval FAIL) | **Close issue** | Existing structure already handles it |
+| GATE:HYPOTHESIS (structure eval FAIL) | **Comment posted + local termination + human disposition** | Evaluation observation, not disposition |
 | GATE:PLAN (plan eval FAIL) | → ARCHITECT (max 3x) | Plan revision needed |
 | GREEN↔VERIFY cycle (tests fail) | → GREEN (max 3 round-trips) | Fix implementation or tests |
 | REFINE (refactor breaks tests) | Fix (max 2 attempts) | Keep pre-refactor state |

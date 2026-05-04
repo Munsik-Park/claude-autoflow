@@ -119,15 +119,23 @@ The act of judging "this change is simple" is itself a product of bias. That jud
 
 ---
 
-### Decision 6: Structure Evaluation FAIL Means Issue Close
+### Decision 6: Structure Evaluation FAIL Is an Observation, Not a Disposition
 
 **What it does**
 
-When the structure evaluation at PREFLIGHT–DIAGNOSE returns FAIL, Auto-Flow terminates and the issue is closed. It means the existing structure can already handle the concern — no code change needed.
+When the structure evaluation at GATE:HYPOTHESIS returns FAIL, three different actions are recognized as three different actors:
+
+1. **Evaluation observation** — produced by a fresh Evaluation AI. The verdict states only that the existing structure may handle the concern; it does not decide what should happen to the issue.
+2. **State action** — performed mechanically by `.claude/scripts/post-hypothesis-fail`. The orchestrator posts the canonical evaluation comment to the GitHub issue, archives the local state directory under `.autoflow-state/archive/<sub-repo-id>/<issue>-<ts>/`, and clears `current-issue`. Auto-Flow terminates locally. The orchestrator does NOT call `gh issue close`.
+3. **Disposition decision** — made by the human author of the issue, informed by the posted comment. Possible dispositions include: close as superseded, rescope, leave open for further investigation, or split into multiple issues.
 
 **Why it works this way**
 
-The best code is code that is never written. AI feels pressure to create something when it receives an issue. Structure evaluation is the first gate that blocks that pressure. In practice, this judgment has prevented unnecessary code changes — when existing architecture already solved the problem.
+The previous version of this decision conflated the three actions into a single step ("FAIL → close issue"), placing a disposition decision under AI control. That conflation produced two failure modes: (a) issues were closed even when the FAIL verdict was a borderline judgment that a human would have left open, and (b) the project lost the audit trail that lives in an open-but-resolved-by-comment thread.
+
+Separating evaluation observation, state action, and disposition decision keeps each action with the right actor. The evaluator observes; the helper script mutates local state; the human disposes. This mirrors the same separation pattern used elsewhere in Auto-Flow — for example, the orchestrator's mechanical-pass-through stance for `transition-request` evidence (Item 6 / #30 is a precedent example, not the basis for this decision).
+
+The best code is still code that is never written. The new path preserves that principle: a FAIL verdict still terminates the local Auto-Flow pipeline, no implementation is begun, and the comment leaves the rationale on the issue so the human disposition is well-informed.
 
 ---
 
