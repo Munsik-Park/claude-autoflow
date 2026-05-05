@@ -40,6 +40,32 @@ INTEGRATE       Integration Test  — system build, health check, functional tes
 LAND            PR + Merge + Close — sub-repo PRs first → pointer bump → host PR → merge → cleanup
 ```
 
+The happy-path flow at a glance (regression edges and human-escalation paths
+are omitted; see [`docs/autoflow-guide.md`](docs/autoflow-guide.md) for the
+full diagram):
+
+```mermaid
+flowchart LR
+    PRE([PREFLIGHT]) --> DIA[DIAGNOSE]
+    DIA --> HYP{{GATE:HYPOTHESIS}}
+    HYP --> ARC[ARCHITECT]
+    ARC --> PLAN{{GATE:PLAN}}
+    PLAN --> DIS[DISPATCH]
+    DIS --> RED[RED]
+    RED --> GREEN[GREEN]
+    GREEN --> VER[VERIFY]
+    VER --> REF[REFINE]
+    REF --> VAL[VALIDATE]
+    VAL --> AUD{{AUDIT}}
+    AUD --> QUAL{{GATE:QUALITY}}
+    QUAL --> DEL[DELIVER]
+    DEL --> INT[INTEGRATE]
+    INT --> LAND([LAND])
+
+    classDef gate fill:#fff8e1,stroke:#f57f17,color:#bf360c
+    class HYP,PLAN,AUD,QUAL gate
+```
+
 ### Key Features
 
 - **Multi-Agent Roles** — Orchestrator, Submodule AI (Developer), Test AI, Evaluation AI with separated responsibilities.
