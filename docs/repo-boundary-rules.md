@@ -110,8 +110,8 @@ Agents use `SendMessage` (Claude Code's built-in agent communication) to coordin
 
 ```
 Orchestrator → Backend AI:
-  "Implement new /users endpoint per issue #42. 
-   See requirements in .autoflow-state/42/requirements.md"
+  "Implement new /users endpoint per issue #42.
+   See requirements in the orchestrator's plan for issue #42."
 
 Backend AI → Orchestrator:
   "Implementation complete. New endpoint: GET /api/v1/users.

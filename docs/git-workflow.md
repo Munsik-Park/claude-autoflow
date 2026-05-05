@@ -6,22 +6,19 @@
 
 ## Branch Strategy
 
-### Branch Types
+| Type | Pattern | Purpose | Base |
+|------|---------|---------|------|
+| Feature  | `feature/<issue>-<desc>`  | New functionality | `main` |
+| Fix      | `fix/<issue>-<desc>`      | Bug fixes | `main` |
+| Refactor | `refactor/<issue>-<desc>` | Code improvements | `main` |
+| Docs     | `docs/<issue>-<desc>`     | Documentation updates | `main` |
+| Chore    | `chore/<issue>-<desc>`    | Maintenance tasks | `main` |
 
-| Type | Pattern | Purpose | Base Branch |
-|------|---------|---------|-------------|
-| Feature | `feature/<issue>-<desc>` | New functionality | `{{DEFAULT_BRANCH}}` |
-| Fix | `fix/<issue>-<desc>` | Bug fixes | `{{DEFAULT_BRANCH}}` |
-| Refactor | `refactor/<issue>-<desc>` | Code improvements | `{{DEFAULT_BRANCH}}` |
-| Docs | `docs/<issue>-<desc>` | Documentation updates | `{{DEFAULT_BRANCH}}` |
-| Chore | `chore/<issue>-<desc>` | Maintenance tasks | `{{DEFAULT_BRANCH}}` |
-
-### Examples
+Examples:
 
 ```
 feature/42-add-user-authentication
 fix/87-resolve-memory-leak
-refactor/103-simplify-data-pipeline
 docs/55-update-api-reference
 ```
 
@@ -32,45 +29,45 @@ docs/55-update-api-reference
 ### Format
 
 ```
-<type>(<scope>): <description>
+<type>(#<issue>): <description>
 
-[optional body — explain WHY, not WHAT]
+Next: <next action>
 
-Refs: #<issue-number>
+Co-Authored-By: Claude <model> <noreply@anthropic.com>
 ```
 
-### Types
+`type`: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `style`.
 
-| Type | When to Use |
-|------|------------|
-| `feat` | New feature |
-| `fix` | Bug fix |
-| `refactor` | Code restructuring (no behavior change) |
-| `test` | Adding/updating tests |
-| `docs` | Documentation changes |
-| `chore` | Build, CI, tooling changes |
-| `style` | Formatting only (no logic change) |
+The `Next:` line lets the next session pick up where this one left off (see
+[`teammate-common-rules.md`](teammate-common-rules.md#session-protocol)).
 
-### Examples
+---
 
+## Git Clean Check
+
+Used at PREFLIGHT (entry) and LAND (completion).
+
+```bash
+# 1. Working tree is clean
+git status                       # must report nothing to commit, working tree clean
+
+# 2. Synced with remote
+git fetch origin
+git log HEAD..origin/main --oneline   # must be empty (or handled)
+
+# 3. Branch is from the latest main (PREFLIGHT only)
+git checkout -b <type>/<issue>-<desc> main
 ```
-feat(auth): add JWT token refresh endpoint
 
-Implements automatic token refresh to prevent session expiration
-during long-running operations. Tokens are refreshed 5 minutes
-before expiry.
+If any check fails:
 
-Refs: #42
-```
+- Uncommitted changes → `git stash`, `git commit`, or discard with the user's
+  approval (PREFLIGHT). At LAND, discuss with the user before discarding.
+- Remote has new commits ahead → `git pull --rebase` and re-run.
+- Wrong base → re-branch from latest main.
 
-```
-fix(api): handle null response from external service
-
-The payment gateway occasionally returns null instead of an error
-object. This caused an unhandled exception in the order flow.
-
-Refs: #87
-```
+If the working tree cannot be made clean, **stop** and report. PREFLIGHT does
+not advance to DIAGNOSE on a dirty tree.
 
 ---
 
@@ -78,9 +75,9 @@ Refs: #87
 
 ### Creating a PR (SHIP)
 
-1. Ensure all commits are clean and well-described
-2. Push the feature branch to remote
-3. Create PR with the following template:
+1. Verify all commits are clean and well-described.
+2. Push the branch to remote (`git push -u origin <branch>`).
+3. Create the PR using the template below.
 
 ```markdown
 ## Summary
@@ -96,63 +93,71 @@ Closes #<issue-number>
 - Score: [X/10]
 - Report: [link or inline]
 
-## Security Checklist
-- [ ] Authentication & Authorization verified
-- [ ] Input validation verified
-- [ ] No sensitive data exposure
-- [ ] Infrastructure isolation maintained
-- [ ] Dependencies checked for CVEs
-
 ## Testing
 - [ ] Unit tests pass
 - [ ] Integration tests pass (if applicable)
 - [ ] No existing tests broken
 ```
 
-### PR Review Checklist (for Human Reviewers)
+### PR Review Checklist (Human Reviewers)
 
-- [ ] Changes match the described issue
-- [ ] Code is readable and follows project conventions
-- [ ] Tests are adequate
-- [ ] No security concerns
-- [ ] Auto-Flow evaluation score is acceptable
+- Changes match the described issue.
+- Code is readable and follows project conventions.
+- Tests are adequate.
+- No security concerns.
+- Auto-Flow evaluation score is acceptable.
 
 ---
 
 ## Merge Strategy
 
 ### Recommended: Squash and Merge
-- Keeps `{{DEFAULT_BRANCH}}` history clean
-- Each feature/fix becomes a single commit
-- PR description becomes the commit body
+
+- Keeps `main` history clean.
+- Each feature/fix becomes a single commit.
+- PR description becomes the commit body.
 
 ### When to Use Regular Merge
-- Large features where individual commits tell an important story
-- Multi-phase implementations where history matters
+
+- Large features whose individual commits tell an important story.
+- Multi-phase implementations where history matters.
+
+---
+
+## Post-Merge Cleanup
+
+After the PR is confirmed merged at LAND:
+
+```bash
+git checkout main
+git pull origin main
+git branch -d <branch>           # local branch
+git push origin --delete <branch> # remote branch (if not auto-deleted)
+```
+
+The `.autoflow/issue-{N}.json` state file is preserved as history; only its
+`active` field flips to `false`.
 
 ---
 
 ## Protected Branch Rules
 
-### `{{DEFAULT_BRANCH}}` Branch
-- No direct pushes
-- Require PR with at least 1 approval
-- Require CI checks to pass
-- Require Auto-Flow evaluation PASS (enforced by hook)
+### `main`
+
+- No direct pushes.
+- Require PR with at least 1 approval.
+- Require CI checks to pass.
+- Require Auto-Flow evaluation PASS (enforced by `.claude/hooks/check-autoflow-gate.sh`).
 
 ---
 
-## Multi-Repo Coordination
+## Issue Auto-Close
 
-When changes span multiple repositories:
+The PR body includes a close keyword so that merging closes the issue
+automatically.
 
-1. **Orchestrator creates tracking issue** in the orchestrator repo
-2. **Sub-issues created** in each affected repo
-3. **Each repo follows its own Auto-Flow** independently
-4. **Orchestrator coordinates merge order** to prevent broken states
-5. **Integration testing** happens after all repos are merged
+```
+Closes #<issue-number>
+```
 
-### Merge Order Rules
-- Backend changes merge before frontend changes that depend on them
-- Infrastructure changes merge before application changes
-- Shared library changes merge before consumer changes
+Recognised keywords: `Closes`, `Fixes`, `Resolves` (case-insensitive).

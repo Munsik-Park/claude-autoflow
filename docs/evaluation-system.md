@@ -1,275 +1,118 @@
 # Evaluation System
 
-> The Auto-Flow evaluation system provides quantified quality assessment at GATE:HYPOTHESIS and GATE:QUALITY, ensuring consistent standards across all changes.
+> The Auto-Flow evaluation system provides quantified quality assessment at the
+> three gates (`GATE:HYPOTHESIS`, `GATE:PLAN`, `GATE:QUALITY`) and at `AUDIT`,
+> ensuring consistent standards across all changes.
 
 ---
 
 ## Overview
 
-The Evaluation AI is an **independent agent** that scores completed work before it reaches human review. This separation ensures objectivity — the agent that wrote the code never evaluates it.
+The Evaluation AI is an **independent agent** that scores completed work before
+it reaches human review. This separation keeps judgment objective — the agent
+that wrote the work never evaluates it.
 
 ### Critical Rule: Fresh Spawn Every Time
 
-**The Evaluation AI must be spawned fresh for every evaluation** — at GATE:HYPOTHESIS, GATE:PLAN, and GATE:QUALITY. It carries no prior conversation history. This is mandatory, not optional.
+The Evaluation AI must be **spawned fresh for every evaluation** — at
+GATE:HYPOTHESIS, GATE:PLAN, AUDIT, and GATE:QUALITY. It carries no prior
+conversation history. This is mandatory.
 
-**Why**: When the same agent creates a plan and evaluates it, it struggles to reject its own work. A freshly spawned agent sees only the deliverable — it has no investment in the process. Bias elimination takes priority over token cost savings. See [docs/design-rationale.md](design-rationale.md#decision-2-evaluation-ai-is-spawned-fresh-every-time).
+**Why**: when the same agent creates a plan and evaluates it, it struggles to
+reject its own work. A freshly spawned agent sees only the deliverable — it has
+no investment in the process. Bias elimination takes priority over token cost.
+See [`design-rationale.md`](design-rationale.md#decision-2-evaluation-ai-is-spawned-fresh-every-time).
 
 ---
 
 ## 10-Point Scale
 
-| Score | Label | Meaning |
-|-------|-------|---------|
-| 10 | Outstanding | Exceptional quality, innovative approach |
-| 9 | Excellent | Exceeds requirements, very clean |
-| 8 | Very Good | Solid implementation, minor polish possible |
-| 7 | Good | Meets all requirements — **minimum PASS** |
-| 6 | Acceptable | Works but has notable issues |
-| 5 | Marginal | Functional but needs improvement |
-| 4 | Below Average | Significant problems |
-| 3 | Poor | Major issues, partially functional |
-| 2 | Very Poor | Barely functional |
-| 1 | Failing | Does not meet requirements |
+| Score | Meaning | Action |
+|-------|---------|--------|
+| 9-10  | Excellent | Proceed |
+| 7-8   | Good      | Proceed |
+| 5-6   | Insufficient | Rework recommended |
+| 3-4   | Poor      | Rework required |
+| 1-2   | Failing   | Redesign or human decision |
 
 ---
 
 ## PASS Criteria
 
-A change **passes** evaluation when ALL of the following are true:
+A change passes evaluation when **all** of the following hold:
 
-1. **Overall weighted score >= 7.5**
-2. **No individual category score below 7**
-3. **Consistency score is NOT <= 3** (auto-fail trigger)
+- **[MUST]** Average ≥ 7.5
+- **[MUST]** Each item ≥ 7
+- **[MUST]** Security ≤ 3 → automatic rework
 
-If any condition is not met, the change **fails**.
+If any condition fails, the change fails.
 
-### Why These Thresholds Are Strict
+### Why these thresholds are strict
 
-Lenient criteria create a pattern of "scoring high on easy categories to raise the average while passing weak categories." The individual minimum threshold (>= 7) prevents this gaming. Consistency <= 3 triggers mandatory rework because violating core design principles cannot be diluted by averaging — some items are non-negotiable.
-
-### Auto-FAIL Rules
-
-| Condition | Result | Action |
-|-----------|--------|--------|
-| Consistency <= 3 | AUTO-FAIL | → DISPATCH (mandatory major rework) |
-| Any category < 7 | FAIL | → REVISION |
-| Overall < 7.5 | FAIL | → REVISION |
+Lenient criteria create a pattern of "scoring high on easy items to raise the
+average while passing weak items." The per-item minimum (≥ 7) prevents this
+gaming. Security ≤ 3 triggers mandatory rework because security failures cannot
+be diluted by averaging.
 
 ---
 
-## Scoring Categories
+## Evaluation Types
 
-| Category | Weight | Description |
-|----------|--------|-------------|
-| **Correctness** | 25% | Does the implementation fulfill all requirements from the issue? Does it handle edge cases? |
-| **Quality** | 20% | Is the code clean, readable, and maintainable? Does it follow project conventions? |
-| **Test Coverage** | 20% | Are critical paths tested? Are edge cases covered? Do tests actually validate behavior? |
-| **Consistency** | 20% | Does the change align with design-rationale.md principles? Does it follow established patterns? |
-| **Documentation** | 15% | Are docs updated, links valid, examples accurate? |
+| Type | Items (count) | Retry |
+|------|---------------|-------|
+| Structure evaluation (GATE:HYPOTHESIS — structure form, runs in DIAGNOSE 3-Phase) | Structural overlap, Code-change necessity, New-mechanism necessity (3) | none — PASS/FAIL single verdict; FAIL → issue auto-closed + Auto-Flow terminated |
+| Hypothesis evaluation (GATE:HYPOTHESIS — cause form, bug/incident only) | Hypothesis diversity, Verification sufficiency, Verdict evidence (3) | max 2× → DIAGNOSE |
+| Plan evaluation (GATE:PLAN) | Feasibility, Dependencies, Scope, Security, Test plan (5) | max 3× → ARCHITECT |
+| Security audit (AUDIT) | Authn/Authz, Input validation, Data exposure, Infra isolation, Dependencies (5) | max 2× |
+| Quality evaluation (GATE:QUALITY) | Completeness, Quality, Test coverage, Test quality, Security, Fit, Impact scope, Minimal implementation, Commit conventions, Doc updates (10) | max 3× → RED |
+| Doc evaluation | Accuracy, Completeness, Clarity, Format compliance (4) | one revision |
 
-### Why "Consistency" Replaces "Security"
-
-This is a template project. The critical risk is not security vulnerabilities but **violating core design principles** (e.g., giving AI-A the issue content "for efficiency"). Consistency scoring catches this. Consistency <= 3 triggers AUTO-FAIL because undermining a core principle from design-rationale.md requires mandatory rework regardless of other scores.
-
-### Weighted Score Calculation
-
-The gate hook dynamically reads all categories from the `scores` object and calculates the weighted average. If a `weights.json` file exists for the issue, those weights are used. Otherwise, equal weights (1/N) are applied across all categories.
-
-```
-Example with default CLAUDE.md weights (via weights.json):
-
-overall = (correctness * 0.25) + (quality * 0.20) + (test_coverage * 0.20) 
-        + (consistency * 0.20) + (documentation * 0.15)
-```
-
-### Example
-
-```
-correctness:    8 * 0.25 = 2.00
-quality:        8 * 0.20 = 1.60
-test_coverage:  7 * 0.20 = 1.40
-consistency:    9 * 0.20 = 1.80
-documentation:  8 * 0.15 = 1.20
-                         ------
-overall:                   8.00  → PASS (>= 7.5, all categories >= 7)
-```
-
-```
-correctness:    9 * 0.25 = 2.25
-quality:        8 * 0.20 = 1.60
-test_coverage:  6 * 0.20 = 1.20    ← below 7!
-consistency:    8 * 0.20 = 1.60
-documentation:  8 * 0.15 = 1.20
-                         ------
-overall:                   7.85  → FAIL (test_coverage 6 < minimum 7)
-```
+The category sets and weights should be customised per project. They reflect
+"what actually matters in this project," not universal standards. As patterns
+emerge, humans adjust the criteria.
 
 ---
 
 ## Evaluation Output Format
 
-> This section is the **single source of truth** for the evaluation JSON schema. `CLAUDE.md.template` and `CLAUDE.md` reference this schema — keep them in sync.
-
-The Evaluation AI produces a JSON report saved to `.autoflow-state/<issue>/evaluation.json`:
-
 ```json
 {
-  "phase": "GATE:QUALITY",
-  "issue": "#123",
-  "evaluator": {
-    "role_marker": "[role:eval-quality]",
-    "session_id": "<session-id>"
-  },
-  "scores": {
-    "correctness": { "score": 8, "reason": "All requirements met. Edge case for empty input handled correctly." },
-    "quality": { "score": 7, "reason": "Clean implementation. Consider extracting the validation logic into a helper." },
-    "test_coverage": { "score": 7, "reason": "Good coverage of happy path. Add a test for concurrent access." },
-    "consistency": { "score": 9, "reason": "Aligned with design-rationale.md principles throughout." },
-    "documentation": { "score": 7, "reason": "Docs updated. Internal links valid." }
-  },
-  "average": 7.8,
-  "verdict": "PASS",
-  "blocking_issues": [],
-  "suggestions": [
-    "Consider adding a test for the concurrent access scenario",
-    "The validation helper extraction would improve readability"
-  ],
-  "rationale": "Implementation meets all acceptance criteria. Minor refactoring suggestions are non-blocking."
+  "type": "hypothesis_evaluation | plan_evaluation | security_audit | quality_evaluation | doc_evaluation",
+  "target": "scope name",
+  "issue": "#N",
+  "scores": { "item": { "score": 8, "reason": "evidence" } },
+  "summary": "overall assessment",
+  "blocking_issues": ["items ≤ 3"],
+  "recommendations": ["items 5-6"]
 }
 ```
 
-### Field Descriptions
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `phase` | string | Gate-specific value: `"GATE:HYPOTHESIS"`, `"GATE:PLAN"`, or `"GATE:QUALITY"` — matches the evaluator's role_marker |
-| `issue` | string | Issue reference (e.g., "#123") |
-| `evaluator` | object | Evaluation AI identity — must be an object, not a flat string |
-| `evaluator.role_marker` | string | Gate-specific role identifier — required, must be non-empty. Values: `[role:eval-hypothesis]`, `[role:eval-plan]`, `[role:eval-quality]` |
-| `evaluator.session_id` | string | Session identifier for traceability |
-| `scores` | object | Per-category scores — structured format with `score` and `reason` |
-| `average` | number | Weighted average score computed by the Evaluation AI |
-| `verdict` | string | `"PASS"` or `"FAIL"` — computed by the Evaluation AI (hook recalculates independently) |
-| `blocking_issues` | array | Issues that must be fixed before proceeding (empty array if no blockers) |
-| `suggestions` | array | Non-blocking improvement ideas for future consideration |
-| `rationale` | string | Overall narrative summary explaining the verdict |
-
-> **Note**: The hook does NOT read any AI-generated `verdict`, `pass`, or `average` fields. It calculates pass/fail independently from the raw `scores` values. Flat format (`"key": N`) is also supported for backward compatibility.
->
-> **Important**: The hook enforces that `evaluator.role_marker` is present and non-empty on every Write to an evaluation JSON file. A flat `"evaluator": "string"` will be blocked.
+The `scores` object is what the gate hook reads. Each item is either a number
+(`8`) or an object (`{"score": 8, "reason": "..."}`). The hook accepts both.
 
 ---
 
-## Evaluation Process
+## Hook Trust Boundary
 
-### Input to Evaluation AI
-
-The Evaluation AI receives:
-1. **Issue requirements** (`.autoflow-state/<issue>/requirements.md`)
-2. **Implementation plan** (`.autoflow-state/<issue>/plan.md`)
-3. **Code diff** (`git diff` of the changes)
-4. **Test results** (test output from VERIFY)
-
-### Evaluation Process
-
-1. **Read** all inputs thoroughly
-2. **Verify correctness** against requirements
-3. **Review code quality** against project conventions
-4. **Assess test coverage** — are critical paths tested?
-5. **Check consistency** against design-rationale.md principles
-6. **Evaluate documentation** — are docs updated, links valid?
-7. **Score** each category
-8. **Calculate** weighted overall score
-9. **Determine** PASS/FAIL
-10. **Write** evaluation report to state file
+`check-autoflow-gate.sh` does **not** read the AI's `pass`, `avg`, or `min`
+fields. It computes them from raw `scores`. The trust chain stops at the script
+level — see [`design-rationale.md`](design-rationale.md#decision-3-the-hook-does-not-trust-ais-pass-judgment).
 
 ---
 
-## Re-Evaluation (After REVISION)
+## State File Linkage
 
-When a change fails and goes through REVISION:
+While Auto-Flow is in progress, `.autoflow/issue-{N}.json` records the score
+sets per phase. The hook reads from this file at gate points to allow or block
+Agent spawns and `git push`/`gh pr create` actions.
 
-1. A **freshly spawned** Evaluation AI receives the **updated** diff and test results
-2. It also receives the **previous evaluation** for context
-3. It re-evaluates from scratch (not incrementally)
-4. The new evaluation replaces the old one in the state file
+The phase keys used by the hook are:
 
-> The re-evaluation AI is also spawned fresh — never reused from the previous evaluation cycle.
+- `gate_hypothesis_structure` — DIAGNOSE 3-Phase structure evaluation
+- `gate_hypothesis_cause` — GATE:HYPOTHESIS cause analysis
+- `gate_plan` — GATE:PLAN
+- `audit` — AUDIT
+- `gate_quality` — GATE:QUALITY
 
-### Maximum Revision Cycles
-
-- **3 revision cycles maximum** before human escalation
-- Each cycle: REVISION → GATE:QUALITY (re-evaluation)
-- If still failing after 3 cycles, the Orchestrator escalates to a human with all evaluation reports
-
----
-
-## Hook Integration
-
-The `check-autoflow-gate.sh` hook enforces the gate by **calculating pass/fail independently from raw scores**:
-
-- The hook **does NOT read the AI-generated `pass` or `overall` fields**
-- It dynamically discovers all keys in the `scores` object (no hardcoded category names)
-- It extracts individual scores, handling both flat (`"key": N`) and structured (`"key": {"score": N, "reason": "..."}`) formats
-- It reads weights from `.autoflow-state/<issue>/weights.json` if available, otherwise uses equal weights (1/N)
-- It checks: weighted average >= 7.5, all categories >= 7, auto-fail key > 3
-- This design brings the trust chain down to the script level — AI judgment is bypassed
-
-> **Why?** AI tends to implicitly adjust standards while scoring, or interpret edge cases favorably. The hook ignores AI judgment and checks only numbers. See [docs/design-rationale.md](design-rationale.md#decision-3-the-hook-does-not-trust-ais-pass-judgment).
-
----
-
-## Customizing the Evaluation System
-
-### Dynamic Category Support
-
-The gate hook dynamically enumerates all keys in the `scores` object. You are not limited to the default five categories — any category names work, as long as they appear in the evaluation JSON.
-
-### Configuring Weights
-
-Create a `weights.json` file in `.autoflow-state/<issue>/` to configure per-category weights:
-
-```json
-{
-  "correctness": 0.25,
-  "quality": 0.20,
-  "test_coverage": 0.20,
-  "consistency": 0.20,
-  "documentation": 0.15
-}
-```
-
-Without `weights.json`, all categories receive equal weight (1/N where N is the number of categories).
-
-### Adjusting PASS Threshold
-
-The default thresholds are: overall >= 7.5, individual >= 7, auto-fail key <= 3. To change:
-1. Update `PASS_THRESHOLD`, `MIN_CATEGORY_SCORE`, and `AUTO_FAIL_THRESHOLD` in `check-autoflow-gate.sh`
-2. Update the PASS criteria in `CLAUDE.md`
-3. Document the change and rationale
-
-### Configuring the Auto-Fail Key
-
-The auto-fail key defaults to `consistency`. To change it, set the `AUTO_FAIL_KEY` environment variable:
-
-```bash
-AUTO_FAIL_KEY=security bash .claude/hooks/check-autoflow-gate.sh
-```
-
-If the configured auto-fail key does not exist in the evaluation scores, no auto-fail check is performed.
-
-### Adding Custom Categories
-
-Add any category to the evaluation JSON — the hook discovers them automatically. For example, a frontend project might use:
-
-```json
-{
-  "scores": {
-    "correctness": { "score": 8, "reason": "Requirements met" },
-    "accessibility": { "score": 9, "reason": "WCAG AA compliant" },
-    "performance": { "score": 7, "reason": "Lighthouse score acceptable" }
-  }
-}
-```
-
-Update `weights.json` to assign appropriate weights to your custom categories. If weights are omitted, all categories are weighted equally.
+See [`CLAUDE.md`](../CLAUDE.md#auto-flow-state-tracking-hook-integration) for the
+full schema.
