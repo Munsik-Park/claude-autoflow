@@ -43,6 +43,119 @@ mapping is preserved 1:1 below.
 
 ---
 
+## Lifecycle Diagram
+
+The full Auto-Flow lifecycle, including regression paths and gate verdicts.
+Diamond nodes are evaluation gates; stadium nodes are terminal states.
+
+```mermaid
+flowchart TD
+    PRE([PREFLIGHT<br/>Pre-Work]):::phase
+    DIA[DIAGNOSE<br/>3-Phase Analysis]:::phase
+    HYPS{{GATE:HYPOTHESIS<br/>structure}}:::gate
+    HYPC{{GATE:HYPOTHESIS<br/>cause}}:::gate
+    ARC[ARCHITECT<br/>Plan Synthesis]:::phase
+    PLAN{{GATE:PLAN}}:::gate
+    DIS[DISPATCH]:::phase
+    RED[RED<br/>Test Writing]:::phase
+    GREEN[GREEN<br/>Implementation]:::phase
+    VER[VERIFY]:::phase
+    REF[REFINE]:::phase
+    VAL[VALIDATE]:::phase
+    AUD{{AUDIT}}:::gate
+    QUAL{{GATE:QUALITY}}:::gate
+    DEL[DELIVER<br/>Sub-Repo Push]:::phase
+    INT[INTEGRATE]:::phase
+    LAND[LAND<br/>PR + Merge + Close]:::phase
+    CLOSE([Issue Auto-Closed]):::terminal
+    DONE([Done]):::terminal
+    HUMAN([Human Decision]):::terminal
+
+    PRE --> DIA
+    DIA -->|structure eval| HYPS
+    HYPS -->|FAIL| CLOSE
+    HYPS -->|PASS<br/>feat issue| ARC
+    HYPS -->|PASS<br/>bug issue| HYPC
+    HYPC -->|PASS| ARC
+    HYPC -->|FAIL ≤2×| DIA
+    HYPC -->|FAIL ×3| HUMAN
+    HYPC -.->|non-code root cause| HUMAN
+    ARC --> PLAN
+    PLAN -->|PASS| DIS
+    PLAN -->|FAIL ≤3×| ARC
+    PLAN -->|FAIL ×4| HUMAN
+    DIS --> RED
+    RED --> GREEN
+    GREEN --> VER
+    VER -->|test issue| RED
+    VER -->|impl issue| GREEN
+    VER -->|deadlock| HUMAN
+    VER -->|PASS| REF
+    REF --> VAL
+    VAL --> AUD
+    AUD -->|FAIL ≤2×| GREEN
+    AUD -->|FAIL ×3| HUMAN
+    AUD -->|PASS| QUAL
+    QUAL -->|PASS| DEL
+    QUAL -->|FAIL ≤3×| RED
+    QUAL -->|FAIL ×4| HUMAN
+    DEL --> INT
+    INT -->|FAIL| RED
+    INT -->|PASS| LAND
+    LAND -.->|env / merge conflict ≤2×| LAND
+    LAND -->|code issue| RED
+    LAND -->|retry exhausted| HUMAN
+    LAND -->|merged| DONE
+
+    classDef phase fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    classDef gate fill:#fff8e1,stroke:#f57f17,color:#bf360c
+    classDef terminal fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+```
+
+The same diagram in plain text, for environments without mermaid rendering:
+
+```
+PREFLIGHT
+    │
+    ▼
+DIAGNOSE ─── structure eval ──► [FAIL] → Issue Auto-Closed
+    │
+    ▼
+GATE:HYPOTHESIS (cause, bug only) ◄── retry ≤2×
+    │
+    ▼
+ARCHITECT ◄── retry ≤3×
+    │
+    ▼
+GATE:PLAN
+    │
+    ▼
+DISPATCH → RED → GREEN ⇄ VERIFY (≤3 round-trips) → REFINE
+                                                       │
+                                                       ▼
+                                                   VALIDATE
+                                                       │
+                                                       ▼
+                                                    AUDIT  ◄── retry ≤2×
+                                                       │
+                                                       ▼
+                                                GATE:QUALITY ◄── retry ≤3× → RED
+                                                       │
+                                                       ▼
+                                                    DELIVER
+                                                       │
+                                                       ▼
+                                                   INTEGRATE → [FAIL] → RED
+                                                       │
+                                                       ▼
+                                                     LAND ◄── retry ≤2×
+                                                       │
+                                                       ▼
+                                                     Done
+```
+
+---
+
 ## PREFLIGHT — Pre-Work
 
 **Goal**: ensure a clean Git state before any analysis or coding begins.
