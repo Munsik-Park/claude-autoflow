@@ -17,20 +17,16 @@ Every sub-repository **must** contain:
 | File | Purpose |
 |------|---------|
 | `CLAUDE.md` | Sub-repo operating manual (use templates from `subrepo-templates/`) |
-| `.gitignore` | Must include `.autoflow-state/` |
+| `.gitignore` | Must include `.autoflow/issue-*.json` |
 | `README.md` | Project-specific documentation |
 
 ---
 
 ## Auto-Flow State Ownership
 
-Sub-repos **must NOT contain `.autoflow-state/`**. Auto-Flow state belongs exclusively to the orchestrator's host repo working tree. The host repo records every issue under `.autoflow-state/<sub-repo-id>/<issue-number>/`, where `<sub-repo-id>` is the submodule path basename (or `self` for single-repo deployments).
+Auto-Flow state lives in the host (orchestrator) repository under `.autoflow/issue-{N}.json` — one file per issue. Sub-repos do not own Auto-Flow state. A sub-repo that finds an `.autoflow/` directory locally should treat it as residual from a misconfigured run; the canonical state is in the host repo.
 
-The `.claude/scripts/phase-set` helper enforces this boundary at write time: when `git -C "$CLAUDE_PROJECT_DIR" rev-parse --show-superproject-working-tree` returns a non-empty path (i.e., `CLAUDE_PROJECT_DIR` is inside a sub-repo working tree), `phase-set` exits with code 65 instead of writing. The `AUTOFLOW_ALLOW_SUBMODULE_STATE=1` escape hatch exists for testing/CI only — production orchestrator sessions must run from the host repo.
-
-For the full design intent (host-vs-sub-repo separation, namespaced layout, intake artifact), see [design-rationale.md > Decision 10](design-rationale.md#decision-10-state-tree-is-namespaced-by-sub-repo-identifier).
-
-The `.gitignore` requirement above is therefore a defense-in-depth measure: even if a misconfigured `phase-set` invocation slips through, the resulting `.autoflow-state/` directory inside a sub-repo never lands in version control.
+The host's hook (`.claude/hooks/check-autoflow-gate.sh`) reads the state file and computes pass/fail directly from raw `scores`. Sub-repo AIs do not write to the state file — they receive instructions through `SendMessage` from the orchestrator.
 
 ---
 

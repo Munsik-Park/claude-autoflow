@@ -1,6 +1,6 @@
 # Security Checklist
 
-> Every PR must pass this security checklist before merge. Items are verified during STEP 6 (Evaluation) and STEP 8 (PR Review).
+> Every PR must pass this security checklist before merge. Items are verified during AUDIT (independent security audit) and re-checked at GATE:QUALITY's `Security` item, then again during human PR review.
 
 ---
 
@@ -124,10 +124,13 @@ For Go projects:
 
 ## Integration with Auto-Flow
 
-### During STEP 6 (Evaluation)
-The Evaluation AI checks each security item as part of the **Security** scoring category (15% weight). Any critical security issue results in an automatic FAIL regardless of other scores.
+### During AUDIT
+A fresh-spawned Evaluation AI scores this checklist's 5 items independently. Average ≥ 7.5, each ≥ 7, security ≤ 3 → block.
 
-### During STEP 8 (PR Review)
+### During GATE:QUALITY
+The 10-item quality evaluation references the AUDIT result for its `Security` item to avoid duplicate work.
+
+### During PR Review
 The PR template includes this checklist. The PR author must check each applicable item before requesting review.
 
 ### CI Integration

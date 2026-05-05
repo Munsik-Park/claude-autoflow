@@ -1,72 +1,68 @@
 # Maintained Documents
 
-> A registry of all documents that must be kept up to date as the project evolves.
+> A registry of documents that must be kept up to date as the project evolves.
 
 ---
 
 ## Purpose
 
-This file tracks which documents exist, who is responsible for maintaining them, and when they should be updated. During Auto-Flow STEP 4 (Self-Review), the Developer AI checks if any maintained documents need updating based on the changes made.
+This file tracks which documents exist, who is responsible for maintaining
+them, and when they should be updated. The Developer AI consults this registry
+during DIAGNOSE (step 7 — affected docs) and again during VALIDATE (step 4 —
+maintained-docs check) to ensure documentation stays in sync with code.
 
 ---
 
 ## Document Registry
 
-### Orchestrator Repository (`{{REPO_ORCHESTRATOR}}`)
+### {{PROJECT_NAME}} Repository (`{{REPO_NAME}}`)
 
 | Document | Path | Update When | Maintainer |
 |----------|------|-------------|------------|
 | Main Operating Manual | `CLAUDE.md` | Process changes | Orchestrator AI / Human |
-| Auto-Flow Guide | `docs/autoflow-guide.md` | STEP definitions change | Orchestrator AI |
+| Auto-Flow Guide | `docs/autoflow-guide.md` | Phase definitions change | Orchestrator AI |
+| Evaluation System | `docs/evaluation-system.md` | Scoring categories or thresholds change | Orchestrator AI |
+| Design Rationale | `docs/design-rationale.md` | New design decisions | Orchestrator AI / Human |
 | Git Workflow | `docs/git-workflow.md` | Branch/commit rules change | Orchestrator AI |
-| Repo Boundary Rules | `docs/repo-boundary-rules.md` | New repos added, permissions change | Orchestrator AI |
+| Teammate Common Rules | `docs/teammate-common-rules.md` | Discussion Protocol or teammate rules change | Orchestrator AI |
 | Security Checklist | `docs/security-checklist.md` | New security requirements | Human |
-| This Document | `docs/maintained-docs.md` | New docs added/removed | Orchestrator AI |
+| This Document | `docs/maintained-docs.md` | New docs added or removed | Orchestrator AI |
 
-<!-- BEGIN: SUB-REPO DOCUMENTS -->
-<!-- Add entries for each sub-repository's maintained documents -->
-
-### Backend Repository (`{{REPO_BACKEND}}`)
-
-| Document | Path | Update When | Maintainer |
-|----------|------|-------------|------------|
-| Sub-Repo Manual | `CLAUDE.md` | Tech stack or process changes | Backend AI |
-| API Documentation | `docs/api.md` | Endpoints added/changed | Backend AI |
-| Database Schema | `docs/schema.md` | Schema migrations | Backend AI |
-
-### Frontend Repository (`{{REPO_FRONTEND}}`)
+<!-- Add project-specific documents below.
+     Examples: API docs, schema docs, runbooks, ADRs.
+-->
 
 | Document | Path | Update When | Maintainer |
 |----------|------|-------------|------------|
-| Sub-Repo Manual | `CLAUDE.md` | Tech stack or process changes | Frontend AI |
-| Component Library | `docs/components.md` | New shared components | Frontend AI |
-
-<!-- END: SUB-REPO DOCUMENTS -->
+| (project-specific entry) | `docs/<file>.md` | (when this changes) | (who) |
 
 ---
 
 ## Update Protocol
 
 ### When to Check
-- **STEP 4 (Self-Review)**: Check if your changes affect any maintained document
-- **STEP 8 (PR)**: PR template includes a "Docs updated?" checkbox
+
+- **DIAGNOSE step 7** — identify affected docs based on the issue.
+- **VALIDATE step 4** — confirm impacted docs are updated.
+- **SHIP** — the PR description lists which docs were updated.
 
 ### How to Update
-1. Identify which documents are affected by your change
-2. Update the document content
-3. Include the doc update in the same PR as the code change
-4. Note in the PR description which docs were updated
+
+1. Identify which documents are affected by the change.
+2. Update the document content.
+3. Include the doc update in the same PR as the code change.
+4. Note in the PR description which docs were updated.
 
 ### What NOT to Do
-- Don't create new documents without adding them to this registry
-- Don't update docs in other repos — raise a Discussion to the Orchestrator
-- Don't remove docs without updating this registry
+
+- Do not create new documents without adding them to this registry.
+- Do not remove documents without updating this registry.
 
 ---
 
-## How to Customize
+## How to Customise
 
-1. Add entries for each of your repositories
-2. Fill in actual document paths and maintainers
-3. Remove the `<!-- -->` comment blocks
-4. Rename from `.template` to `.md`
+1. Add entries for each of your project's documents.
+2. Fill in actual document paths and maintainers.
+3. Remove the placeholder `(project-specific entry)` row.
+4. Rename from `.template` to `.md`.

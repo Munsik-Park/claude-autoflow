@@ -1,504 +1,424 @@
 # Auto-Flow Guide — Phase-by-Phase Development Lifecycle
 
-> Auto-Flow is a structured, evaluation-gated development lifecycle for AI-assisted software engineering with Claude Code.
+> Auto-Flow is a structured, evaluation-gated development lifecycle for AI-assisted
+> software engineering with Claude Code. This guide walks through each phase in
+> order; the rules of record live in [`CLAUDE.md`](../CLAUDE.md).
 
 ---
 
 ## Overview
 
-Auto-Flow defines **14 phases (PREFLIGHT → LAND)** that guide every code change from issue analysis to merge. Each phase has explicit entry/exit criteria, and an evaluation gate prevents low-quality work from reaching production.
+Auto-Flow defines 16 phases (`PREFLIGHT` → `LAND`) that guide every code change
+from issue analysis to merge. Each phase has explicit entry/exit criteria, and
+evaluation gates prevent low-quality work from reaching production.
 
-The key principles:
-- **No shortcuts** — every phase is executed in order
-- **Multi-agent separation** — different roles handle implementation, testing, and evaluation
-- **Bias prevention** — 3-phase independent analysis before coding
-- **Quantified quality** — 10-point evaluation with defined PASS threshold
+Key principles:
+
+- **No shortcuts** — every phase is executed in order.
+- **Multi-agent separation** — distinct roles handle implementation, testing, and evaluation.
+- **Bias prevention** — 3-phase independent analysis before coding.
+- **Quantified quality** — 10-point evaluation with a defined PASS threshold.
+
+The phase names generalize upstream's numeric `STEP 0~9` identifiers; the
+mapping is preserved 1:1 below.
+
+| upstream | this guide |
+|----------|------------|
+| STEP 0 | PREFLIGHT |
+| STEP 1 | DIAGNOSE |
+| STEP 1.5 | GATE:HYPOTHESIS |
+| STEP 2 | ARCHITECT |
+| STEP 3 | GATE:PLAN |
+| STEP 4 | DISPATCH |
+| STEP 5a | RED |
+| STEP 5b | GREEN |
+| STEP 5c | VERIFY |
+| STEP 5d | REFINE |
+| STEP 5.5 | VALIDATE |
+| STEP 5.7 | AUDIT |
+| STEP 6 | GATE:QUALITY |
+| STEP 7 | DELIVER |
+| STEP 8 | INTEGRATE |
+| STEP 9 | LAND |
 
 ---
 
-## PREFLIGHT: Pre-Work
+## PREFLIGHT — Pre-Work
 
-**Goal**: Ensure a clean Git state before any analysis or coding begins.
+**Goal**: ensure a clean Git state before any analysis or coding begins.
 
-### Activities
+| Step | Action |
+|------|--------|
+| 1 | `git status` — confirm no uncommitted changes or untracked files in the working area |
+| 2 | `git fetch origin` — sync with remote |
+| 3 | Resolve any dirty state (stash, commit, or discard with user approval) |
+| 4 | `git checkout -b dev/YYYY-MM-DD main` — create a dev branch |
 
-| Sub-step | Action | Notes |
-|---------|--------|-------|
-| 0-1 | `git status` — verify no uncommitted changes or untracked files in working area | Host repo only |
-| 0-2 | `git fetch origin` — sync with remote | Host repo only |
-| 0-2b | **[CONDITIONAL: multi-repo projects only]** Multi sub-repo sync — run `.claude/scripts/preflight-sync` | Auto-skipped when no registry exists. See "Multi sub-repo sync" below. |
-| 0-3 | Resolve any dirty state (stash, commit, or discard with user approval) | |
-| 0-4 | `git checkout -b <branch-type>/<issue>-<desc> main` — create feature branch from latest main | |
+**Hard stop**: if the Git state is not clean after resolution attempts, **stop and report to the user**. Do NOT proceed to DIAGNOSE.
 
-### Multi sub-repo sync (0-2b)
+---
 
-The 0-2b sub-step iterates registered sub-repos via the `.claude/scripts/preflight-sync` helper. The helper reads `.autoflow/sub-repos.yml` first; if absent, it falls back to `.gitmodules`. When neither registry yields an entry, the sub-step exits 0 (skip) — single-repo projects pay no cost. This skip is an **objective precondition skip**, not a biased "this one is simple" judgment, and is therefore consistent with Execution Principle 1 ("Never skip phases"). See [design-rationale.md > Decision 12](design-rationale.md#decision-12-multi-sub-repo-sync-uses-git-submodule-foreach-pattern).
+## DIAGNOSE — Issue Analysis
 
-Helper exit codes:
+When an issue arrives, classify cause hypotheses **before** code analysis.
 
-| Code | Meaning | PREFLIGHT effect |
-|------|---------|------------------|
-| 0 | Sync success or registry empty | Continue to 0-3 |
-| 65 | Registry format error (`.autoflow/sub-repos.yml` malformed) | Abort PREFLIGHT — fix registry |
-| 66 | Pre-existing dirty sub-repo (sync refused) | Abort PREFLIGHT — clean sub-repos or set `SYNC_FORCE=1` |
-| 67 | Sync mid-run failure (e.g. `git fetch` failed) | Abort PREFLIGHT — DIAGNOSE must NOT begin |
+### 1. Identify affected sub-repos.
 
-`SYNC_FORCE=1` is an escape hatch that bypasses the dirty-guard (exit 66 path). It does NOT bypass exit 65 or 67.
+### 2. Independent structure analysis (3-Phase)
 
-### Exit Criteria
-- Git working tree is clean (host repo)
-- 0-2b: all registered sub-repos are clean and at the recorded pointer (or no registry exists → skip)
-- Branch created from latest main
-- `intake.md` created at `.autoflow-state/<sub-repo-id>/<issue-number>/intake.md` recording the sub-repo identifier, branch, and host state location (see [design-rationale.md > Decision 10](design-rationale.md#decision-10-state-tree-is-namespaced-by-sub-repo-identifier))
-- Ready for DIAGNOSE analysis
+Phase A and Phase B run in parallel; Phase 3 cross-checks them.
 
-### Hard Stop Rule
-If Git state is not clean after resolution attempts, **stop and report to user**. Do NOT proceed to DIAGNOSE. Starting work on a dirty Git state causes merge conflicts, lost changes, and broken state downstream. The same applies if `preflight-sync` exits non-zero at 0-2b — the orchestrator must NOT advance the phase to DIAGNOSE.
+#### Phase A — AI-A: structure analysis (does NOT see the issue)
 
-### intake.md Format
+- Input: affected sub-repo + functional area.
+- Instruction: "Analyze how this area currently works — pipeline structure, design intent, data flow."
+- Output: factual description of the area as it stands.
+- `[MUST]` Do NOT include the issue number, title, or problem description in the prompt.
+- `[MUST]` Do NOT use words like "problem", "fix", "missing", "insufficient" in the prompt.
 
-`intake.md` is the PREFLIGHT artifact that records *where* the orchestrator anchored the work (host repo, sub-repo identifier, branch). The gate hook reads it at DIAGNOSE+ and hard-blocks if absent. The three required section headers are `## Sub-Repo`, `## Branch`, `## State Location`.
+#### Phase B — AI-B: issue analysis (does NOT see the code)
 
-```markdown
-# Intake — Issue #<issue-number>
+- Input: issue body.
+- Instruction:
+  1. List the concrete cases mentioned in the issue.
+  2. Identify the higher-level problem type these cases share.
+  3. Propose resolution approaches.
+- `[MUST]` Do NOT use code search/read tools.
 
-## Sub-Repo
-<sub-repo-id>
+#### Phase 3 — AI-A re-spawned to evaluate AI-B's resolution approaches
 
-## Branch
-<branch-name>
+- Input: Phase A structure analysis + AI-B's resolution list.
+- Instruction: "For each proposed resolution, evaluate whether the existing system structure already handles it."
+- `[MUST]` Do NOT include the issue body.
 
-## State Location
-.autoflow-state/<sub-repo-id>/<issue-number>/
+#### Issue type classification
 
-## Source Issue URL
-<github-issue-url>
+- **Type 1 (code change)**: bug fix, new feature, script change, pattern extension, hook change.
+- **Type 2 (documentation/consistency)**: content sync, doc update, cross-file consistency.
+- Mixed/unclear → default to Type 1.
+
+#### Scoring (3 items × 10 points, by issue type)
+
+**Type 1**:
+
+| Item | Criterion |
+|------|-----------|
+| Structural overlap     | Does the proposal duplicate an existing mechanism? (high = no overlap) |
+| Code-change necessity  | Is actual code change required, vs. data/config addition? (high = code change needed) |
+| New-mechanism necessity | Is this a new problem type the existing framework cannot handle? (high = new mechanism needed) |
+
+**Type 2**:
+
+| Item | Criterion |
+|------|-----------|
+| Content gap        | Is there an actual content gap or inconsistency? (high = gap exists) |
+| Consistency impact | Does the inconsistency affect users or AI behavior? (high = significant impact) |
+| Propagation scope  | Is the change scope appropriate? (high = appropriate scope) |
+
+PASS: avg ≥ 7.5, each ≥ 7.
+
+- **PASS** → continue.
+- **FAIL** → issue auto-closed + Auto-Flow terminated.
+
+### 3. Cause hypotheses (≥ 3; "not a code bug" must be one)
+
+### 4. Lightweight verification (when a dev environment is available)
+
+### 5. Hypothesis verdict notes (eliminated / likely / unverified, with evidence)
+
+### 6. Task decomposition (only if code change is required)
+
+### 7. Identify affected docs (from the maintained-docs registry)
+
+---
+
+## GATE:HYPOTHESIS — Hypothesis Evaluation (bug/incident issues only)
+
+Feat issues skip this gate.
+
+**Evaluator**: independent Evaluation AI, fresh-spawned per call.
+**Input**: hypothesis list + lightweight-verification results + verdict notes.
+
+### Scoring (3 items × 10 points)
+
+| Item | Criterion |
+|------|-----------|
+| Hypothesis diversity | Are non-code causes (data, environment, already-fixed) sufficiently considered? |
+| Verification sufficiency | Was lightweight verification actually performed? Are unverified items justified? |
+| Verdict evidence | Is the conclusion (code change required / not required) logically supported? |
+
+- **PASS** → ARCHITECT.
+- **FAIL** → DIAGNOSE (max 2×). Two FAILs → human decision.
+- **Non-code root cause confirmed** → report to user, pause Auto-Flow.
+
+---
+
+## ARCHITECT — Plan Synthesis (Developer AI + Test AI)
+
+Both teammates participate in the Agent Teams discussion.
+
+### Output artifacts
+
+1. **Feature Design Document** (Developer-AI-led).
+2. **Verification Design Document** (Test-AI-led):
+
+| Acceptance criterion | Verification type | Method |
+|----------------------|-------------------|--------|
+| (criterion 1) | automated | pytest / API test / etc. |
+| (criterion 2) | manual    | scenario doc (delegated to user) |
+| (criterion 3) | environment-dependent | introduce mock or propose design change |
+
+### Testability-driven design
+
+When the Test AI flags an item as "not automatable", the team discusses whether a feature-design change makes it testable. If not, the item stays as a manual scenario with a stated reason.
+
+### Agreement criteria
+
+Both documents reach ACCEPT from both teammates. The Discussion Protocol applies.
+
+---
+
+## GATE:PLAN — Plan Evaluation
+
+**Evaluator**: fresh-spawned Evaluation AI.
+
+### Scoring (5 items × 10 points)
+
+| Item | Criterion |
+|------|-----------|
+| Feasibility   | Can this plan be implemented with the current structure? |
+| Dependencies  | Are affected files and side effects identified? |
+| Scope         | Appropriate — not too broad, not missing requirements? |
+| Security      | Any security implications introduced? |
+| Test plan     | Are acceptance criteria testable? |
+
+- **PASS** → DISPATCH.
+- **FAIL** → ARCHITECT (max 3×).
+
+---
+
+## DISPATCH — Task Assignment
+
+`TaskCreate` + `SendMessage` to **both teammates**:
+
+- **Test AI**: verification-design "automated" items → test-writing tasks.
+- **Developer AI**: feature-design implementation tasks (starts after RED is complete).
+- Both receive: acceptance criteria + verification design + affected docs.
+
+---
+
+## RED — Test Writing (Test First)
+
+```
+1. Convert acceptance criteria → test code (only items typed "automated").
+2. Run tests → all must FAIL (Red).
+3. For untestable items → write a manual verification scenario document.
+4. Hand the test code + scenario document to the Developer AI.
 ```
 
 ---
 
-## DIAGNOSE: 3-Phase Independent Analysis (Information Isolation)
+## GREEN — Implementation
 
-**Goal**: Prevent tunnel-vision bias through **information isolation** — not just different perspectives, but strictly separated inputs.
-
-> **Design rationale**: AI is biased toward solving the moment it receives an issue. If the structure-analyzing AI knows the issue, it starts looking for "structure that solves this problem" instead of seeing structure as it is. Information asymmetry is what makes cross-verification valid. See [docs/design-rationale.md](design-rationale.md) for full reasoning.
-
-### Phase A: Structure Analysis (AI-A) — NO ISSUE CONTENT
-
-**AI-A receives the codebase only. It does NOT receive the issue text.**
-
-- Analyze the current code structure, architecture, and patterns
-- Document how components relate and interact
-- Identify structural strengths, weaknesses, and constraints
-- Report factual findings about what exists
-
-**Critical rule**: AI-A must never see the issue content. This is not optional. Giving AI-A the issue "for efficiency" destroys the core mechanism of this system.
-
-### Phase B: Issue Analysis (AI-B) — NO CODE ACCESS
-
-**AI-B receives the issue text only. It does NOT access the codebase.**
-
-- Analyze the problem described in the issue
-- Identify requirements, constraints, and acceptance criteria
-- Propose potential resolution approaches based on the issue text alone
-- It is normal for AI-B to use zero tools — analyzing only the issue text is its purpose
-
-**Critical rule**: AI-B must not read code. If it reads code, it shares the same bias as AI-A, making Phase 3 verification purely ceremonial.
-
-### Phase 3: Cross-Verification
-
-**AI-A evaluates AI-B's proposed resolution from a structural perspective.**
-
-- Does the existing structure already handle what the issue describes?
-- Are AI-B's proposed approaches structurally sound?
-- What are the actual code-level implications of each approach?
-- Are there conflicts between what the issue asks for and what the structure supports?
-
-- **Issue Type Classification**:
-  - **Type 1 (Code)**: Bug fixes, new features, script improvements, pattern extensions, hook changes
-  - **Type 2 (Documentation/Consistency)**: Content sync, template updates, cross-document consistency, prose improvements
-  - **Hybrid/unclear → default to Type 1** (more conservative)
-
-- **Scoring** (3 categories × 10 points, selected by issue type):
-
-**Type 1 (Code) Scoring:**
-
-| Category | Measures |
-|---|---|
-| Structural Overlap | Does the proposed resolution duplicate existing mechanisms? (high = no overlap) |
-| Code Change Necessity | Is actual code change needed, vs. data/config addition? (high = code change needed) |
-| Structural Change Necessity | Does this require structural change to existing mechanisms? (high = structural change needed — by introducing OR removing a mechanism) |
-
-> **Note**: "Structural Change Necessity" is intentionally direction-symmetric — additive, extending, reverting, and removing proposals all reach the same numerical ceiling on this axis when the structural change is justified.
-
-**Type 2 (Documentation/Consistency) Scoring:**
-
-| Category | Measures |
-|---|---|
-| Content Gap | Does a real content gap or inconsistency exist? (high = gap exists) |
-| Consistency Impact | Does the inconsistency affect users or AI behavior? (high = significant impact) |
-| Propagation Scope | Is the propagation scope appropriate — not too broad, not missing targets? (high = appropriate scope) |
-
-- **PASS** (avg >= 7.5, all >= 7): Change needed → proceed to GATE:HYPOTHESIS
-- **FAIL**: Existing structure may handle the concern → orchestrator runs `.claude/scripts/post-hypothesis-fail`, which posts the canonical evaluation comment, archives local state, and clears `current-issue`. The issue remains open for human disposition. Orchestrator-initiated closure is forbidden in this path.
-
-### Exit Criteria
-- Phase A analysis documented (structure only, no issue awareness)
-- Phase B analysis documented (issue only, no code access)
-- Phase 3 cross-verification documented
-- Conflicts between phases identified
-
----
-
-## GATE:HYPOTHESIS: Issue Analysis Evaluation (Gate)
-
-**Goal**: Ensure only well-analyzed issues proceed to implementation. This gate is strict because insufficient analysis at this stage causes larger costs downstream.
-
-> **The Evaluation AI is spawned fresh** for this phase — it carries no prior conversation history. This prevents self-reinforcement bias.
-
-### Process
-1. A freshly spawned Evaluation AI receives: Phase A report, Phase B report, Phase 3 cross-verification
-2. Evaluates whether the analysis is thorough enough for implementation planning
-3. Produces a scored evaluation
-
-### PASS / FAIL
-- **PASS** (score >= 7.5): Proceed to ARCHITECT
-- **FAIL**: A FAIL verdict is an **evaluation observation, not a disposition decision** — the evaluator judges that existing structure may handle the concern. The orchestrator runs `.claude/scripts/post-hypothesis-fail` to post the canonical evaluation comment to the issue, archive local state under `.autoflow-state/archive/`, and clear `current-issue`. The issue is left open; disposition (close as superseded / rescope / leave open / split) is a human decision. Orchestrator-initiated closure is forbidden in this path. See [docs/gate-hypothesis-fail-comment.md](gate-hypothesis-fail-comment.md) for the comment template and [design-rationale.md > Decision 6](design-rationale.md#decision-6-structure-evaluation-fail-is-an-observation-not-a-disposition) for the rationale.
-
-### Exit Criteria
-- Evaluation report saved
-- PASS → proceed to ARCHITECT
-- FAIL → post evaluation comment, archive local state, leave issue open (Auto-Flow terminates locally; disposition left to human)
-
----
-
-## ARCHITECT: Plan Synthesis
-
-**Goal**: Merge the three analyses into a single, coherent implementation plan.
-
-### Activities
-- Compare findings from Phase A, B, and Phase 3
-- Resolve conflicts with explicit rationale
-- Create a task breakdown with estimated scope
-- Identify risks and mitigation strategies
-
-### Exit Criteria
-- Implementation plan documented
-- Plan reviewed and approved (by orchestrator or human)
-- Task breakdown clear enough for any developer to follow
-
-### Plan Template
-
-```markdown
-## Implementation Plan — Issue #<number>
-
-### Summary
-[One-paragraph description of what will be done and why]
-
-### Tasks
-1. [Task 1] — [File(s) affected]
-2. [Task 2] — [File(s) affected]
-...
-
-### Risks
-- [Risk 1]: Mitigation — [...]
-- [Risk 2]: Mitigation — [...]
-
-### Analysis Conflicts Resolved
-- [Conflict]: Chose [option] because [rationale]
+```
+1. Read the test code authored by the Test AI.
+2. Write the minimum code that passes the tests.
+   - [MUST] Do NOT implement behavior not covered by tests.
+3. Commit (feat/fix branch).
 ```
 
 ---
 
-## GATE:PLAN: Plan Evaluation
-
-**Goal**: An independent Evaluation AI scores the implementation plan before coding begins.
-
-> **The Evaluation AI is spawned fresh** for this phase — it carries no prior conversation history.
-
-### Process
-1. A freshly spawned Evaluation AI receives the implementation plan from ARCHITECT
-2. Scores across 5 categories (Feasibility, Dependencies, Scope, Consistency, Test Plan)
-3. Produces a scored evaluation
-
-### PASS / FAIL
-- **PASS** (score >= 7.5, all categories >= 7): Proceed to DISPATCH
-- **FAIL**: Return to ARCHITECT (max 3 revision cycles)
-
-### Exit Criteria
-- Evaluation report saved
-- PASS → proceed to DISPATCH
-- FAIL → return to ARCHITECT for plan revision
-
----
-
-## Orchestrator Boundaries
-
-The orchestrator coordinates only — it does **not** implement. File-level boundaries enforce this separation:
-
-**The orchestrator may directly modify only:**
-- `CLAUDE.md`
-- `CLAUDE.local.md.example`
-- `.autoflow-state/` (state tracking)
-- `.claude/` (hooks, settings)
-
-**All other files require delegation to teammates:**
-- Implementation code → Developer AI
-- Tests → Test AI
-- Documentation → Developer AI
-
-**No exceptions.** If a file is not in the orchestrator's list above, it must go through a teammate — regardless of how simple the change appears.
-
-For the orchestrator's five facilitator facets and four-signal-type outbound surface, see [docs/design-rationale.md > Decision 9](design-rationale.md#decision-9-orchestrator-holds-five-facilitator-facets).
-
----
-
-## DISPATCH: Task Assignment
-
-**Goal**: The orchestrator delegates implementation work to Test AI and Developer AI teammates.
-
-### Activities
-- Spawn Test AI teammate with acceptance criteria
-- Spawn Developer AI teammate with implementation plan
-- **[MUST]** Create delegation.md as a mandatory artifact in `.autoflow-state/<issue>/`
-- Test AI starts first (RED) — Developer AI waits
-
-### delegation.md Format
-
-```markdown
-## Team
-<team-name>
-
-## Test AI Instructions
-<acceptance criteria + verification design for Test AI>
-
-## Developer AI Instructions
-<implementation plan + acceptance criteria for Developer AI>
-```
-
-### Exit Criteria
-- Tasks assigned to teammates
-- Test AI and Developer AI have received their instructions
-- **[MUST]** delegation.md created and saved
-
----
-
-## RED: Test Writing (Test AI)
-
-**Goal**: Test AI writes tests from acceptance criteria. Tests must all FAIL (Red confirmation).
-
-**Entry precondition**: delegation.md must exist in `.autoflow-state/<issue>/` before RED begins.
-
-### Activities
-- Convert acceptance criteria into test scripts
-- Run tests — ALL must FAIL (Red confirmation)
-- A test that passes means criteria already met or test is wrong
-- For untestable items, write manual verification checklist
-
-### Exit Criteria
-- All tests written
-- All tests FAIL (Red confirmed)
-- Ready for Developer AI implementation (GREEN)
-
----
-
-## GREEN: Implementation (Developer AI)
-
-**Goal**: Developer AI writes minimum code to pass tests.
-
-### Activities
-- Read the tests from RED
-- Write minimum code/content to pass tests
-- Do not implement behavior not covered by tests
-- Commit changes
-
-### Exit Criteria
-- Minimum implementation complete
-- Ready for VERIFY
-
----
-
-## VERIFY: Green Verification
-
-**Goal**: All tests pass and implementation is minimal.
-
-### Activities
-- Run all tests
-- If some fail, analyze failure cause:
-  - **Test issue**: Fix test → re-Red → GREEN re-entry
-  - **Implementation issue**: Fix implementation → VERIFY retry
-  - **Both need fixes**: Fix test first → Red → fix impl → Green
-  - **Deadlock** (both claim "no problem"): Fresh Evaluation AI arbitrates
-- Minimal implementation check: verify no code exists that isn't covered by tests
-
-### Exit Criteria
-- All tests pass (Green)
-- No uncovered implementation code
-- Max round-trips: GREEN↔VERIFY max 3 cycles → human escalation
-
----
-
-## REFINE: Refactor
-
-**Goal**: Code cleanup without changing behavior. Tests must pass without modification.
-
-### Activities
-- Developer AI runs `/simplify` (automatically analyzes reuse, quality, and efficiency with 3 parallel agents)
-- Applies suggested fixes (no behavior change — tests must pass without modification)
-- If `/simplify` finds nothing → proceed to re-run (DO NOT SKIP)
-- **[MUST]** Re-run ALL tests → Green maintained
-  - This phase is NEVER skipped, even when `/simplify` made no changes
-  - "No changes were made so tests will pass" is not a valid reason to skip
-  - The re-run confirms that no accidental state changes occurred between VERIFY and REFINE
-- If simplify breaks tests → revert changes, fix (max 2 attempts, then keep pre-refactor state)
-- Commit (refactor type, or skip commit if no changes)
-
-**Why /simplify?** Manual "refactoring needed?" judgment was routinely skipped. `/simplify` removes this bias by mechanically analyzing the code.
-
-### Exit Criteria
-- `/simplify` analysis completed (changes applied or "nothing found" documented)
-- **[MUST]** All tests re-run and still pass (Green maintained)
-- Ready for evaluation
-
----
-
-## Evaluation AI Prompt Rules
-
-When spawning the Evaluation AI (at GATE:HYPOTHESIS, GATE:PLAN, and GATE:QUALITY), the orchestrator's prompt must follow these rules:
-
-1. **[MUST]** Include: evaluation type, `CLAUDE.md > [section]` reference, target file paths
-2. **[MUST]** Do NOT copy evaluation criteria into the prompt — instruct the AI to read CLAUDE.md directly
-3. **[MUST]** Orchestrator-written portion must be 5 lines or fewer (excluding target file contents)
-4. **[MUST]** State observations as direct facts — cite file paths and line numbers. Prohibited forms: "consider that ~", "note that ~", "this is ~ so".
-
----
-
-## GATE:QUALITY: Evaluation
-
-**Goal**: An independent Evaluation AI scores the work objectively.
-
-> **The Evaluation AI is spawned fresh** for every evaluation — it carries no prior conversation history. This is mandatory. Reusing an evaluation agent creates self-reinforcement bias. See [docs/design-rationale.md](design-rationale.md#decision-2-evaluation-ai-is-spawned-fresh-every-time).
-
-### Process
-1. A **freshly spawned** Evaluation AI receives: issue requirements, implementation plan, code diff, test results
-2. Scores across 5 categories (see Evaluation System)
-3. Produces a JSON evaluation report
-
-### Scoring Categories
-
-| Category | Weight | What It Measures |
-|----------|--------|-----------------|
-| Correctness | 25% | Does it fulfill the requirements? |
-| Quality | 20% | Clean, readable, maintainable? |
-| Test Coverage | 20% | Critical paths tested? |
-| Consistency | 20% | Aligned with design-rationale.md principles? |
-| Documentation | 15% | Docs updated, links valid, examples accurate? |
-
-### PASS / FAIL
-- **PASS**: Overall weighted score >= 7.5 AND no individual category below 7 → proceed to SHIP
-- **FAIL**: Overall score < 7.5 OR any category below 7 → return to REVISION (or GATE:PLAN for major issues)
-- **AUTO-FAIL**: Consistency score <= 3 → DISPATCH (mandatory rework regardless of other scores)
-
-### Exit Criteria
-- Evaluation report saved to `.autoflow-state/<issue>/evaluation.json`
-- PASS/FAIL determination made
-
----
-
-## REVISION: Revision (Conditional)
-
-**Goal**: Address evaluation feedback when GATE:QUALITY results in FAIL.
-
-### Activities
-- Review evaluation comments
-- Fix identified issues
-- Re-run tests
-- Request re-evaluation (back to GATE:QUALITY)
-
-### Rules
-- Only address issues raised in the evaluation
-- Do not introduce new features during revision
-- Maximum 3 revision cycles — if still failing, escalate to human
-
-### Exit Criteria
-- Fixes implemented
-- Tests pass
-- Ready for re-evaluation
-
----
-
-## SHIP: PR & Review
-
-**Goal**: Create a pull request for human review.
-
-### PR Contents
-- Clear title referencing the issue
-- Description with summary of changes
-- Link to evaluation report
-- Test results summary
-- Consistency with design-rationale.md confirmed
-
-### Exit Criteria
-- PR created and linked to issue
-- All CI checks pass
-- Awaiting human review
-
----
-
-## LAND: Merge & Close
-
-**Goal**: Human merges the PR and closes the issue.
-
-### This Phase Is Human-Only
-- Human reviews the PR
-- Human approves or requests changes
-- If changes requested → return to REVISION
-- If approved → merge and close issue
-
-### Exit Criteria
-- PR merged to {{DEFAULT_BRANCH}}
-- Issue closed
-- Auto-Flow state cleaned up
-
----
-
-## Regression Rules
-
-When a phase fails, the flow regresses — or terminates:
-
-| Failure Point | Action | Reason |
-|--------------|--------|--------|
-| GATE:HYPOTHESIS (structure eval FAIL) | **Comment posted + local termination + human disposition** | Evaluation observation, not disposition |
-| GATE:PLAN (plan eval FAIL) | → ARCHITECT (max 3x) | Plan revision needed |
-| GREEN↔VERIFY cycle (tests fail) | → GREEN (max 3 round-trips) | Fix implementation or tests |
-| REFINE (refactor breaks tests) | Fix (max 2 attempts) | Keep pre-refactor state |
-| GATE:QUALITY (score < 7.5) | → REVISION | Revision needed |
-| GATE:QUALITY (consistency <= 3) | → DISPATCH | Mandatory major rework |
-| SHIP (CI fails) | → RED | Re-test |
-| LAND (human rejects) | → REVISION | Address human feedback |
-
----
-
-## State File Structure
-
-`.autoflow-state/` lives in the orchestrator's host repo working tree only — never in a sub-repo. The layout is uniformly namespaced by sub-repo identifier; single-repo deployments use `self`. See [design-rationale.md > Decision 10](design-rationale.md#decision-10-state-tree-is-namespaced-by-sub-repo-identifier).
+## VERIFY — Test Run + Verification
 
 ```
-.autoflow-state/                                # in host repo only
-├── current-issue                               # contains: <sub-repo-id>/<issue-number>
-└── <sub-repo-id>/                              # e.g., autoflow-upstream, or "self"
-    └── <issue-number>/
-        ├── phase                               # current phase name
-        ├── intake.md                           # PREFLIGHT artifact (sub-repo, branch, state location)
-        ├── requirements.md                     # DIAGNOSE output (issue requirements)
-        ├── analysis/
-        │   ├── phase-a.md                      # Structure analysis
-        │   ├── phase-b.md                      # Issue analysis
-        │   └── phase-3.md                      # Cross-verification
-        ├── plan.md                             # ARCHITECT output
-        ├── delegation.md                       # DISPATCH output (task assignments)
-        ├── evaluation.json                     # GATE:QUALITY output
-        └── history.log                         # Phase transition log
+1. Run all tests.
+2. Branch on result:
+   All PASS → step 3.
+   Some FAIL → cause branching:
+     Test AI:      "Does my test reflect the criterion?" — self-check.
+     Developer AI: "Does my impl meet the criterion?"   — self-check.
+       ├─ Test AI says "fix the test"  → fix test → re-Red → re-enter GREEN
+       ├─ Developer AI says "fix impl" → fix impl → re-run VERIFY
+       ├─ Both say "fix"               → test first → Red → impl → Green
+       └─ Both say "no problem"        → deadlock: Evaluation AI judges
+3. Minimal-implementation check (Test AI):
+   diff analysis: are there parts of the impl diff not covered by any test?
+     ├─ All covered → PASS
+     ├─ Uncovered code → ask Developer AI to remove it, or add a test
+     └─ Infrastructure / config / non-testable code → exception (state reason)
 ```
 
-> **Note**: Add `.autoflow-state/` to `.gitignore` — these are working files, not committed. `current-issue` is a single line of the form `<sub-repo-id>/<issue-number>`. Legacy bare-integer values (e.g., `42`) are honored as `self/42` for backward compatibility; new issues should use the slash-qualified form.
+**Deadlock resolution**: Evaluation AI judges against the acceptance criteria.
+**Max round-trips**: GREEN ↔ VERIFY max 3. After 3 unresolved → human.
+
+---
+
+## REFINE — Refactor (Green maintained)
+
+```
+1. Developer AI: run /simplify
+   - Three parallel agents (reuse / quality / efficiency).
+   - Apply suggested fixes (no behavior change — tests must pass without modification).
+   - If /simplify finds nothing, proceed to step 2 (do NOT skip).
+2. [MUST] Re-run all tests → confirm Green.
+   - Run even when step 1 made no changes.
+   - On FAIL → revert /simplify changes → Developer AI fixes (max 2×).
+3. Commit (refactor type; skip if step 1 made no changes).
+```
+
+**Why /simplify?** Removes the AI's "nothing to clean up" skip bias.
+**Max retries**: 2; on second failure, abandon refactor and proceed to VALIDATE
+with the Green state from VERIFY.
+
+---
+
+## VALIDATE — Verification Done
+
+```
+1. Automated tests: all PASS confirmed (achieved in VERIFY).
+2. Minimal-implementation check: PASS confirmed (achieved in VERIFY step 3).
+3. Manual checklist: list the manual scenarios (mark "delegated to user").
+4. Maintained-docs check: confirm impacted docs are updated.
+```
+
+Manual items marked "delegated to user" do not block VALIDATE.
+
+---
+
+## AUDIT — Security Audit (independent evaluation)
+
+After VALIDATE, run a project-specific security audit on the change. Complements
+GATE:QUALITY's `Security` item with 5 dedicated, project-specific items.
+
+**Evaluator**: fresh-spawned Evaluation AI.
+**Input**: change diff + the project-specific security checklist
+(`docs/security-checklist.md`).
+
+### Scoring (5 items × 10 points)
+
+| Item | Criterion |
+|------|-----------|
+| Authn/Authz       | Are auth flows on changed endpoints complete? |
+| Input validation  | Are external inputs validated/escaped? |
+| Data exposure     | Are tokens / passwords / PII kept out of logs and responses? |
+| Infra isolation   | Are internal ports/services not exposed externally? |
+| Dependencies      | No known vulnerabilities in changed external dependencies? |
+
+- **PASS** (avg ≥ 7.5, each ≥ 7, security ≤ 3 → block) → GATE:QUALITY.
+- **FAIL** → fix, re-evaluate (max 2×). Two FAILs → human.
+
+GATE:QUALITY's `Security` item references the AUDIT result to avoid duplicate work.
+
+---
+
+## GATE:QUALITY — Completion Evaluation
+
+**Evaluator**: fresh-spawned Evaluation AI.
+**Input**: full change set + test results + AUDIT result.
+
+### Scoring (10 items × 10 points)
+
+Completeness, Quality, Test coverage, Test quality, Security (references AUDIT),
+Fit, Impact scope, Minimal implementation, Commit conventions, Doc updates.
+
+- **PASS** (avg ≥ 7.5, each ≥ 7, security ≤ 3 → block) → DELIVER.
+- **FAIL** → RED (max 3×).
+
+---
+
+## DELIVER — Sub-Repo Push
+
+```
+1. Each Submodule AI pushes its branch to its fork (`git push origin <branch>`).
+2. Teammate shutdown — Submodule AIs report completion and stop.
+3. The host's dev branch is NOT pushed yet (that happens at LAND, after sub-repo PRs are merged).
+```
+
+In single-repo deployments, DELIVER reduces to a single `git push -u origin <branch>` and the Developer AI shuts down.
+
+---
+
+## INTEGRATE — Integration Verification
+
+```
+1. Build all affected sub-repos in dev (e.g., docker compose -f docker-compose.dev.yml up -d --build <services>).
+2. Health checks pass for each service.
+3. Functional integration tests pass.
+4. Cross-cutting concerns (auth, network ingress, etc.) verified.
+```
+
+In single-repo deployments, INTEGRATE runs the project-level integration test
+suite (or a smoke test). Projects with no integration layer report "INTEGRATE:
+no-op (single-repo / no integration suite)" — this is a registry-driven no-op,
+not a discretionary skip.
+
+**Failure**: INTEGRATE FAIL → RED (existing GREEN↔VERIFY round-trip rules apply).
+
+---
+
+## LAND — PR + Merge + Close
+
+Sub-repo PRs are merged **before** the host PR is created. Squash merge changes the commit hash, so the host PR's submodule pointer must reference a commit that exists in the sub-repo's main.
+
+```
+1. Change summary (per-sub-repo changed files, commit hashes).
+2. Test results report.
+3. Sub-repo PRs created (each sub-repo: fork → upstream).
+4. Sub-repo PRs CI passes + auto-merge (squash) confirmed.
+   - gh pr view --json state,mergedAt
+   - Do NOT run `gh pr merge` directly.
+5. Submodule pointer bump.
+   - git submodule foreach 'git checkout main && git fetch upstream && git merge upstream/main && git push origin main'
+   - git add <sub-repos> && git commit (host dev branch)
+   - git push -u origin dev/YYYY-MM-DD
+6. Host PR created.
+7. Host PR CI passes + auto-merge confirmed.
+8. Git Clean Check.
+9. Local deployment decision + execution + verification.
+10. Completion report.
+```
+
+**[MUST]** Do NOT create the host PR before sub-repo PRs are merged.
+**[MUST]** Sub-repo PR bodies use `Part of <host-org>/<host-repo>#N` (no `Closes`); only the host PR uses `Closes #N`.
+
+In single-repo deployments, steps 3-7 collapse to: open one PR with `Closes #N`, wait for auto-merge.
+
+### LAND failure → regression
+
+```
+Sub-repo PR (step 4) failure:
+  CI failure (code issue)     → RED (existing rules apply)
+  CI failure (env / transient) → CI retry, then step 4 retry (max 2)
+  Merge conflict              → sub-repo branch rebase + force push → step 3 retry (max 2)
+  Partial merge               → only un-merged sub-repos are re-classified
+
+Host PR (step 7) failure:
+  CI failure (code issue)     → RED (existing rules apply)
+  CI failure (pointer issue)  → step 5 retry
+  Merge conflict              → dev branch rebase + force push → step 6 retry (max 2)
+```
+
+**Max retries**: LAND internal retry max 2. Two failures → human.
+**RED regression**: existing GREEN↔VERIFY round-trip rule (max 3) applies.
+
+---
+
+## Execution Principles
+
+- **Safety first** — accurate flow execution beats fast response.
+- **Verify before transition** — re-confirm completion conditions before moving on.
+- **Every phase is mandatory** — no skipping based on perceived simplicity.
+- **Teammate idle handling** — do not re-prompt on idle notifications; inspect the summary and wait for the report.
+- **Stop on error** — do not act on errors or omissions until the situation is fully understood.
+
+---
+
+## See Also
+
+- [`CLAUDE.md`](../CLAUDE.md) — single source of truth for rules.
+- [`design-rationale.md`](design-rationale.md) — why every rule exists.
+- [`evaluation-system.md`](evaluation-system.md) — scoring and PASS thresholds.
+- [`submodule-common-rules.md`](submodule-common-rules.md) — Discussion Protocol, sub-repo rules.
+- [`repo-boundary-rules.md`](repo-boundary-rules.md) — cross-repo coordination.
+- [`git-workflow.md`](git-workflow.md) — bash procedures, branch structure.

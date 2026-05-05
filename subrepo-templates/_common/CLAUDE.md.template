@@ -22,12 +22,6 @@ This repository follows the Auto-Flow lifecycle defined in:
 
 All phases (PREFLIGHT → LAND), evaluation criteria, and gate rules from the orchestrator apply here.
 
-### Parent-repo sync timing
-
-This sub-repo is fetched and clean-checked by the parent (orchestrator) repo at **PREFLIGHT sub-step 0-2b** via `.claude/scripts/preflight-sync`. That sub-step carries the `[CONDITIONAL: multi-repo projects only]` marker and is the single, well-defined point where parent → sub-repo synchronisation happens during an Auto-Flow run. There is no free-floating "sync whenever" rule in this sub-repo — if the parent is at PREFLIGHT, the parent's helper drives the sync; otherwise this sub-repo does not initiate parent-side sync on its own.
-
-If the parent's `preflight-sync` reports this sub-repo as dirty (exit 66), commit or stash the working tree before re-running; if it reports a fetch failure (exit 67), check the upstream URL and retry. See [docs/design-rationale.md > Decision 12](../../docs/design-rationale.md) in the orchestrator repo for the full rationale.
-
 ---
 
 ## Scope
@@ -42,7 +36,7 @@ This AI agent may **only modify files within this repository**.
 ### Not Allowed
 - Modify files in other repositories
 - Push directly to `{{DEFAULT_BRANCH}}`
-- Skip Auto-Flow STEPs or evaluation gates
+- Skip Auto-Flow phases or evaluation gates
 - Evaluate own work (Evaluation AI is a separate agent)
 
 ---
@@ -91,7 +85,7 @@ This AI agent may **only modify files within this repository**.
 ### Testing
 - Write tests for all new functionality
 - Maintain existing test coverage
-- Tests must pass before STEP 5 is complete
+- Tests must pass before VERIFY is complete
 
 ### Documentation
 - Update docs when changing public interfaces
