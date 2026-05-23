@@ -76,8 +76,9 @@ not advance to DIAGNOSE on a dirty tree.
 ### Creating a PR (SHIP)
 
 1. Verify all commits are clean and well-described.
-2. Push the branch to remote (`git push -u origin <branch>`).
-3. Create the PR using the template below.
+2. Confirm the gh login matches the role context — host PR under `gh_users.orchestrator`, sub-repo PR under `gh_users.submodules.<name>`. Switch with `gh auth switch --user <login>` if needed and verify with `gh auth status`. See [`credentials.md`](credentials.md).
+3. Push the branch to remote (`git push -u origin <branch>`).
+4. Create the PR using the template below.
 
 ```markdown
 ## Summary

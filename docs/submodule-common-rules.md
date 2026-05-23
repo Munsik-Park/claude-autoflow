@@ -85,6 +85,24 @@ All Auto-Flow phases, evaluation criteria, and gate rules apply.
 
 ---
 
+## Credentials
+
+Sub-repo AIs follow the three-tier credential model. Full schemas live in [`credentials.md`](credentials.md); the sub-repo-side behaviour is:
+
+- **Secrets** stay in the sub-repo's own `.env.local` / `.env*.local`. The Submodule AI must not read, echo, or commit their contents — even when diagnosing "is the value set?" use indirect checks (`test -n "$VAR"`, service health).
+- **Credential references** for this sub-repo's fork live in the host's `.autoflow/auth.local.yaml` under `gh_users.submodules.<this-repo-name>`. Sub-repo AIs may read this file (read access across the boundary is permitted; see [`repo-boundary-rules.md`](repo-boundary-rules.md)) but must not write to it.
+- **DELIVER (`git push origin <branch>`)** uses the gh login resolved from `gh_users.submodules.<name>`. Verify with `gh auth status` before push. If the resolved login is missing, fall back to `gh_users.orchestrator`.
+
+Required `.gitignore` entries in every sub-repo:
+
+```
+.env
+.env.local
+.env*.local
+```
+
+---
+
 ## Testing Standards
 
 Every sub-repo must maintain:

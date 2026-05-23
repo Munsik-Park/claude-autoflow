@@ -24,6 +24,21 @@ Every rule, retry cap, evaluation category, score threshold, and regression path
 
 For details, see [`docs/repo-boundary-rules.md`](docs/repo-boundary-rules.md).
 
+## Credentials & Runtime State
+
+Secrets, credential references, and project config are separated into three tiers:
+
+| Tier | Location | Checked in? |
+|------|----------|-------------|
+| Secret (tokens, passwords) | `.env`, `.env.local`, `.env*.local` | No |
+| Credential reference (gh login, ssh key path) | `.autoflow/auth.local.yaml` | No |
+| Project config (placeholders, fork↔upstream map) | `.autoflow/config.yaml`, `.autoflow/submodules.yaml` | Yes |
+
+- **[MUST]** No phase reads `.env*` files. No AI output (messages, commits, PR bodies, logs) contains secret values. AUDIT rejects commits whose diff matches secret-shape patterns.
+- **[MUST]** LAND switches gh login per role using `.autoflow/auth.local.yaml`: host PRs run under `gh_users.orchestrator`, sub-repo PRs run under `gh_users.submodules.<name>`. This codifies LAND step 4's "fork account lacks upstream merge permission" constraint.
+- Sub-repo credential behaviour: see [`docs/submodule-common-rules.md`](docs/submodule-common-rules.md) > Credentials.
+- Full schemas, examples, masking patterns, and migration steps: see [`docs/credentials.md`](docs/credentials.md).
+
 ## Team Structure
 
 ### AI Orchestrator (host repo)
@@ -672,6 +687,7 @@ Part of {{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}#N
 - **Design rationale (why every rule exists)**: [`docs/design-rationale.md`](docs/design-rationale.md)
 - **Git procedures**: [`docs/git-workflow.md`](docs/git-workflow.md)
 - **Repo boundary rules**: [`docs/repo-boundary-rules.md`](docs/repo-boundary-rules.md)
+- **Credentials & runtime state**: [`docs/credentials.md`](docs/credentials.md)
 - **Sub-repo common rules**: [`docs/submodule-common-rules.md`](docs/submodule-common-rules.md)
 - **Maintained docs registry**: [`docs/maintained-docs.md`](docs/maintained-docs.md)
 - **Security checklist**: [`docs/security-checklist.md`](docs/security-checklist.md)

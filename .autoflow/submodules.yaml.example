@@ -1,0 +1,14 @@
+# Sub-repo fork ↔ upstream map — checked in (multi-repo deployments only).
+# Generated as a stub by setup/init.sh; fill in fork owners manually.
+# See docs/credentials.md.
+
+submodules:
+  "{{REPO_BACKEND}}":
+    upstream: "{{GITHUB_ORG}}/{{REPO_BACKEND}}"
+    fork:     "<FILL_IN_FORK_OWNER>/{{REPO_BACKEND}}"
+  "{{REPO_FRONTEND}}":
+    upstream: "{{GITHUB_ORG}}/{{REPO_FRONTEND}}"
+    fork:     "<FILL_IN_FORK_OWNER>/{{REPO_FRONTEND}}"
+  "{{REPO_INFRA}}":
+    upstream: "{{GITHUB_ORG}}/{{REPO_INFRA}}"
+    fork:     "<FILL_IN_FORK_OWNER>/{{REPO_INFRA}}"

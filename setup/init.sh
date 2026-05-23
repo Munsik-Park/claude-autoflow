@@ -158,17 +158,51 @@ replace_placeholders \
   "${PROJECT_ROOT}/docs/maintained-docs.md"
 
 GITIGNORE="${PROJECT_ROOT}/.gitignore"
-if [[ ! -f "$GITIGNORE" ]] || ! grep -q ".autoflow/issue-" "$GITIGNORE" 2>/dev/null; then
-  info "Updating .gitignore..."
-  cat >> "$GITIGNORE" << 'GITIGNORE_EOF'
+ensure_gitignore_line() {
+  local line="$1"
+  if [[ ! -f "$GITIGNORE" ]] || ! grep -qxF "$line" "$GITIGNORE" 2>/dev/null; then
+    echo "$line" >> "$GITIGNORE"
+  fi
+}
+info "Ensuring .gitignore entries..."
+[[ -f "$GITIGNORE" ]] || { echo "# Auto-Flow .gitignore" > "$GITIGNORE"; }
+ensure_gitignore_line ".autoflow/issue-*.json"
+ensure_gitignore_line ".autoflow/auth.local.yaml"
+ensure_gitignore_line ".autoflow/logs/"
+ensure_gitignore_line ".env"
+ensure_gitignore_line ".env.local"
+ensure_gitignore_line ".env*.local"
+ensure_gitignore_line "CLAUDE.local.md"
+success "Updated .gitignore"
 
-# Auto-Flow state files (working files, not committed)
-.autoflow/issue-*.json
+info "Generating .autoflow/ runtime files..."
+mkdir -p "${PROJECT_ROOT}/.autoflow"
 
-# Claude Code local overrides
-CLAUDE.local.md
-GITIGNORE_EOF
-  success "Updated .gitignore"
+AUTOFLOW_CONFIG="${PROJECT_ROOT}/.autoflow/config.yaml"
+if [[ -f "$AUTOFLOW_CONFIG" ]]; then
+  warn "Exists, skipping: ${AUTOFLOW_CONFIG}"
+else
+  replace_placeholders \
+    "${PROJECT_ROOT}/.autoflow/config.yaml.example" \
+    "$AUTOFLOW_CONFIG"
+fi
+
+if [[ "$REPO_BACKEND" != "none" || "$REPO_FRONTEND" != "none" || "$REPO_INFRA" != "none" ]]; then
+  AUTOFLOW_SUBMODULES="${PROJECT_ROOT}/.autoflow/submodules.yaml"
+  if [[ -f "$AUTOFLOW_SUBMODULES" ]]; then
+    warn "Exists, skipping: ${AUTOFLOW_SUBMODULES}"
+  else
+    replace_placeholders \
+      "${PROJECT_ROOT}/.autoflow/submodules.yaml.example" \
+      "$AUTOFLOW_SUBMODULES"
+    warn "Edit ${AUTOFLOW_SUBMODULES} and replace <FILL_IN_FORK_OWNER> entries."
+  fi
+fi
+
+if [[ ! -f "${PROJECT_ROOT}/.autoflow/auth.local.yaml" ]]; then
+  info "auth.local.yaml not created (machine-local secrets file)."
+  info "  Copy the example when you're ready:"
+  info "    cp .autoflow/auth.local.yaml.example .autoflow/auth.local.yaml"
 fi
 
 if [[ "$REPO_BACKEND" == "none" && "$REPO_FRONTEND" == "none" && "$REPO_INFRA" == "none" ]]; then
@@ -187,12 +221,20 @@ echo "  - CLAUDE.md (from CLAUDE.md.template)"
 echo "  - docs/security-checklist.md"
 echo "  - docs/maintained-docs.md"
 echo "  - .gitignore (updated)"
+echo "  - .autoflow/config.yaml"
+if [[ "$REPO_BACKEND" != "none" || "$REPO_FRONTEND" != "none" || "$REPO_INFRA" != "none" ]]; then
+  echo "  - .autoflow/submodules.yaml (stub — edit fork owners)"
+fi
 echo ""
 echo "Next steps:"
-echo "  1. Review the generated CLAUDE.md."
+echo "  1. Review the generated CLAUDE.md and .autoflow/config.yaml."
 echo "  2. Customize docs/security-checklist.md for your stack."
-echo "  3. Confirm the hook is executable:"
+echo "  3. Copy the credentials reference template:"
+echo "     cp .autoflow/auth.local.yaml.example .autoflow/auth.local.yaml"
+echo "     (edit gh_users / ssh_keys — see docs/credentials.md)"
+echo "  4. Confirm the hook is executable:"
 echo "     chmod +x .claude/hooks/check-autoflow-gate.sh"
-echo "  4. For multi-repo projects: create each sub-repo's CLAUDE.md from subrepo-templates/."
-echo "  5. See setup/SETUP-GUIDE.md for further details."
+echo "  5. For multi-repo projects: edit .autoflow/submodules.yaml fork owners,"
+echo "     then create each sub-repo's CLAUDE.md from subrepo-templates/."
+echo "  6. See setup/SETUP-GUIDE.md for further details."
 echo ""

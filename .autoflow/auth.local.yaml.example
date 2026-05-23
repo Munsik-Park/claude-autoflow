@@ -1,0 +1,12 @@
+# Machine-local credential references — copy this file to auth.local.yaml.
+# auth.local.yaml is gitignored. Holds only names/paths, NOT secret values.
+# See docs/credentials.md.
+
+gh_users:
+  orchestrator: "<your-gh-login>"      # gh login used to open host PRs
+  submodules:
+    # "<sub-repo-name>": "<gh-login-of-that-sub-repo-fork-owner>"
+    # If a sub-repo is omitted, the orchestrator login is used.
+
+ssh_keys:
+  default: "~/.ssh/id_ed25519"          # local path on this machine

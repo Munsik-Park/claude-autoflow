@@ -1,3 +1,8 @@
 .claude/settings.local.json
 .autoflow/issue-*.json
+.autoflow/auth.local.yaml
+.autoflow/logs/
+.env
+.env.local
+.env*.local
 CLAUDE.local.md
