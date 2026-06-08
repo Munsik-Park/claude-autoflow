@@ -1,8 +1,12 @@
 # AutoFlow Guide — Phase-by-Phase Development Lifecycle
 
 > AutoFlow is a structured, evaluation-gated development lifecycle for AI-assisted
-> software engineering with Claude Code. This guide walks through each phase in
-> order; the rules of record live in [`CLAUDE.md`](../CLAUDE.md).
+> software engineering with Claude Code. This guide is the **phase-body source of
+> truth**: each phase's step-by-step procedure, scoring rubric, and `[MUST]`/`[DENY]`
+> constraints live here. The cross-phase invariants, the router (phase list + Flow
+> Control table), the regression / escalation caps, the Execution Principles, and the
+> state schema live in [`CLAUDE.md`](../CLAUDE.md); the DIAGNOSE analysis procedure has
+> its own playbook at [`phases/analysis.md`](phases/analysis.md).
 
 ---
 
@@ -18,6 +22,7 @@ Key principles:
 - **Multi-agent separation** — distinct roles handle implementation, testing, and evaluation.
 - **Bias prevention** — 3-phase independent analysis before coding.
 - **Quantified quality** — 10-point evaluation with a defined PASS threshold.
+- **Per-phase model selection** — teammate and subagent spawns use the recommended model per phase (`sonnet` for rubric-scored gates and classification work; `opus` for multi-turn design discussion, implementation, and self-check). Policy and table: [`CLAUDE.md`](../CLAUDE.md) > Spawn Model — Phase-by-Phase.
 
 The phase names generalize upstream's numeric `STEP 0~9` identifiers; the
 mapping is preserved 1:1 below.
@@ -173,75 +178,20 @@ DISPATCH → RED → GREEN ⇄ VERIFY (≤3 round-trips) → REFINE
 
 ## DIAGNOSE — Issue Analysis
 
-When an issue arrives, classify cause hypotheses **before** code analysis.
-
-### 1. Identify affected sub-repos.
-
-### 2. Independent structure analysis (3-Phase)
-
-Phase A and Phase B run in parallel; Phase 3 cross-checks them.
-
-#### Phase A — AI-A: structure analysis (does NOT see the issue)
-
-- Input: affected sub-repo + functional area.
-- Instruction: "Analyze how this area currently works — pipeline structure, design intent, data flow."
-- Output: factual description of the area as it stands.
-- `[MUST]` Do NOT include the issue number, title, or problem description in the prompt.
-- `[MUST]` Do NOT use words like "problem", "fix", "missing", "insufficient" in the prompt.
-
-#### Phase B — AI-B: issue analysis (does NOT see the code)
-
-- Input: issue body.
-- Instruction:
-  1. List the concrete cases mentioned in the issue.
-  2. Identify the higher-level problem type these cases share.
-  3. Propose resolution approaches.
-- `[MUST]` Do NOT use code search/read tools.
-
-#### Phase 3 — AI-A re-spawned to evaluate AI-B's resolution approaches
-
-- Input: Phase A structure analysis + AI-B's resolution list.
-- Instruction: "For each proposed resolution, evaluate whether the existing system structure already handles it."
-- `[MUST]` Do NOT include the issue body.
-
-#### Issue type classification
-
-- **Type 1 (code change)**: bug fix, new feature, script change, pattern extension, hook change.
-- **Type 2 (documentation/consistency)**: content sync, doc update, cross-file consistency.
-- Mixed/unclear → default to Type 1.
-
-#### Scoring (3 items × 10 points, by issue type)
-
-**Type 1**:
-
-| Item | Criterion |
-|------|-----------|
-| Structural overlap     | Does the proposal duplicate an existing mechanism? (high = no overlap) |
-| Code-change necessity  | Is actual code change required, vs. data/config addition? (high = code change needed) |
-| New-mechanism necessity | Is this a new problem type the existing framework cannot handle? (high = new mechanism needed) |
-
-**Type 2**:
-
-| Item | Criterion |
-|------|-----------|
-| Content gap        | Is there an actual content gap or inconsistency? (high = gap exists) |
-| Consistency impact | Does the inconsistency affect users or AI behavior? (high = significant impact) |
-| Propagation scope  | Is the change scope appropriate? (high = appropriate scope) |
-
-PASS: avg ≥ 7.5, each ≥ 7.
-
-- **PASS** → continue.
-- **FAIL** → issue auto-closed + AutoFlow terminated.
-
-### 3. Cause hypotheses (≥ 3; "not a code bug" must be one)
-
-### 4. Lightweight verification (when a dev environment is available)
-
-### 5. Hypothesis verdict notes (eliminated / likely / unverified, with evidence)
-
-### 6. Task decomposition (only if code change is required)
-
-### 7. Identify affected docs (from the maintained-docs registry)
+→ **Phase playbook (single source of truth): [`phases/analysis.md`](phases/analysis.md).**
+Read it on entering DIAGNOSE. It carries the full procedure: the **intake readiness triage**
+(`mode=new-issue` only, run ahead of the structure fan-out — a planning/design/ADR pre-req
+filter that pauses for the user on FAIL, no auto issue creation), the 3-Phase independent
+structure analysis (Phase A structure-only, Phase B issue-only, Phase 3 necessity scoring),
+**the per-role document injection whitelist (three distinct roles — Phase A = current-state
+area excerpts only; intake triage = issue body + readiness/work-type docs; Phase B = issue
+body only)**, the issue-type classification (Type 1 code / Type 2 docs), the per-type scoring rubric and
+PASS/FAIL thresholds (Type 1: each ≥ 7, two items; Type 2: each ≥ 7 and avg ≥ 7.5, three
+items), the FAIL disposition by failing item and cycle `mode` (gap-low → new-issue close /
+review-response reply on PR; non-code lever → report to user + pause), the review-response loop check (trigger repeats the prior cycle's complaint class with a new witness case → reply on PR + pause for the user), cause hypotheses
+(≥ 3, "not a code bug" must be one), lightweight verification, hypothesis verdict notes,
+task decomposition, affected-docs identification, and the structure- and confirmation-bias
+safeguards.
 
 ---
 
@@ -268,11 +218,28 @@ Feat issues skip this gate.
 
 ## ARCHITECT — Plan Synthesis (Developer AI + Test AI)
 
-Both teammates participate in the Agent Teams discussion.
+Both perspectives participate, but the discussion runs inside an isolated
+**`Workflow`** (the facilitator — `architect-deliberation`), **not** as Agent-Teams
+teammates messaging the orchestrator: the Developer-AI and Test-AI run as in-script
+sub-agents, their cross-talk stays in workflow variables, and only a single verdict
+(`CONVERGED` + artifact paths, or `ESCALATE` at the 6-round cap) returns to the
+orchestrator. The facilitator also appends the settled decisions to the decision
+ledger. Rationale: [`CLAUDE.md`](../CLAUDE.md#deliberation-isolation-delegated-facilitation)
+> Deliberation Isolation; contract: [`teammate-contracts.md`](teammate-contracts.md)
+> Facilitator. The orchestrator invokes the facilitation workflow, then **verifies** the
+returned verdict — spot-checking targeted artifact excerpts against re-derived facts (the
+full read-and-score is GATE:PLAN's); it does not facilitate the discussion turn-by-turn and
+does not receive the round-by-round messages.
+
+**Document injection (ARCHITECT onward).** Past DIAGNOSE the Phase A ↔ Phase B isolation no longer applies — the Developer-AI and Test-AI both work from code and design together. Injection is still **role-minimal and routed via [`docs/INDEX.md`](INDEX.md)**, never wholesale: the facilitator passes each in-script sub-agent only the documents its design task needs (e.g. the project architecture overview, the in-scope ADR-candidate items, the relevant ADR records). **Deliberation Isolation is unchanged** — the round-by-round cross-talk stays inside the workflow and only the verdict returns to the orchestrator.
+
+**Roles**:
+- **Developer AI**: feature design (changed files, API interface, data structures).
+- **Test AI**: verification design (acceptance criteria → verification method, testability assessment).
 
 ### Output artifacts
 
-1. **Feature Design Document** (Developer-AI-led).
+1. **Feature Design Document** (Developer-AI-led): files to change, API interface, data structures, dependencies.
 2. **Verification Design Document** (Test-AI-led):
 
 | Acceptance criterion | Verification type | Method |
@@ -281,6 +248,9 @@ Both teammates participate in the Agent Teams discussion.
 | (criterion 2) | manual    | scenario doc (delegated to user) |
 | (criterion 3) | environment-dependent | introduce mock or propose design change |
 
+- For untestable items: state the reason and the alternative (design change / manual delegation / mock).
+- Design-change request: parts of the feature design that should be revised so they become testable.
+
 ### Testability-driven design
 
 When the Test AI flags an item as "not automatable", the team discusses whether a feature-design change makes it testable. If not, the item stays as a manual scenario with a stated reason.
@@ -288,24 +258,29 @@ When the Test AI flags an item as "not automatable", the team discusses whether 
 ### Agreement criteria
 
 Both documents reach ACCEPT from both teammates. The Discussion Protocol applies.
+The facilitator records the converged decisions in the ledger and returns
+`CONVERGED` + artifact paths; non-convergence within the round cap returns `ESCALATE`.
 
 ---
 
 ## GATE:PLAN — Plan Evaluation
 
 **Evaluator**: fresh-spawned Evaluation AI.
+**Input**: feature design + verification design from ARCHITECT.
 
 ### Scoring (5 items × 10 points)
 
 | Item | Criterion |
 |------|-----------|
-| Feasibility   | Can this plan be implemented with the current structure? |
+| Feasibility   | Can this plan be implemented with the current structure? (grounded in the actual mechanisms, not a misread) |
 | Dependencies  | Are affected files and side effects identified? |
-| Scope         | Appropriate — not too broad, not missing requirements? |
+| Scope         | Appropriate — not too broad, not missing requirements? (no redundant new mechanism where an extension suffices — over-engineering fails here) |
 | Security      | Any security implications introduced? |
 | Test plan     | Are acceptance criteria testable? |
 
-- **PASS** → DISPATCH.
+`Feasibility` and `Scope` absorb the structural-fit concern that the DIAGNOSE structure gate deliberately does not score: a plan not grounded in the actual structure fails Feasibility; a plan that duplicates an existing mechanism or over-engineers a new one where an extension suffices fails Scope. This is where an actual design exists to judge it — DIAGNOSE only decides *whether* a code change is needed, GATE:PLAN judges *whether the plan fits*. By design this defers wrong-approach detection (e.g. a resolution targeting the wrong subsystem) past ARCHITECT: that judgment needs a design, so ARCHITECT's devil's-advocate is the first approach check and GATE:PLAN the gated one — DIAGNOSE cannot make it without re-introducing the altitude error of scoring feasibility before a design exists.
+
+- **PASS** (avg ≥ 7.5, each ≥ 7) → DISPATCH.
 - **FAIL** → ARCHITECT (max 3×).
 
 ---
@@ -314,29 +289,39 @@ Both documents reach ACCEPT from both teammates. The Discussion Protocol applies
 
 `TaskCreate` + `SendMessage` to **both teammates**:
 
+- **Teammate spawn**: ARCHITECT ran as a self-contained `Workflow` that already returned (no persistent ARCHITECT teammates to shut down). At DISPATCH entry the orchestrator spawns fresh agents for RED/GREEN — see [`CLAUDE.md`](../CLAUDE.md) > Cost Control. Spawn prompts pass `.autoflow/*` paths only; discussion history is not carried over.
 - **Test AI**: verification-design "automated" items → test-writing tasks.
-- **Developer AI**: feature-design implementation tasks (starts after RED is complete).
+- **Developer AI**: feature-design implementation tasks (**starts after RED is complete**).
 - Both receive: acceptance criteria + verification design + affected docs.
 
 ---
 
 ## RED — Test Writing (Test First)
 
+The Test AI writes test code from the verification design.
+
 ```
 1. Convert acceptance criteria → test code (only items typed "automated").
 2. Run tests → all must FAIL (Red).
+   - A test that does not fail means the criterion is already met or the test is wrong → investigate.
 3. For untestable items → write a manual verification scenario document.
 4. Hand the test code + scenario document to the Developer AI.
 ```
+
+**Completion**: all automated tests Red + manual scenarios written.
 
 ---
 
 ## GREEN — Implementation
 
+The Developer AI writes the minimum code that passes the tests.
+
 ```
 1. Read the test code authored by the Test AI.
 2. Write the minimum code that passes the tests.
    - [MUST] Do NOT implement behavior not covered by tests.
+   - [MUST] Stay on the change surface defined in the plan — see [`submodule-common-rules.md`](submodule-common-rules.md) > Change Surface Rules.
+   - [MUST] Tests verify correctness; they do not define the solution. Implement the actual logic that solves the problem for all valid inputs — never hard-code to the test inputs, special-case the assertions, or add workaround/helper scripts just to turn a test green. "Minimum code" means the smallest *general* implementation that satisfies the AC, not the narrowest path that satisfies the assertions. If a test looks wrong or infeasible, raise it as a VERIFY cause-branch rather than coding around it.
 3. Commit (feat/fix branch).
 ```
 
@@ -344,25 +329,31 @@ Both documents reach ACCEPT from both teammates. The Discussion Protocol applies
 
 ## VERIFY — Test Run + Verification
 
+Run the tests; on failure, branch by cause.
+
 ```
 1. Run all tests.
 2. Branch on result:
    All PASS → step 3.
-   Some FAIL → cause branching:
-     Test AI:      "Does my test reflect the criterion?" — self-check.
-     Developer AI: "Does my impl meet the criterion?"   — self-check.
-       ├─ Test AI says "fix the test"  → fix test → re-Red → re-enter GREEN
-       ├─ Developer AI says "fix impl" → fix impl → re-run VERIFY
-       ├─ Both say "fix"               → test first → Red → impl → Green
-       └─ Both say "no problem"        → deadlock: Evaluation AI judges
+   Some FAIL → cause branching (run under delegated facilitation — the `verify-cause-branch` workflow returns a single
+   next_action — RED | GREEN | SEQUENTIAL_FIX | EVALUATION_AI — and the orchestrator
+   routes on it; it never sees the round-by-round exchange; see [`CLAUDE.md`](../CLAUDE.md) > Deliberation Isolation):
+     The workflow hands the failure log + test code + implementation code to both AIs.
+     Test AI:      "Does my test accurately reflect the acceptance criterion?" — self-check.
+     Developer AI: "Does my implementation meet the acceptance criterion?"     — self-check.
+       ├─ fix_test + no_problem → RED            → fix test → re-confirm Red → re-enter GREEN
+       ├─ no_problem + fix_impl → GREEN          → fix implementation → re-run VERIFY
+       ├─ fix_test + fix_impl   → SEQUENTIAL_FIX → fix test first → Red → fix impl → Green
+       ├─ no_problem + no_problem → EVALUATION_AI → deadlock: Evaluation AI judges against acceptance criteria
+       └─ a missing/errored self-check → EVALUATION_AI (recorded as "missing", never as no_problem)
 3. Minimal-implementation check (Test AI):
    diff analysis: are there parts of the impl diff not covered by any test?
      ├─ All covered → PASS
      ├─ Uncovered code → ask Developer AI to remove it, or add a test
-     └─ Infrastructure / config / non-testable code → exception (state reason)
+     └─ Infrastructure / config / non-testable code → exception allowed (state reason)
 ```
 
-**Deadlock resolution**: Evaluation AI judges against the acceptance criteria.
+**Deadlock resolution**: Evaluation AI judges against the acceptance criteria as the objective baseline.
 **Max round-trips**: GREEN ↔ VERIFY max 3. After 3 unresolved → human.
 
 ---
@@ -391,11 +382,11 @@ with the Green state from VERIFY.
 ```
 1. Automated tests: all PASS confirmed (achieved in VERIFY).
 2. Minimal-implementation check: PASS confirmed (achieved in VERIFY step 3).
-3. Manual checklist: list the manual scenarios (mark "delegated to user").
+3. Manual checklist: list the manual scenarios from the Test AI (mark "delegated to user").
 4. Maintained-docs check: confirm impacted docs are updated.
 ```
 
-Manual items marked "delegated to user" do not block VALIDATE.
+**Verdict**: automated tests all PASS + minimal-implementation PASS + manual scenarios listed. Manual items marked "delegated to user" do not block VALIDATE.
 
 ---
 
@@ -410,15 +401,17 @@ GATE:QUALITY's `Security` item with 5 dedicated, project-specific items.
 
 ### Scoring (5 items × 10 points)
 
+Items adapt to the project's threat surface; defaults below.
+
 | Item | Criterion |
 |------|-----------|
 | Authn/Authz       | Are auth flows on changed endpoints complete? |
-| Input validation  | Are external inputs validated/escaped? |
+| Input validation  | Are external inputs (queries, parameters, payloads) validated/escaped? |
 | Data exposure     | Are tokens / passwords / PII kept out of logs and responses? |
 | Infra isolation   | Are internal ports/services not exposed externally? |
 | Dependencies      | No known vulnerabilities in changed external dependencies? |
 
-- **PASS** (avg ≥ 7.5, each ≥ 7, security ≤ 3 → block) → GATE:QUALITY.
+- **PASS** (avg ≥ 7.5, each ≥ 7, security ≤ 3 → immediate block) → GATE:QUALITY.
 - **FAIL** → fix, re-evaluate (max 2×). Two FAILs → human.
 
 GATE:QUALITY's `Security` item references the AUDIT result to avoid duplicate work.
@@ -434,6 +427,8 @@ GATE:QUALITY's `Security` item references the AUDIT result to avoid duplicate wo
 
 Completeness, Quality, Test coverage, Test quality, Security (references AUDIT),
 Fit, Impact scope, Minimal implementation, Commit conventions, Doc updates.
+
+The `Minimal implementation` item is scored against [`submodule-common-rules.md`](submodule-common-rules.md) > Change Surface Rules: a diff with hunks that do not trace to an AC fails this item regardless of code quality.
 
 - **PASS** (avg ≥ 7.5, each ≥ 7, security ≤ 3 → block) → DELIVER.
 - **FAIL** → RED (max 3×).
@@ -519,17 +514,19 @@ Host PR (step 7) failure:
 
 ## Execution Principles
 
-- **Safety first** — accurate flow execution beats fast response.
-- **Verify before transition** — re-confirm completion conditions before moving on.
-- **Every phase is mandatory** — no skipping based on perceived simplicity.
-- **Teammate idle handling** — do not re-prompt on idle notifications; inspect the summary and wait for the report.
-- **Stop on error** — do not act on errors or omissions until the situation is fully understood.
+→ Single source of truth: [`CLAUDE.md`](../CLAUDE.md) > Execution Principles. These are
+always-on orchestrator invariants (not phase-local), so they stay resident in the core
+file: Safety first, Verify before transition, Every phase is mandatory, Teammate idle
+handling, **Verify teammate claims before dispatch** (every report's Evidence anchor is
+verified before ACCEPT — an anchor-less report is rejected, not interpreted), and Stop on
+error.
 
 ---
 
 ## See Also
 
-- [`CLAUDE.md`](../CLAUDE.md) — single source of truth for rules.
+- [`CLAUDE.md`](../CLAUDE.md) — cross-phase invariants, the router (phase list + Flow Control), regression caps, Execution Principles, state schema.
+- [`phases/analysis.md`](phases/analysis.md) — DIAGNOSE analysis procedure (3-Phase A/B/3, scoring rubric, bias prevention).
 - [`design-rationale.md`](design-rationale.md) — why every rule exists.
 - [`evaluation-system.md`](evaluation-system.md) — scoring and PASS thresholds.
 - [`submodule-common-rules.md`](submodule-common-rules.md) — Discussion Protocol, sub-repo rules.
