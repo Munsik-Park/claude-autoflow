@@ -1,5 +1,5 @@
 #!/bin/bash
-# Auto-Flow Gate Check
+# AutoFlow Gate Check
 # The hook computes pass/fail directly from the raw `scores` object so that the
 # trust chain stops at the script level — the AI's own `pass`/`avg`/`min` fields
 # are ignored.
@@ -27,7 +27,7 @@ if [ -d "$AUTOFLOW_DIR" ]; then
   STATE_FILE=$(grep -rl '"active": true' "$AUTOFLOW_DIR"/*.json 2>/dev/null | head -1)
 fi
 
-# No state file means Auto-Flow has not started — let the call through (pre-PREFLIGHT).
+# No state file means AutoFlow has not started — let the call through (pre-PREFLIGHT).
 if [ -z "$STATE_FILE" ]; then
   exit 0
 fi

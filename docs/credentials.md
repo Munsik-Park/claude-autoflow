@@ -1,6 +1,6 @@
 # Credentials & Runtime State
 
-> Where secrets, credential references, and runtime state live across the Auto-Flow lifecycle.
+> Where secrets, credential references, and runtime state live across the AutoFlow lifecycle.
 
 This document is the source of truth for credential handling. `CLAUDE.md` (orchestrator) and `submodule-common-rules.md` (sub-repo AIs) reference this file rather than duplicating its contents.
 
@@ -156,9 +156,9 @@ Pre-commit / hook-level scanning rejects commits whose diff matches any pattern 
 
 ## Multi-Profile (Optional)
 
-Hermes uses `$HERMES_HOME` to isolate multiple agent profiles. Auto-Flow does not need this: each host repository is already a natural isolation unit, and credential references are scoped per host repo in `.autoflow/auth.local.yaml`.
+Hermes uses `$HERMES_HOME` to isolate multiple agent profiles. AutoFlow does not need this: each host repository is already a natural isolation unit, and credential references are scoped per host repo in `.autoflow/auth.local.yaml`.
 
-If you need to run two Auto-Flow projects with different gh logins on the same machine, set the per-project login in each repo's `auth.local.yaml`. There is no global Auto-Flow directory.
+If you need to run two AutoFlow projects with different gh logins on the same machine, set the per-project login in each repo's `auth.local.yaml`. There is no global AutoFlow directory.
 
 ---
 

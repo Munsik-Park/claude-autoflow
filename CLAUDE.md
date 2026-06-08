@@ -8,7 +8,7 @@ All communication with the user must be in Korean (한글). Even if the user wri
 
 ## What This Repo Is
 
-A public template repository that generalizes the Auto-Flow methodology from `ontology-platform` into a reusable framework. The generalization is intentionally narrow:
+A public template repository that generalizes the AutoFlow methodology from `ontology-platform` into a reusable framework. The generalization is intentionally narrow:
 
 1. **Name generalization** — upstream's numeric `STEP 0~9` (and sub-step `5a/5b/5c/5d/5.5/5.7`) identifiers are replaced by semantic phase names (`PREFLIGHT`, `DIAGNOSE`, `GATE:HYPOTHESIS`, `ARCHITECT`, `GATE:PLAN`, `DISPATCH`, `RED`, `GREEN`, `VERIFY`, `REFINE`, `VALIDATE`, `AUDIT`, `GATE:QUALITY`, `DELIVER`, `INTEGRATE`, `LAND`). Each generalized name maps 1:1 to an upstream STEP — no phase is added or removed.
 2. **Identifier placeholders** — service-specific names like `ontology-api`, `saiso`, organization `connev-ontology`, etc. are replaced by `{{REPO_*}}`/`{{GITHUB_ORG}}` placeholders, so users instantiate them through `setup/init.sh`.
@@ -88,7 +88,7 @@ Communication with sub-repo AIs uses **Agent Teams**.
 
 The orchestrator and sub-repo AIs follow the same rules. Core: UNDERSTAND → VERIFY → EVALUATE → RESPOND (ACCEPT / COUNTER / PARTIAL / ESCALATE). No groundless agreement, no evaluation without reading the relevant files, devil's advocate required on the first exchange.
 
-## Development Lifecycle — Auto-Flow
+## Development Lifecycle — AutoFlow
 
 When the user files an issue, the flow below executes in order. Each phase auto-transitions when its completion conditions are met. The flow only stops to wait for human input at the points explicitly marked.
 
@@ -118,7 +118,7 @@ LAND            : PR + Merge + Close — sub-repo PRs first → pointer bump →
 | Transition | Condition |
 |------|------|
 | PREFLIGHT → DIAGNOSE | Git clean, remote sync done |
-| DIAGNOSE (structure eval) → close | GATE:HYPOTHESIS structure FAIL → issue auto-closed + Auto-Flow terminated |
+| DIAGNOSE (structure eval) → close | GATE:HYPOTHESIS structure FAIL → issue auto-closed + AutoFlow terminated |
 | DIAGNOSE (structure eval) → DIAGNOSE (cause) | GATE:HYPOTHESIS structure PASS (code change required) |
 | DIAGNOSE → GATE:HYPOTHESIS (cause) | hypothesis classification + lightweight verification done (bug/incident issues) |
 | DIAGNOSE → ARCHITECT | affected scope identified (feat issues — skip GATE:HYPOTHESIS cause) |
@@ -219,9 +219,9 @@ When an issue arrives, classify cause hypotheses **before** code analysis.
 
    PASS criteria: avg ≥ 7.5, each ≥ 7.
      - PASS → code change required → continue to step 3.
-     - FAIL → existing structure handles the concern → issue auto-closed + Auto-Flow terminated.
+     - FAIL → existing structure handles the concern → issue auto-closed + AutoFlow terminated.
        - Close comment records the structure-evaluation scores + summary of existing mechanisms.
-       - Auto-Flow state file: active → false.
+       - AutoFlow state file: active → false.
        - Re-filing as a new issue is the natural re-entry path.
 
 3. Cause hypotheses (at least 3; "not a code bug" must be one).
@@ -259,7 +259,7 @@ Feat issues skip this gate. Bug/incident issues only.
 
 **PASS** → ARCHITECT.
 **FAIL** → DIAGNOSE (max 2×). Two FAILs → human decision.
-**Non-code root cause confirmed** → report to user, pause Auto-Flow.
+**Non-code root cause confirmed** → report to user, pause AutoFlow.
 
 ### ARCHITECT — Plan Synthesis (Developer AI + Test AI)
 
@@ -421,7 +421,7 @@ After VALIDATE, run a project-specific security audit on the change. Complements
 **PASS**: avg ≥ 7.5, each ≥ 7, security ≤ 3 → block → DELIVER.
 **FAIL**: → RED (max 3×).
 
-### DELIVER — Sub-Repo Push (Auto-Flow → handoff)
+### DELIVER — Sub-Repo Push (AutoFlow → handoff)
 
 ```
 1. Each Submodule AI pushes its branch to its fork (`git push origin <branch>`).
@@ -446,7 +446,7 @@ In single-repo deployments, INTEGRATE runs the project-level integration test su
 
 **Failure**: INTEGRATE FAIL → RED (existing GREEN↔VERIFY round-trip rules apply).
 
-### LAND — PR + Merge + Close (Auto-Flow last phase)
+### LAND — PR + Merge + Close (AutoFlow last phase)
 
 Sub-repo PRs are merged **before** the host PR is created. Squash merge changes the commit hash, so the host PR's submodule pointer must reference a commit that exists in the sub-repo's main.
 
@@ -508,9 +508,9 @@ Host PR step (7) failure:
 - **Teammate idle handling**: do not re-prompt on idle notifications. Inspect the summary and wait for the report.
 - **Stop on error**: do not act on errors or omissions until the situation is fully understood.
 
-### Auto-Flow State Tracking (Hook integration)
+### AutoFlow State Tracking (Hook integration)
 
-While Auto-Flow is in progress, an issue-scoped state file lives under `.autoflow/`. The hook computes pass/fail directly from `scores` to enforce gates.
+While AutoFlow is in progress, an issue-scoped state file lives under `.autoflow/`. The hook computes pass/fail directly from `scores` to enforce gates.
 
 **File naming**: `.autoflow/issue-{N}.json`
 
@@ -682,7 +682,7 @@ Part of {{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}#N
 
 ## Reference Documents
 
-- **Auto-Flow phase guide**: [`docs/autoflow-guide.md`](docs/autoflow-guide.md)
+- **AutoFlow phase guide**: [`docs/autoflow-guide.md`](docs/autoflow-guide.md)
 - **Evaluation system**: [`docs/evaluation-system.md`](docs/evaluation-system.md)
 - **Design rationale (why every rule exists)**: [`docs/design-rationale.md`](docs/design-rationale.md)
 - **Git procedures**: [`docs/git-workflow.md`](docs/git-workflow.md)

@@ -1,6 +1,6 @@
 # Evaluation System
 
-> The Auto-Flow evaluation system provides quantified quality assessment at the
+> The AutoFlow evaluation system provides quantified quality assessment at the
 > three gates (`GATE:HYPOTHESIS`, `GATE:PLAN`, `GATE:QUALITY`) and at `AUDIT`,
 > ensuring consistent standards across all changes.
 
@@ -60,7 +60,7 @@ be diluted by averaging.
 
 | Type | Items (count) | Retry |
 |------|---------------|-------|
-| Structure evaluation (GATE:HYPOTHESIS — structure form, runs in DIAGNOSE 3-Phase) | Structural overlap, Code-change necessity, New-mechanism necessity (3) | none — PASS/FAIL single verdict; FAIL → issue auto-closed + Auto-Flow terminated |
+| Structure evaluation (GATE:HYPOTHESIS — structure form, runs in DIAGNOSE 3-Phase) | Structural overlap, Code-change necessity, New-mechanism necessity (3) | none — PASS/FAIL single verdict; FAIL → issue auto-closed + AutoFlow terminated |
 | Hypothesis evaluation (GATE:HYPOTHESIS — cause form, bug/incident only) | Hypothesis diversity, Verification sufficiency, Verdict evidence (3) | max 2× → DIAGNOSE |
 | Plan evaluation (GATE:PLAN) | Feasibility, Dependencies, Scope, Security, Test plan (5) | max 3× → ARCHITECT |
 | Security audit (AUDIT) | Authn/Authz, Input validation, Data exposure, Infra isolation, Dependencies (5) | max 2× |
@@ -102,7 +102,7 @@ level — see [`design-rationale.md`](design-rationale.md#decision-3-the-hook-do
 
 ## State File Linkage
 
-While Auto-Flow is in progress, `.autoflow/issue-{N}.json` records the score
+While AutoFlow is in progress, `.autoflow/issue-{N}.json` records the score
 sets per phase. The hook reads from this file at gate points to allow or block
 Agent spawns and `git push`/`gh pr create` actions.
 
@@ -114,5 +114,5 @@ The phase keys used by the hook are:
 - `audit` — AUDIT
 - `gate_quality` — GATE:QUALITY
 
-See [`CLAUDE.md`](../CLAUDE.md#auto-flow-state-tracking-hook-integration) for the
+See [`CLAUDE.md`](../CLAUDE.md#autoflow-state-tracking-hook-integration) for the
 full schema.

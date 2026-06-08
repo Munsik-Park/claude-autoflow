@@ -1,7 +1,7 @@
 # Teammate Common Rules
 
 > Shared rules that apply to all teammates (Test AI, Developer AI) participating in
-> the Auto-Flow lifecycle in this repository.
+> the AutoFlow lifecycle in this repository.
 
 The orchestrator (the main session) coordinates work; teammates are spawned as
 Agents and execute the actual writing of code, tests, and documentation. The rules

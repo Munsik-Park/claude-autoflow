@@ -60,4 +60,4 @@ Use `CLAUDE.local.md` for:
    CLAUDE.local.md
    ```
 
-> **Note**: `CLAUDE.local.md` takes precedence over `CLAUDE.md` for any conflicting instructions. Use responsibly — don't override Auto-Flow process rules.
+> **Note**: `CLAUDE.local.md` takes precedence over `CLAUDE.md` for any conflicting instructions. Use responsibly — don't override AutoFlow process rules.

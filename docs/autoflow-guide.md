@@ -1,6 +1,6 @@
-# Auto-Flow Guide — Phase-by-Phase Development Lifecycle
+# AutoFlow Guide — Phase-by-Phase Development Lifecycle
 
-> Auto-Flow is a structured, evaluation-gated development lifecycle for AI-assisted
+> AutoFlow is a structured, evaluation-gated development lifecycle for AI-assisted
 > software engineering with Claude Code. This guide walks through each phase in
 > order; the rules of record live in [`CLAUDE.md`](../CLAUDE.md).
 
@@ -8,7 +8,7 @@
 
 ## Overview
 
-Auto-Flow defines 16 phases (`PREFLIGHT` → `LAND`) that guide every code change
+AutoFlow defines 16 phases (`PREFLIGHT` → `LAND`) that guide every code change
 from issue analysis to merge. Each phase has explicit entry/exit criteria, and
 evaluation gates prevent low-quality work from reaching production.
 
@@ -45,7 +45,7 @@ mapping is preserved 1:1 below.
 
 ## Lifecycle Diagram
 
-The full Auto-Flow lifecycle, including regression paths and gate verdicts.
+The full AutoFlow lifecycle, including regression paths and gate verdicts.
 Diamond nodes are evaluation gates; stadium nodes are terminal states.
 
 ```mermaid
@@ -231,7 +231,7 @@ Phase A and Phase B run in parallel; Phase 3 cross-checks them.
 PASS: avg ≥ 7.5, each ≥ 7.
 
 - **PASS** → continue.
-- **FAIL** → issue auto-closed + Auto-Flow terminated.
+- **FAIL** → issue auto-closed + AutoFlow terminated.
 
 ### 3. Cause hypotheses (≥ 3; "not a code bug" must be one)
 
@@ -262,7 +262,7 @@ Feat issues skip this gate.
 
 - **PASS** → ARCHITECT.
 - **FAIL** → DIAGNOSE (max 2×). Two FAILs → human decision.
-- **Non-code root cause confirmed** → report to user, pause Auto-Flow.
+- **Non-code root cause confirmed** → report to user, pause AutoFlow.
 
 ---
 

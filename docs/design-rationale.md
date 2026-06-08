@@ -1,6 +1,6 @@
-# Auto-Flow Design Rationale
+# AutoFlow Design Rationale
 
-This document explains the design intent and reasoning behind every major decision in Auto-Flow.
+This document explains the design intent and reasoning behind every major decision in AutoFlow.
 Where CLAUDE.md describes **what to do and how**, this document explains **why** it was designed that way.
 
 **Any new AI reading this repository should read this document first.**
@@ -11,7 +11,7 @@ Without understanding the reasons, an AI may propose something that "looks bette
 
 ## The Problems This System Solves
 
-Auto-Flow addresses structural problems that arise in AI-driven development environments.
+AutoFlow addresses structural problems that arise in AI-driven development environments.
 
 ### Problem 1: AI Is Biased Toward Solving the Moment It Receives an Issue
 
@@ -45,7 +45,7 @@ Information isolation is the key. If AI-A knows the issue, it starts looking for
 
 It is normal for AI-B to use zero tools. Its purpose is to analyze the problem from the issue text alone. If it reads code, it shares the same bias as AI-A, making Phase 3 verification purely ceremonial.
 
-Claude is already trained to "give balanced answers." It rarely produces overtly one-sided responses. That is the effect of training. But the bias Auto-Flow prevents is different. When Claude receives an issue, "I need to solve this" is already embedded in the context. When it analyzes code in that state, it reads existing structure that already handles the concern as "insufficient." There is no malice. It is correct, helpful behavior. That is precisely why training cannot catch it. Training blocks "bad answers." Structure blocks "good intentions aimed in the wrong direction." This is why information isolation is necessary.
+Claude is already trained to "give balanced answers." It rarely produces overtly one-sided responses. That is the effect of training. But the bias AutoFlow prevents is different. When Claude receives an issue, "I need to solve this" is already embedded in the context. When it analyzes code in that state, it reads existing structure that already handles the concern as "insufficient." There is no malice. It is correct, helpful behavior. That is precisely why training cannot catch it. Training blocks "bad answers." Structure blocks "good intentions aimed in the wrong direction." This is why information isolation is necessary.
 
 **Why this design must not be changed**
 
@@ -115,7 +115,7 @@ Each phase transitions to the next only when its stated completion conditions ar
 
 AI tends to judge "this change is small enough to skip phases." That judgment itself is a product of bias. The thought "this one is simple" causes verification to be skipped, and problems emerge from the skipped verification. Simplicity can be determined after the process, not before it.
 
-The act of judging "this change is simple" is itself a product of bias. That judgment is made before implementation. Before implementation, there is no way to know whether it is actually simple. The judgment may sometimes be correct, but when it is wrong, problems emerge from the verification that was skipped. Auto-Flow does not permit this judgment at all. Simplicity can be evaluated post-hoc, after all phases are completed. Pre-process judgment is not allowed.
+The act of judging "this change is simple" is itself a product of bias. That judgment is made before implementation. Before implementation, there is no way to know whether it is actually simple. The judgment may sometimes be correct, but when it is wrong, problems emerge from the verification that was skipped. AutoFlow does not permit this judgment at all. Simplicity can be evaluated post-hoc, after all phases are completed. Pre-process judgment is not allowed.
 
 ---
 
@@ -123,7 +123,7 @@ The act of judging "this change is simple" is itself a product of bias. That jud
 
 **What it does**
 
-When the structure evaluation at GATE:HYPOTHESIS returns FAIL, the orchestrator auto-closes the GitHub issue with a comment recording the structure-evaluation scores and a summary of the existing mechanisms that handle the concern. Auto-Flow terminates locally; the state file is marked `active: false`.
+When the structure evaluation at GATE:HYPOTHESIS returns FAIL, the orchestrator auto-closes the GitHub issue with a comment recording the structure-evaluation scores and a summary of the existing mechanisms that handle the concern. AutoFlow terminates locally; the state file is marked `active: false`.
 
 **Why it works this way**
 
@@ -137,13 +137,13 @@ If the human author disagrees with the auto-close, the issue can be reopened or 
 
 **What it does**
 
-Every repetition in Auto-Flow (e.g., GREEN↔VERIFY test-fix cycles, GATE:QUALITY re-evaluation cycles, LAND retry attempts) has an explicit maximum retry count. No loop can run indefinitely.
+Every repetition in AutoFlow (e.g., GREEN↔VERIFY test-fix cycles, GATE:QUALITY re-evaluation cycles, LAND retry attempts) has an explicit maximum retry count. No loop can run indefinitely.
 
 **Why it works this way**
 
 When a loop fails, the work does not simply stop. The failure cause is classified, and the flow regresses to the appropriate phase. When all retries are exhausted, the work is handed to a human. There is no scenario where a loop never terminates.
 
-For comparison: review gate structures where two models find problems in each other's output (e.g., Codex-style mutual review) lack explicit termination conditions, creating infinite loop risk. Auto-Flow blocks this through three mechanisms: **maximum regression count + cause classification + defined human escalation point.**
+For comparison: review gate structures where two models find problems in each other's output (e.g., Codex-style mutual review) lack explicit termination conditions, creating infinite loop risk. AutoFlow blocks this through three mechanisms: **maximum regression count + cause classification + defined human escalation point.**
 
 **This principle applies to all future additions**
 
@@ -153,7 +153,7 @@ When introducing any new loop structure to this system, it must have an explicit
 
 ## Generalization Rationale
 
-This repository is the **generalized form** of the Auto-Flow methodology that originated in `ontology-platform`. The generalization is intentionally narrow:
+This repository is the **generalized form** of the AutoFlow methodology that originated in `ontology-platform`. The generalization is intentionally narrow:
 
 1. **Name generalization** — upstream's numeric identifiers (`STEP 0~9`, `5a/5b/5c/5d/5.5/5.7`) are replaced by semantic phase names (`PREFLIGHT`, `DIAGNOSE`, `GATE:HYPOTHESIS`, `ARCHITECT`, `GATE:PLAN`, `DISPATCH`, `RED`, `GREEN`, `VERIFY`, `REFINE`, `VALIDATE`, `AUDIT`, `GATE:QUALITY`, `SHIP`, `LAND`). Each generalized name maps 1:1 to an upstream STEP.
 

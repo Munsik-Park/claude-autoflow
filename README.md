@@ -2,7 +2,7 @@
 
 A reusable template for structured, evaluation-gated AI-assisted software development with [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
-Auto-Flow is a 16-phase development lifecycle (PREFLIGHT → LAND) that ensures
+AutoFlow is a 16-phase development lifecycle (PREFLIGHT → LAND) that ensures
 quality through multi-agent role separation, independent analysis, and
 quantified evaluation gates. This template is the **generalized form** of the
 methodology originally implemented in `ontology-platform` — a multi-sub-repo
@@ -17,9 +17,9 @@ from upstream. Single-repo projects are supported as the degenerate case
 
 ---
 
-## What Is Auto-Flow?
+## What Is AutoFlow?
 
-Auto-Flow structures every code change through a defined lifecycle:
+AutoFlow structures every code change through a defined lifecycle:
 
 ```
 PREFLIGHT       Pre-Work          — Git clean check, branch creation
@@ -71,7 +71,7 @@ flowchart LR
 - **Multi-Agent Roles** — Orchestrator, Submodule AI (Developer), Test AI, Evaluation AI with separated responsibilities.
 - **3-Phase Independent Analysis** — Structure / Issue / Cross-Verification analyses to prevent tunnel-vision bias.
 - **Evaluation Gates** — 10-point scoring system with a defined PASS threshold (≥ 7.5, each ≥ 7, security ≤ 3 → block).
-- **Hook Enforcement** — A shell hook validates Auto-Flow state before allowing Agent spawns, `git push`, or `gh pr create`.
+- **Hook Enforcement** — A shell hook validates AutoFlow state before allowing Agent spawns, `git push`, or `gh pr create`.
 - **Multi-Sub-Repo Support** — orchestrator pattern for coordinating work across submodules; single-repo is the degenerate case.
 
 ---
@@ -109,11 +109,11 @@ claude-autoflow/
 │
 ├── .claude/
 │   └── hooks/
-│       └── check-autoflow-gate.sh     # Auto-Flow gate hook
+│       └── check-autoflow-gate.sh     # AutoFlow gate hook
 │
 ├── docs/
 │   ├── design-rationale.md            # Why every rule exists — read first
-│   ├── autoflow-guide.md              # Phase-by-phase Auto-Flow guide
+│   ├── autoflow-guide.md              # Phase-by-phase AutoFlow guide
 │   ├── evaluation-system.md           # Evaluation scoring details
 │   ├── git-workflow.md                # Git procedures
 │   ├── repo-boundary-rules.md         # Cross-repo coordination rules
@@ -140,7 +140,7 @@ claude-autoflow/
 
 ### 1. CLAUDE.md Drives AI Behavior
 
-`CLAUDE.md` is the operating manual for Claude Code. It defines the Auto-Flow
+`CLAUDE.md` is the operating manual for Claude Code. It defines the AutoFlow
 lifecycle and rules, agent roles and permissions, evaluation criteria, and the
 Git workflow.
 
@@ -206,7 +206,7 @@ Templates use `{{UPPER_SNAKE_CASE}}` placeholders:
 | Document | Description |
 |----------|-------------|
 | [**Design Rationale**](docs/design-rationale.md) | **Read first** — why every design decision was made |
-| [Auto-Flow Guide](docs/autoflow-guide.md) | Detailed phase-by-phase lifecycle |
+| [AutoFlow Guide](docs/autoflow-guide.md) | Detailed phase-by-phase lifecycle |
 | [Evaluation System](docs/evaluation-system.md) | Scoring, PASS criteria, output format |
 | [Git Workflow](docs/git-workflow.md) | Branch naming, commits, PR process |
 | [Repo Boundary Rules](docs/repo-boundary-rules.md) | Cross-repo coordination |
@@ -237,7 +237,7 @@ After running `init.sh` or completing manual setup:
 4. Submit a PR with a clear description.
 
 Note: this repository is the **generalized form** of `ontology-platform`'s
-Auto-Flow methodology. New methodology changes belong in the upstream project
+AutoFlow methodology. New methodology changes belong in the upstream project
 first; this repository tracks rather than diverges.
 
 ---

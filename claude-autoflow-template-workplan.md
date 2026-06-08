@@ -1,6 +1,6 @@
 # Claude AutoFlow Template — Work Plan
 
-> **Goal**: Generalize the Claude Code operating methodology (Auto-Flow) from `ontology-platform` into a publicly reusable template repository that can be easily ported to other projects.
+> **Goal**: Generalize the Claude Code operating methodology (AutoFlow) from `ontology-platform` into a publicly reusable template repository that can be easily ported to other projects.
 
 ---
 
@@ -8,7 +8,7 @@
 
 ### What Is Being Ported
 The Claude Code operating know-how embedded in `Munsik-Park/ontology-platform`'s CLAUDE.md, hooks, and docs:
-- Auto-Flow (PREFLIGHT–LAND) development lifecycle
+- AutoFlow (PREFLIGHT–LAND) development lifecycle
 - 3-Phase independent structure analysis (bias prevention)
 - Multi-agent role separation (orchestrator / Developer AI / Test AI / Evaluation AI)
 - Hook-based evaluation gate (`check-autoflow-gate.sh`)
@@ -36,7 +36,7 @@ claude-autoflow-template/
 │       └── check-autoflow-gate.sh     # Generic hook (no modification needed)
 │
 ├── docs/
-│   ├── autoflow-guide.md              # Auto-Flow step-by-step detail
+│   ├── autoflow-guide.md              # AutoFlow step-by-step detail
 │   ├── git-workflow.md                # Git procedure (generic)
 │   ├── repo-boundary-rules.md         # Cross-repo boundary rules (generalized)
 │   ├── submodule-common-rules.md      # Sub-repo common rules (generalized)
@@ -88,7 +88,7 @@ claude-autoflow-template/
 #### 2-1. Authoring `CLAUDE.md.template`
 **The most important file.** Authored according to these principles:
 
-- **Fixed sections** (no modification needed): Auto-Flow step definitions, evaluation system, hook gate, Discussion Protocol
+- **Fixed sections** (no modification needed): AutoFlow step definitions, evaluation system, hook gate, Discussion Protocol
 - **Replacement sections** (placeholders): Sub-repo names, org name, security stack, role names in commit ownership table
 - **Optional sections** (commented out): Blocks to remove for projects not using a sub-module structure
 
@@ -156,14 +156,14 @@ Minimal CLAUDE.md templates for each sub-repo type:
 ### Phase 3: README and Documentation
 
 #### 3-1. Authoring `README.md`
-- What this template is (introduction to the Auto-Flow methodology)
+- What this template is (introduction to the AutoFlow methodology)
 - Quick Start: run `init.sh` or manual porting
 - Repo structure description
 - Post-porting checklist
 - How to contribute (CONTRIBUTING.md)
 
 #### 3-2. Authoring `docs/autoflow-guide.md`
-Extract the Auto-Flow explanation embedded in CLAUDE.md into a standalone document:
+Extract the AutoFlow explanation embedded in CLAUDE.md into a standalone document:
 - Purpose and completion criteria for each phase
 - Flow Control table
 - Regression rules
@@ -217,7 +217,7 @@ and start from Phase 1.
 
 ## Core Design Principles (Maintain During Work)
 
-1. **Do not touch Auto-Flow logic** — Phase definitions, evaluation criteria, and hook logic stay generic as-is
+1. **Do not touch AutoFlow logic** — Phase definitions, evaluation criteria, and hook logic stay generic as-is
 2. **Minimize placeholders** — Only what is essential. Too many raises the porting cost
 3. **Optional sections as comments** — A "remove from here to here" guide for projects that don't need sub-modules
 4. **Keep sub-repo CLAUDE.md thin** — Reference the orchestrator CLAUDE.md rather than copying it
@@ -229,7 +229,7 @@ and start from Phase 1.
 
 | Item | Option A | Option B | Current Status |
 |------|----------|----------|----------------|
-| Repo name | `claude-autoflow-template` | `auto-flow-template` | Undecided |
+| Repo name | `claude-autoflow-template` | `autoflow-template` | Undecided |
 | Sub-module structure default | git submodule approach | Independent repo approach | Undecided |
 | Language | Korean README | English README | English recommended (public repo) |
 | License | MIT | Apache 2.0 | Undecided |

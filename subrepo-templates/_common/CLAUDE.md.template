@@ -1,6 +1,6 @@
 # {{REPO_NAME}} — Claude Code Operating Manual
 
-> Sub-repository CLAUDE.md for use with Auto-Flow.
+> Sub-repository CLAUDE.md for use with AutoFlow.
 > This file defines the scope and rules for AI agents working in this repository.
 
 ---
@@ -15,9 +15,9 @@
 
 ---
 
-## Auto-Flow
+## AutoFlow
 
-This repository follows the Auto-Flow lifecycle defined in:
+This repository follows the AutoFlow lifecycle defined in:
 **`{{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}/CLAUDE.md`**
 
 All phases (PREFLIGHT → LAND), evaluation criteria, and gate rules from the orchestrator apply here.
@@ -36,7 +36,7 @@ This AI agent may **only modify files within this repository**.
 ### Not Allowed
 - Modify files in other repositories
 - Push directly to `{{DEFAULT_BRANCH}}`
-- Skip Auto-Flow phases or evaluation gates
+- Skip AutoFlow phases or evaluation gates
 - Evaluate own work (Evaluation AI is a separate agent)
 
 ---
