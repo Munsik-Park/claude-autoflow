@@ -149,6 +149,30 @@ For comparison: review gate structures where two models find problems in each ot
 
 When introducing any new loop structure to this system, it must have an explicit termination condition. A loop without a termination condition is not permitted. This is not a guideline — it is a hard constraint.
 
+### Decision 8: Deliberation Runs in an Isolated Sub-Context (Delegated Facilitation)
+
+**What it does**
+
+Multi-teammate deliberation phases — ARCHITECT (Developer AI + Test AI design discussion) and the VERIFY cause-branch self-check exchange — run inside an isolated **facilitator**, realized as a `Workflow` (the one runtime mechanism documented to keep intermediate results out of the caller's context). The Developer-AI and Test-AI run as in-script sub-agents, their round-by-round cross-talk stays in workflow variables, and the orchestrator receives only a single structured result + artifact paths. The orchestrator never receives the round-by-round messages. A companion append-only **decision ledger** (`.autoflow/issue-{N}-ledger.md`) records each settled decision with its grounds and authority, and a recorded decision is not re-opened without a new verified fact.
+
+The realization matters because the obvious alternative does not exist: in Claude Code Agent Teams a spawned teammate cannot create its own team and the lead is fixed for the team's lifetime, so "a facilitator that leads a nested team" is not executable; and a peer-teammate facilitator inside the orchestrator's own team is not a documented isolation boundary (teammate messages reach the lead automatically). The `Workflow` runtime is the mechanism whose isolation is actually documented, so the contract binds to it rather than to an abstract "sub-context".
+
+**Why it works this way**
+
+A teammate→lead message is auto-injected into the recipient's conversation as a turn and persists until compaction. When the orchestrator leads the discussion, every round of cross-talk — including the two teammates' near-duplicate convergence reports — accumulates in its context. The harm is not only token cost: retracted claims, wrong oracles, and reversed scopes pile up in the orchestrator's working context, and it begins to oscillate on decisions it had already settled. This was observed in practice, where an orchestrator flipped a scope decision (fold-in ↔ keep-separate) while submerged in a back-and-forth that mixed live and retracted claims.
+
+This is a context-contamination problem of the same family as Problem 2 (a single session cannot effectively challenge its own reasoning) — but here the contamination flows *into the coordinator* from the teammates it coordinates. Cheaper or summarized rounds (the file-pull / checkpoint-summary direction) do not fix it, because the orchestrator still receives the round and still accumulates the duplication. The fix is structural: remove the orchestrator from the deliberation loop entirely. The deliberation converges in an isolated context; only a distilled verdict crosses back.
+
+The decision ledger is the second half of the fix. Isolation stops new contamination from entering; the ledger stops already-settled decisions from being silently re-opened by an enlarged context. Re-opening requires a *new verified fact* — not a re-reading of material already on the record — which caps oscillation-driven round explosion. This is the same principle as a settled gate verdict outranking a re-reading of the issue body.
+
+**Isolation is for deliberation, not verification**
+
+The orchestrator's real value is verification, and that value is preserved. Every substantive catch — a refuted provenance claim, a wrong "0 failed" oracle, a RED test that copied a mock boundary — comes from the orchestrator reading the *distilled artifacts and deterministic facts*, never from reading the deliberation prose. So the rule removes only the prose: after the verdict returns, the orchestrator still reads the artifacts and runs deterministic spot-checks (`git show`, command re-run) before accepting. "The orchestrator does not deliberate" is correct; "the orchestrator does not verify" would discard the system's main safeguard.
+
+**Why this design must not be weakened to a summarization tweak**
+
+The tempting shortcut is "have the teammates report more cheaply" or "summarize each round before it reaches the orchestrator." Both leave the orchestrator in the loop and therefore leave the duplicate accumulation and the oscillation in place. Delegated facilitation is not a cost optimization that happens to reduce tokens; it is a bias-elimination mechanism that happens to reduce tokens. Replacing it with a cheaper in-loop variant reintroduces the bias it exists to prevent.
+
 ---
 
 ## Generalization Rationale

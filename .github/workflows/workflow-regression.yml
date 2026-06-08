@@ -1,0 +1,47 @@
+# .github/workflows/workflow-regression.yml — deliberation workflow script regression
+#
+# Mock-runtime regression for the deliberation workflow reference scripts
+# (.claude/workflows/{architect-deliberation,verify-cause-branch}.js). The harness
+# (test/workflows/run.mjs) locks their pure control-flow logic — convergence rule,
+# counter threading, ledger-authority branching, VERIFY next_action mapping,
+# missing-response handling, the arg guards — against a mock Workflow runtime. It does
+# NOT exercise a live Claude Code Workflow runtime (that is the operator-side smoke
+# scenario in docs/teammate-contracts.md > Facilitator > Verification scenarios).
+#
+# The harness reads only host-repo files (.claude/workflows/*.js, test/workflows/*) and
+# uses solely node: builtins — no submodule checkout and no npm install are needed, so
+# the regression runs anywhere a Node runtime is available (here, ubuntu-latest).
+
+name: workflow-regression
+
+on:
+  pull_request:
+    paths:
+      - '.claude/workflows/**'
+      - 'test/workflows/**'
+      - '.github/workflows/workflow-regression.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.claude/workflows/**'
+      - 'test/workflows/**'
+      - '.github/workflows/workflow-regression.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    name: Mock-runtime regression
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Pin Node runtime
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: '20'
+
+      - name: Run workflow regression harness
+        run: node test/workflows/run.mjs
