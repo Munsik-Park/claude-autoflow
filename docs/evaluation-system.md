@@ -3,6 +3,8 @@
 > The AutoFlow evaluation system provides quantified quality assessment at the
 > three gates (`GATE:HYPOTHESIS`, `GATE:PLAN`, `GATE:QUALITY`) and at `AUDIT`,
 > ensuring consistent standards across all changes.
+>
+> Detailed scoring criteria are consolidated in [`teammate-contracts.md`](teammate-contracts.md) > Evaluation System. This document covers the operational context — design intent, hook trust boundary, and state-file linkage.
 
 ---
 
@@ -60,9 +62,9 @@ be diluted by averaging.
 
 | Type | Items (count) | Retry |
 |------|---------------|-------|
-| Structure evaluation (GATE:HYPOTHESIS — structure form, runs in DIAGNOSE 3-Phase) | Structural overlap, Code-change necessity, New-mechanism necessity (3) | none — PASS/FAIL single verdict; FAIL → issue auto-closed + AutoFlow terminated |
+| Structure evaluation (GATE:HYPOTHESIS — structure form, runs in DIAGNOSE 3-Phase) | Behavior gap, Code-change necessity (2) | none — PASS/FAIL single verdict; reuse-neutral 2-item necessity gate. FAIL on gap-low (existing structure already produces the behavior) → issue auto-closed + AutoFlow terminated. FAIL on code-change-necessity-low (non-code lever — data/config/ops) → report to user + pause. No retry loop |
 | Hypothesis evaluation (GATE:HYPOTHESIS — cause form, bug/incident only) | Hypothesis diversity, Verification sufficiency, Verdict evidence (3) | max 2× → DIAGNOSE |
-| Plan evaluation (GATE:PLAN) | Feasibility, Dependencies, Scope, Security, Test plan (5) | max 3× → ARCHITECT |
+| Plan evaluation (GATE:PLAN) | Feasibility, Dependencies, Scope, Security, Test plan (5) — Feasibility/Scope absorb the structural-fit & over-engineering concern the DIAGNOSE structure gate deliberately does not score | max 3× → ARCHITECT |
 | Security audit (AUDIT) | Authn/Authz, Input validation, Data exposure, Infra isolation, Dependencies (5) | max 2× |
 | Quality evaluation (GATE:QUALITY) | Completeness, Quality, Test coverage, Test quality, Security, Fit, Impact scope, Minimal implementation, Commit conventions, Doc updates (10) | max 3× → RED |
 | Doc evaluation | Accuracy, Completeness, Clarity, Format compliance (4) | one revision |

@@ -30,6 +30,41 @@ The host's hook (`.claude/hooks/check-autoflow-gate.sh`) reads the state file an
 
 ---
 
+## Submodule URL & Pointer Policy
+
+Applies to host repositories that operate a **host-private fork** as the submodule source — i.e., the fork carries host-private changes that are **not** bound for the upstream repository. The host repo's submodule pointer therefore lives in fork commits, not upstream commits. `setup/init.sh` substitutes each submodule's fork URL when the framework is propagated to a project (see [`credentials.md`](credentials.md) and `.autoflow/submodules.yaml`).
+
+### URL — `.gitmodules` fixed to the host-operated fork
+
+- `.gitmodules` is **never modified** in a PR. PR diffs must not touch `.gitmodules` (the URL is fixed at framework init to the host-operated fork).
+- No local fork-URL override is needed: the URL is the fork to begin with.
+
+### Pointer SHA — host `{{DEFAULT_BRANCH}}` reachability
+
+- A commit that exists only on a fork **feature branch** (not yet merged into the fork's `{{DEFAULT_BRANCH}}`) **must not** appear as the submodule pointer on host `{{DEFAULT_BRANCH}}`. Fork feature branches can be deleted or force-pushed at any time; relying on them is a stale-pointer footgun.
+- **Dev branch exception**: while a host PR's dev branch is open, the submodule pointer may temporarily reference a fork feature-branch SHA (normal for in-progress work). Reachability against fork `{{DEFAULT_BRANCH}}` is enforced at host-`{{DEFAULT_BRANCH}}`-merge time.
+
+### Multi-developer concurrent work
+
+- `.gitmodules` is **never** modified — the URL stays fixed.
+- Each developer commits **only the submodule pointer** for their issue's dev branch.
+
+### Sub-repo cycle close-out
+
+When a sub-repo work cycle is complete:
+
+1. Merge the fork feature branch into the fork's `{{DEFAULT_BRANCH}}`.
+2. Reconcile the host's submodule pointer to this cycle's sub-repo merge commit on fork `{{DEFAULT_BRANCH}}` (in the host PR's dev branch, before host PR merge). **[MUST]** When several cycles are in review at once, reconcile **against the current `origin/{{DEFAULT_BRANCH}}`**, not the branch's stale fork point: host-PR merges (one at a time) advance the pointer, so a stale-base bump leaves the host PR conflicting. Resolve by fork ancestry — if this cycle's merge commit (`TARGET`) is a **descendant** of the current pointer, set the dev gitlink to `TARGET` first (`git -C <sub-repo> checkout <TARGET>; git add <sub-repo>; git commit`) **then** merge `origin/{{DEFAULT_BRANCH}}` (with the dev pointer at `TARGET` ⊇ current, the submodule stays at `TARGET`, no content conflict); if the current pointer is a descendant (a regression) or the two diverge, **escalate to the operator**. **[MUST]** The end-state pointer must equal `TARGET` — verify `git ls-tree HEAD <sub-repo> == TARGET` before pushing (a bare `git merge origin/{{DEFAULT_BRANCH}}` from an older dev pointer resolves the gitlink to the older SHA, failing the pointer check).
+3. The fork feature branch may then be deleted; the pointer SHA is preserved on fork `{{DEFAULT_BRANCH}}`.
+
+This lifecycle makes the **Pointer SHA — host `{{DEFAULT_BRANCH}}` reachability** rule hold without requiring branch-protection rules on every fork feature branch.
+
+### Framework propagation
+
+Operators initializing this framework on another project run `setup/init.sh`, which substitutes each submodule URL to point at the operator's own fork (same model — host-operated fork, host-private changes allowed). The Pointer SHA rule is unchanged: host `{{DEFAULT_BRANCH}}` always points at a commit reachable in the operator's fork.
+
+---
+
 ## CLAUDE.md Requirements
 
 Each sub-repo's `CLAUDE.md` must define:
@@ -82,6 +117,55 @@ All AutoFlow phases, evaluation criteria, and gate rules apply.
 - Modify files in other repositories
 - Push directly to `{{DEFAULT_BRANCH}}`
 - Ignore evaluation feedback during revision (REVISION)
+
+---
+
+## Change Surface Rules
+
+Every changed line must trace to the issue's acceptance criteria or the agreed plan. The scope of a cycle is exactly what the issue asked for — adjacent improvements belong to a separate issue.
+
+### Trace rule
+- **[MUST]** Each touched file/line answers the question: "which AC or plan item requires this?" If the answer is "none — I noticed it while I was here", revert that line.
+- **[MUST]** Before opening the PR, run `git diff <base>...HEAD` and self-audit: any hunk without an AC ID in its rationale is removed.
+
+### Surrounding code
+- **[MUST]** Match the existing style and naming in the file you edit, even if you would write it differently in a greenfield.
+- **[MUST]** Leave adjacent code, comments, formatting, and import order untouched unless an AC requires the change.
+- **[MUST]** Pre-existing dead code, suspicious patterns, or stylistic inconsistencies you notice in passing are reported in the cycle report (one line each, with file:line). Filing a separate issue is the follow-up path; do not remove or "improve" them in this cycle.
+
+### Over-engineering guard
+The trace rule rejects scope creep *across* the change surface; this guard rejects depth creep *inside* it. Keep the solution to the minimum the current AC needs:
+- **Scope**: don't add features, configurability, or "improvements" beyond the AC. A bug fix doesn't clean up surrounding code; a simple feature doesn't gain extra options.
+- **Documentation**: don't add docstrings, comments, or type annotations to code you didn't change. Comment only where the logic isn't self-evident.
+- **Defensive coding**: don't add error handling, fallbacks, or validation for scenarios that can't occur. Trust internal code and framework guarantees; validate only at system boundaries (user input, external APIs).
+- **Abstractions**: don't create helpers or abstractions for a one-time operation, and don't design for hypothetical future requirements.
+
+### Orphans from this cycle
+- **[MUST]** Imports, variables, and functions that **your** changes rendered unused are removed in the same commit.
+- **[MUST]** Do not remove pre-existing unused symbols unless an AC explicitly requires it.
+
+### REFINE scope
+REFINE applies the same trace rule: refactor suggestions that touch code outside the cycle's change surface are rejected, recorded in the report, and (if worth pursuing) filed as a new issue. The refactor tool's findings are advisory, not licence to expand the change surface.
+
+### GATE:QUALITY linkage
+GATE:QUALITY's `Minimal implementation` item is scored against this section's trace rule: a diff with hunks that do not trace to an AC fails the item regardless of code quality.
+
+---
+
+## Reporting Format
+
+When a teammate reports to the orchestrator (or to another teammate via `SendMessage`), the message must follow this shape to keep token cost bounded (see host [`CLAUDE.md`](../CLAUDE.md#cost-control) > Cost Control):
+
+1. **Reference paths, not bodies**: cite `.autoflow/*` files, source files, and commit hashes by path/hash. Do NOT paste full file bodies or document sections into messages.
+2. **One-line summaries**: each finding, fix, or status item gets one line. Tables of ≤ 10 rows are allowed for structured results (test counts, coverage percentages).
+3. **Test output**: report the test runner's summary line (e.g. jest `Tests: 147 passed, 147 total`; pytest `147 passed`) + coverage percentage. Never paste per-case PASS/FAIL lines or the full coverage report.
+4. **Cited code excerpts**: when quoting code is unavoidable (e.g., to point out a bug), keep excerpts ≤ 10 lines AND verify the excerpt against the live file at quoting time — stale working-memory snapshots are a known incident pattern.
+5. **Evidence anchor (mandatory)**: every "done" / "PASS" / "fixed" claim must end with one verifiable anchor — pick whichever fits:
+   - code change → full 40-char commit SHA
+   - test pass  → the exact `Tests: N passed, N total` (or equivalent) summary line, with the command that produced it
+   - file state → `path:line` plus the verbatim content of that line
+
+   Anchors must be deterministically re-derivable by the orchestrator (`git show <SHA>` / re-running the test command / `git show HEAD:<file>`). Reports without an anchor are rejected, not interpreted.
 
 ---
 

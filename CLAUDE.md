@@ -47,6 +47,8 @@ Secrets, credential references, and project config are separated into three tier
 
 ## Team Structure
 
+> The detailed role contracts (Evaluation AI, Test AI, Submodule AI) and the consolidated Evaluation System scoring live in [`docs/teammate-contracts.md`](docs/teammate-contracts.md). The summaries below stay here for orchestrator routing.
+
 ### AI Orchestrator (host repo)
 - Does not write code directly; coordinates sub-repo AIs.
 - Issue analysis, plan synthesis, role assignment, PR management, integration verification.
@@ -241,7 +243,7 @@ When an issue arrives, classify cause hypotheses **before** code analysis.
 
    The orchestrator re-spawns AI-A:
      - Input: Phase A structure analysis + AI-B's resolution list.
-     - Instruction: "For each proposed resolution, evaluate whether the existing system structure already handles it."
+     - Instruction: "For each proposed resolution, score two necessity items against the current code (as-is): (1) Behavior gap — does the current structure NOT yet produce the required behavior? (2) Code-change necessity — is a code change the lever, not data/config/ops? Score necessity only — a resolution that reuses existing code is not a failure; do not judge plan quality or structural fit (that is GATE:PLAN's job)."
      - [MUST] Do NOT include the issue body (only AI-B's resolution list).
 
    Issue type classification:
@@ -249,15 +251,14 @@ When an issue arrives, classify cause hypotheses **before** code analysis.
      - Type 2 (documentation/consistency): content sync, doc update, cross-file consistency.
      - Mixed/unclear → default to Type 1 (conservative).
 
-   Scoring (3 items × 10 points, by issue type):
+   Scoring (× 10 points each, by issue type):
 
-   Type 1 (code change):
+   Type 1 (code change) — a *necessity* gate, reuse-neutral, **2 items**. A fix that reuses existing code scores high, not low; structural-fit quality is judged later at GATE:PLAN (Feasibility, Scope) and GATE:QUALITY (Minimal implementation / Fit):
 
    | Item | Criterion |
    |------|-----------|
-   | Structural overlap     | Does the proposal duplicate an existing mechanism? (high = no overlap) |
-   | Code-change necessity  | Is actual code change required, vs. data/config addition? (high = code change needed) |
-   | New-mechanism necessity | Is this a new problem type the existing framework cannot handle? (high = new mechanism needed) |
+   | Behavior gap          | Per Phase A, does the current structure NOT yet produce the required behavior? (high = real gap → change needed; already-produced / already-fixed → low) |
+   | Code-change necessity | Is a *code* change the lever, not data/config/ops? (high = code change needed; resolvable by config / data / ops → low) |
 
    Type 2 (documentation/consistency):
 
@@ -267,12 +268,13 @@ When an issue arrives, classify cause hypotheses **before** code analysis.
    | Consistency impact | Does the inconsistency affect users or AI behavior? (high = significant impact) |
    | Propagation scope  | Is the change scope appropriate — not too broad, not missing targets? (high = appropriate scope) |
 
-   PASS criteria: avg ≥ 7.5, each ≥ 7.
-     - PASS → code change required → continue to step 3.
-     - FAIL → existing structure handles the concern → issue auto-closed + AutoFlow terminated.
+   PASS criteria: avg ≥ 7.5, each ≥ 7. No retry loop (the structure gate does not re-DIAGNOSE).
+     - PASS → code change genuinely needed → continue to step 3.
+     - FAIL on Behavior-gap-low → existing structure already produces the behavior → issue auto-closed + AutoFlow terminated.
        - Close comment records the structure-evaluation scores + summary of existing mechanisms.
        - AutoFlow state file: active → false.
        - Re-filing as a new issue is the natural re-entry path.
+     - FAIL on Code-change-necessity-low → the lever is non-code (data / config / ops), not a Type 1 code issue → report the finding to the user and pause AutoFlow (active → false). Reclassification (Type 2 / non-code) is the re-entry.
 
 3. Cause hypotheses (at least 3; "not a code bug" must be one).
    - Code bug: logic error, missing exception handling.
@@ -609,6 +611,8 @@ If `verdict` is empty or contains `skip`, the gate is not triggered for the caus
 
 ## Evaluation System
 
+> Consolidated reference (the form the Evaluation AI is pointed at): [`docs/teammate-contracts.md`](docs/teammate-contracts.md) > Evaluation System. The tables below are the orchestrator's inline copy.
+
 ### Scoring (10-point scale)
 
 | Score | Meaning | Action |
@@ -629,7 +633,7 @@ If `verdict` is empty or contains `skip`, the gate is not triggered for the caus
 
 | Type | Items | Retry |
 |------|-------|-------|
-| Structure evaluation | Type 1: Structural overlap, Code-change necessity, New-mechanism necessity (3) — Type 2: Content gap, Consistency impact, Propagation scope (3) | none (PASS/FAIL single verdict) |
+| Structure evaluation | Type 1: Behavior gap, Code-change necessity (2) — Type 2: Content gap, Consistency impact, Propagation scope (3) | none (PASS/FAIL single verdict; reuse-neutral; gap-low → close, non-code lever → report + pause; no retry) |
 | Hypothesis evaluation | Hypothesis diversity, Verification sufficiency, Verdict evidence (3) | max 2× |
 | Plan evaluation | Feasibility, Dependencies, Scope, Security, Test plan (5) | max 3× |
 | Security audit | Authn/Authz, Input validation, Data exposure, Infra isolation, Dependencies (5) | max 2× |
@@ -736,6 +740,7 @@ Part of {{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}#N
 
 - **AutoFlow phase guide**: [`docs/autoflow-guide.md`](docs/autoflow-guide.md)
 - **Evaluation system**: [`docs/evaluation-system.md`](docs/evaluation-system.md)
+- **Teammate contracts (role contracts + consolidated scoring)**: [`docs/teammate-contracts.md`](docs/teammate-contracts.md)
 - **Design rationale (why every rule exists)**: [`docs/design-rationale.md`](docs/design-rationale.md)
 - **Git procedures**: [`docs/git-workflow.md`](docs/git-workflow.md)
 - **Repo boundary rules**: [`docs/repo-boundary-rules.md`](docs/repo-boundary-rules.md)
