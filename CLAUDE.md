@@ -15,6 +15,12 @@ A public template repository that generalizes the AutoFlow methodology from `ont
 
 Every rule, retry cap, evaluation category, score threshold, and regression path is preserved verbatim from upstream. The methodology evolves in `ontology-platform`; this repository tracks rather than diverges.
 
+## Instruction Conventions
+
+- **`[MUST]`** marks a hard constraint enforced by a gate, hook, or role contract — treat it as a literal, non-negotiable rule, not as emphasis to be generalized to nearby cases. **`[DENY]`** marks a prohibited action.
+- These tags carry the weight; do not stack extra emphasis on top of them (no "CRITICAL: you MUST…"). Recent Claude models follow instructions more literally and are more responsive to the system prompt, so stacked emphasis over-triggers rather than strengthens a rule.
+- A `[MUST]` applies exactly to the scope it names. When a rule must hold across every phase, file, or section, the rule states that scope explicitly — an instruction written for one item is not silently generalized to others.
+
 ## Cross-Project Boundary Rules
 
 - **[MUST]** All AIs: read access to other sub-repositories is allowed; modifications outside the assigned scope are not.
@@ -73,6 +79,41 @@ Secrets, credential references, and project config are separated into three tier
 
 In single-repo deployments (no submodules), the Submodule AI degenerates to the Developer AI working in the same repository as the orchestrator. The role contract is unchanged — only fork/upstream distinctions disappear.
 
+## Spawn Model — Phase-by-Phase
+
+AutoFlow teammate and subagent spawns choose the model by phase work type rather than inheriting the host session model (currently Opus 4.8). Rationale: (a) cost efficiency on rubric- or classification-bound phases (Sonnet 4.6 input/output = 60% of Opus 4.7 per M tokens), (b) Anthropic's official guidance (Opus = "long-horizon agentic, complex reasoning"; Sonnet = "frontier intelligence at scale, agentic tool use"), (c) confining long-session degradation exposure to the phases that genuinely need Opus.
+
+| Phase | Model | Work type |
+|---|---|---|
+| DIAGNOSE Phase A (structure) | `sonnet` | factual code-structure description (issue-isolated) |
+| DIAGNOSE Phase B (issue) | `sonnet` | text classification + logical inference (no code) |
+| DIAGNOSE Phase 3 (necessity) | `sonnet` | necessity scoring (3 items × 10 points) |
+| GATE:HYPOTHESIS | `sonnet` | rubric, 3 items × 10 points |
+| ARCHITECT | `opus` | multi-turn design discussion, devil's advocate (Developer AI + Test AI) |
+| GATE:PLAN | `sonnet` | rubric, 5 items × 10 points |
+| RED | `sonnet` | acceptance criteria → test code (complex tests fall back to `opus`, with rationale in the Test AI report) |
+| GREEN | `opus` | minimum implementation that passes the tests |
+| VERIFY | `opus` | self-check + arbitration (sycophancy-risk surface) |
+| REFINE | `sonnet` | mechanical `/simplify` application |
+| AUDIT | `sonnet` | security rubric, 5 items × 10 points (1-cycle pilot before settling) |
+| GATE:QUALITY | `sonnet` | rubric, 10 items × 10 points |
+
+Other phases either have no teammate spawn or are run by the orchestrator: PREFLIGHT (orchestrator), DISPATCH (`TaskCreate` + `SendMessage` only), VALIDATE (automatic gate), DELIVER / INTEGRATE / LAND (orchestrator).
+
+**[MUST]** Every `Agent` spawn (in either `subagent_type` or `team_name` form) declares the `model` parameter explicitly (`model: "sonnet"` or `model: "opus"`). Without it the host session model is inherited and this per-phase policy is bypassed. The orchestrator's own model follows the user's session settings (outside this policy). Note: `SendMessage` is not a spawn — it delivers to an existing teammate — and therefore carries no `model` parameter.
+
+**[MUST]** On the VERIFY → REFINE transition the Developer AI lifetime is shut down and a fresh `sonnet` teammate is spawned at REFINE entry. Mid-lifetime model switching is not supported by the runtime, so the model change requires a phase-boundary respawn (mirrors the DISPATCH-entry respawn in [Cost Control](#cost-control)).
+
+**[MUST]** If a phase's score distribution drifts by ≥ ±0.5 from the Opus baseline — mean over the prior 5 cycles of the same evaluation type on the same issue tracker — revert that phase to `opus` and update this table in the same commit.
+
+**Pilot rollout order** (safest first): GATE:QUALITY → GATE:PLAN / HYPOTHESIS → DIAGNOSE A/B/3 → REFINE → AUDIT → RED. Measure the score-distribution shift at each step before moving on. AUDIT is rolled out near the end because security findings are sensitive; adopt only after a single pilot cycle confirms no drift.
+
+**Sources**:
+- Anthropic model selection guide: https://docs.claude.com/en/docs/about-claude/models/choosing-a-model
+- Sonnet 4.6 release notes (SWE-bench Verified 80.2%): https://www.anthropic.com/news/claude-sonnet-4-6
+- Opus 4.7 release notes: https://www.anthropic.com/news/claude-opus-4-7
+- Long-session degradation user reports: `anthropics/claude-code` issues #54991, #56367, #53459, #34685, #62144
+
 ## Communication — Agent Teams
 
 Communication with sub-repo AIs uses **Agent Teams**.
@@ -81,6 +122,15 @@ Communication with sub-repo AIs uses **Agent Teams**.
 - Teammates communicate via `SendMessage` (push-based delivery).
 - `SendMessage(to: "*")` broadcasts.
 - MCP coord is auxiliary, used for asynchronous logging and handoff.
+
+### Cost Control
+
+These rules apply to every cycle to prevent token-cost blow-up. Background: Claude Code's `TeammateIdle` hook cannot cancel orchestrator turns and there is no native `agentTeams.skipIdleTurns` setting (per [agent-teams docs](https://code.claude.com/docs/en/agent-teams.md) and [costs docs](https://code.claude.com/docs/en/costs.md)), so cost control is enforced at the codebase level.
+
+- **Phase-boundary respawn**: the ARCHITECT discussion ends when both teammates reach agreement and its teammates are shut down. At DISPATCH entry the orchestrator spawns fresh agents for RED/GREEN, passing `.autoflow/issue-{N}-*.md` paths only — discussion history is not carried into implementation phases.
+- **[MUST] Orchestrator context discipline**: the orchestrator holds only anchors, summaries, verdicts, and decisions — never raw material. It does not read a full artifact (whole design docs, full source files) to judge it, nor run multi-step investigations in its own context; that absorption is **delegated** to a subagent or teammate that writes any body to `.autoflow/*` and returns only an anchor + one-line summary. This applies to (a) the orchestrator's own reads and (b) every direct/ad-hoc `Agent` spawn, scripted-phase or not (e.g. DIAGNOSE Phase A/B/3 write `.autoflow/issue-N-phase-*.md` and return a summary, not the body). Cheap anchor-checks stay in-context — a `git show <SHA>`, a one-line command re-run, a targeted `git show HEAD:<file>` of the specific lines (see Execution Principles > Verify teammate claims). Full body enters orchestrator context only when strictly required (e.g. evaluator scores).
+- **Test-runner output**: run the suite in a quiet/summary mode (e.g. `--silent --reporters=summary`, or your test runner's equivalent). Never paste raw verbose output (per-case lines, full coverage report) into a teammate message or report. See [`docs/submodule-common-rules.md`](docs/submodule-common-rules.md) > Testing Standards.
+- **Team size**: keep ≤ 5 teammates per Agent Teams session. Use Agent Teams only when cross-AI coordination is required — single-AI tasks should use a direct `Agent` spawn instead.
 
 ### Discussion Protocol
 
@@ -505,7 +555,9 @@ Host PR step (7) failure:
 - **Safety first**: accurate flow execution beats fast response. Accuracy over speed.
 - **Verify before transition**: re-confirm completion conditions before moving on.
 - **Every phase is mandatory**: no skipping based on perceived simplicity.
-- **Teammate idle handling**: do not re-prompt on idle notifications. Inspect the summary and wait for the report.
+- **Teammate idle handling**: idle notifications (`{"type":"idle_notification",...}`) signal teammate availability; they do not require a response. Continue work when (a) a teammate sends an actionable report via SendMessage, (b) a Bash result you initiated returns, or (c) the user types a new prompt.
+- **Verify teammate claims before dispatch**: every teammate report's Evidence anchor is verified before ACCEPT — `git show <SHA>` for a commit anchor, re-running the cited command for a test-summary anchor, `git show HEAD:<file>` for a file-state anchor. **An anchor-less report is rejected, not interpreted.** Do not dispatch based on a single AI's unverified claim — stale snapshots in working memory or hash confabulation can cause noop redo dispatches.
+- **Incomplete output is never ground truth**: a 1-line tool result — a Read-dedup stub (`file unchanged … refer to that earlier tool_result`; the dedup ledger is not reset on compaction, `anthropics/claude-code#46749`) or a `Cancelled: parallel tool call … errored` — is a harness artifact, not data. Never conclude "absent / empty / stub" or escalate a blocker from one; re-read via shell (`sed -n`/`grep`/`wc -l`, which bypasses the dedup ledger) and reproduce the finding before acting. Do not batch parallel `cd`-prefixed Bash — use `git -C <path>` + absolute paths. The `Read` PostToolUse hook (`.claude/hooks/check-read-dedup.sh`) flags the dedup case at runtime.
 - **Stop on error**: do not act on errors or omissions until the situation is fully understood.
 
 ### AutoFlow State Tracking (Hook integration)
