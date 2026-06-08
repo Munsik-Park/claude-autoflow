@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Auto-Flow Template — Interactive Setup Script
+# AutoFlow Template — Interactive Setup Script
 # =============================================================================
 # Replaces placeholders in template files with project-specific values.
 #
@@ -58,7 +58,7 @@ prompt() {
 
 echo ""
 echo -e "${BLUE}╔══════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║     Auto-Flow Template — Setup Wizard       ║${NC}"
+echo -e "${BLUE}║     AutoFlow Template — Setup Wizard       ║${NC}"
 echo -e "${BLUE}╚══════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -165,7 +165,7 @@ ensure_gitignore_line() {
   fi
 }
 info "Ensuring .gitignore entries..."
-[[ -f "$GITIGNORE" ]] || { echo "# Auto-Flow .gitignore" > "$GITIGNORE"; }
+[[ -f "$GITIGNORE" ]] || { echo "# AutoFlow .gitignore" > "$GITIGNORE"; }
 ensure_gitignore_line ".autoflow/issue-*.json"
 ensure_gitignore_line ".autoflow/auth.local.yaml"
 ensure_gitignore_line ".autoflow/logs/"

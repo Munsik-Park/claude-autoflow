@@ -1,6 +1,6 @@
 # Claude AutoFlow Template — 작업 계획서
 
-> **목표**: `ontology-platform`의 Claude Code 운영 방법론(Auto-Flow)을 다른 프로젝트에 쉽게 이식할 수 있는 공개 템플릿 레포로 일반화한다.
+> **목표**: `ontology-platform`의 Claude Code 운영 방법론(AutoFlow)을 다른 프로젝트에 쉽게 이식할 수 있는 공개 템플릿 레포로 일반화한다.
 
 ---
 
@@ -8,7 +8,7 @@
 
 ### 이식 대상
 `Munsik-Park/ontology-platform`의 CLAUDE.md, Hook, docs에 녹아 있는 Claude Code 운영 노하우:
-- Auto-Flow (STEP 0~9) 개발 생명주기
+- AutoFlow (STEP 0~9) 개발 생명주기
 - 3-Phase 독립 구조 분석 (편향 방지)
 - Multi-agent 역할 분리 (오케스트레이터 / 개발 AI / 테스트 AI / 평가 AI)
 - Hook 기반 평가 게이트 (`check-autoflow-gate.sh`)
@@ -36,7 +36,7 @@ claude-autoflow-template/
 │       └── check-autoflow-gate.sh     # 범용 Hook (수정 불필요)
 │
 ├── docs/
-│   ├── autoflow-guide.md              # Auto-Flow 단계별 상세 설명
+│   ├── autoflow-guide.md              # AutoFlow 단계별 상세 설명
 │   ├── git-workflow.md                # Git 절차 (범용)
 │   ├── repo-boundary-rules.md         # 레포 간 경계 규칙 (일반화)
 │   ├── submodule-common-rules.md      # 서브 레포 공통 규칙 (일반화)
@@ -88,7 +88,7 @@ claude-autoflow-template/
 #### 2-1. `CLAUDE.md.template` 작성
 **가장 중요한 파일.** 아래 원칙으로 작성:
 
-- **고정 섹션** (수정 불필요): Auto-Flow 단계 정의, 평가 시스템, Hook 게이트, Discussion Protocol
+- **고정 섹션** (수정 불필요): AutoFlow 단계 정의, 평가 시스템, Hook 게이트, Discussion Protocol
 - **교체 섹션** (placeholder): 서브 레포명, org명, 보안 스택, 커밋 소유권 테이블의 역할명
 - **선택 섹션** (주석 처리): 서브모듈 구조를 쓰지 않는 경우 제거할 블록
 
@@ -156,14 +156,14 @@ Placeholder 형식: `{{UPPER_SNAKE_CASE}}`
 ### Phase 3: README 및 문서화
 
 #### 3-1. `README.md` 작성
-- 이 템플릿이 무엇인지 (Auto-Flow 방법론 소개)
+- 이 템플릿이 무엇인지 (AutoFlow 방법론 소개)
 - 빠른 시작 (Quick Start): `init.sh` 실행 또는 수동 이식
 - 레포 구조 설명
 - 이식 후 체크리스트
 - 기여 방법 (CONTRIBUTING.md)
 
 #### 3-2. `docs/autoflow-guide.md` 작성
-현재 CLAUDE.md에 내장된 Auto-Flow 설명을 독립 문서로 분리:
+현재 CLAUDE.md에 내장된 AutoFlow 설명을 독립 문서로 분리:
 - 각 STEP의 목적과 완료 조건
 - Flow Control 표
 - 회귀 규칙
@@ -217,7 +217,7 @@ Phase 1부터 시작해주세요.
 
 ## 핵심 설계 원칙 (작업 중 유지)
 
-1. **Auto-Flow 로직은 건드리지 않는다** — STEP 정의, 평가 기준, Hook 로직은 범용 그대로 유지
+1. **AutoFlow 로직은 건드리지 않는다** — STEP 정의, 평가 기준, Hook 로직은 범용 그대로 유지
 2. **placeholder는 최소화한다** — 필수적인 것만. 너무 많으면 이식 비용이 높아짐
 3. **선택적 섹션은 주석으로** — 서브모듈 불필요한 경우를 위한 "여기서 여기까지 제거" 가이드
 4. **서브 레포 CLAUDE.md는 얇게** — 오케스트레이터 CLAUDE.md를 복사하지 않고 참조하도록
@@ -229,7 +229,7 @@ Phase 1부터 시작해주세요.
 
 | 항목 | 옵션 A | 옵션 B | 현재 판단 |
 |------|--------|--------|-----------|
-| 레포명 | `claude-autoflow-template` | `auto-flow-template` | 미결 |
+| 레포명 | `claude-autoflow-template` | `autoflow-template` | 미결 |
 | 서브모듈 구조 기본값 | git submodule 방식 | 독립 레포 방식 | 미결 |
 | 언어 | 한국어 README | 영어 README | 공개용이므로 영어 권장 |
 | 라이선스 | MIT | Apache 2.0 | 미결 |

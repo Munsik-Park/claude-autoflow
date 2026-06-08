@@ -31,7 +31,7 @@ Cross-repository modifications require explicit coordination through the Orchest
 
 An AI agent assigned to `repo-backend` **must not** commit to `repo-frontend`, even if the change is trivial (e.g., updating an API URL constant).
 
-**Why**: Cross-repo commits bypass that repo's Auto-Flow evaluation cycle, creating unreviewed changes.
+**Why**: Cross-repo commits bypass that repo's AutoFlow evaluation cycle, creating unreviewed changes.
 
 **Instead**: The Orchestrator creates a sub-issue in the target repo, and that repo's Developer AI handles it.
 
@@ -130,7 +130,7 @@ Orchestrator → Frontend AI:
 When two repos need changes that conflict (e.g., incompatible interface changes):
 
 1. **Detect**: Orchestrator identifies the conflict during coordination
-2. **Pause**: Both repos pause their Auto-Flow at current phase
+2. **Pause**: Both repos pause their AutoFlow at current phase
 3. **Resolve**: Orchestrator proposes resolution via Discussion Protocol
 4. **Agree**: Resolution documented and agreed upon
 5. **Resume**: Repos resume with the agreed approach

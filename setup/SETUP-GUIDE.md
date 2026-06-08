@@ -1,6 +1,6 @@
 # Manual Setup Guide
 
-> For users who prefer to set up Auto-Flow manually instead of using `init.sh`.
+> For users who prefer to set up AutoFlow manually instead of using `init.sh`.
 
 ---
 
@@ -8,7 +8,7 @@
 
 - A GitHub repository (or multiple repos for multi-sub-repo setup).
 - Claude Code installed and configured.
-- Basic familiarity with the Auto-Flow methodology
+- Basic familiarity with the AutoFlow methodology
   (see [`docs/autoflow-guide.md`](../docs/autoflow-guide.md)).
 
 ---
@@ -127,7 +127,7 @@ For each sub-repository:
 Add the following to the host repo:
 
 ```
-# Auto-Flow per-issue state files (host repo only)
+# AutoFlow per-issue state files (host repo only)
 .autoflow/issue-*.json
 
 # Claude Code local overrides

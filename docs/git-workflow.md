@@ -1,6 +1,6 @@
 # Git Workflow
 
-> Standard git procedures for projects using the Auto-Flow methodology.
+> Standard git procedures for projects using the AutoFlow methodology.
 
 ---
 
@@ -90,7 +90,7 @@ not advance to DIAGNOSE on a dirty tree.
 ## Issue
 Closes #<issue-number>
 
-## Auto-Flow Evaluation
+## AutoFlow Evaluation
 - Score: [X/10]
 - Report: [link or inline]
 
@@ -106,7 +106,7 @@ Closes #<issue-number>
 - Code is readable and follows project conventions.
 - Tests are adequate.
 - No security concerns.
-- Auto-Flow evaluation score is acceptable.
+- AutoFlow evaluation score is acceptable.
 
 ---
 
@@ -148,7 +148,7 @@ The `.autoflow/issue-{N}.json` state file is preserved as history; only its
 - No direct pushes.
 - Require PR with at least 1 approval.
 - Require CI checks to pass.
-- Require Auto-Flow evaluation PASS (enforced by `.claude/hooks/check-autoflow-gate.sh`).
+- Require AutoFlow evaluation PASS (enforced by `.claude/hooks/check-autoflow-gate.sh`).
 
 ---
 

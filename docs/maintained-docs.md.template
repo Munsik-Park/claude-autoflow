@@ -20,7 +20,7 @@ maintained-docs check) to ensure documentation stays in sync with code.
 | Document | Path | Update When | Maintainer |
 |----------|------|-------------|------------|
 | Main Operating Manual | `CLAUDE.md` | Process changes | Orchestrator AI / Human |
-| Auto-Flow Guide | `docs/autoflow-guide.md` | Phase definitions change | Orchestrator AI |
+| AutoFlow Guide | `docs/autoflow-guide.md` | Phase definitions change | Orchestrator AI |
 | Evaluation System | `docs/evaluation-system.md` | Scoring categories or thresholds change | Orchestrator AI |
 | Design Rationale | `docs/design-rationale.md` | New design decisions | Orchestrator AI / Human |
 | Git Workflow | `docs/git-workflow.md` | Branch/commit rules change | Orchestrator AI |

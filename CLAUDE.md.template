@@ -1,7 +1,7 @@
 # {{PROJECT_NAME}} — Claude Code Operating Manual (CLAUDE.md)
 
 > This file is the single source of truth for how Claude Code operates in this project.
-> It defines the Auto-Flow lifecycle, evaluation gates, agent roles, and operational rules.
+> It defines the AutoFlow lifecycle, evaluation gates, agent roles, and operational rules.
 
 **New AI agents: read [docs/design-rationale.md](docs/design-rationale.md) FIRST.**
 It explains *why* every rule exists. Understanding the design intent takes priority over following the rules. Without understanding the reasons, you may propose changes that look better but undermine core principles.
@@ -117,7 +117,7 @@ Core: UNDERSTAND → VERIFY → EVALUATE → RESPOND (ACCEPT / COUNTER / PARTIAL
 
 ---
 
-## Development Lifecycle — Auto-Flow
+## Development Lifecycle — AutoFlow
 
 When the user files an issue, the flow below executes in order. Each phase auto-transitions when its completion conditions are met. The flow only stops to wait for human input at the points explicitly marked.
 
@@ -154,9 +154,9 @@ For the per-phase activities, scoring rubrics, and regression rules, see [`docs/
 
 ---
 
-## Auto-Flow State Tracking (Hook integration)
+## AutoFlow State Tracking (Hook integration)
 
-While Auto-Flow is in progress, an issue-scoped state file lives under `.autoflow/`. The hook computes pass/fail directly from `scores` to enforce gates.
+While AutoFlow is in progress, an issue-scoped state file lives under `.autoflow/`. The hook computes pass/fail directly from `scores` to enforce gates.
 
 **File naming**: `.autoflow/issue-{N}.json`
 
@@ -274,7 +274,7 @@ Part of {{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}#N
 
 ## Reference Documents
 
-- **Auto-Flow phase guide**: [`docs/autoflow-guide.md`](docs/autoflow-guide.md)
+- **AutoFlow phase guide**: [`docs/autoflow-guide.md`](docs/autoflow-guide.md)
 - **Evaluation system**: [`docs/evaluation-system.md`](docs/evaluation-system.md)
 - **Design rationale**: [`docs/design-rationale.md`](docs/design-rationale.md)
 - **Git procedures**: [`docs/git-workflow.md`](docs/git-workflow.md)

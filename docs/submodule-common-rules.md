@@ -1,12 +1,12 @@
 # Sub-Repository Common Rules
 
-> Shared rules that apply to all sub-repositories in a multi-repo Auto-Flow project.
+> Shared rules that apply to all sub-repositories in a multi-repo AutoFlow project.
 
 ---
 
 ## Applicability
 
-These rules apply to every sub-repository (e.g., backend, frontend, infra, docs) that participates in the Auto-Flow lifecycle under a central orchestrator.
+These rules apply to every sub-repository (e.g., backend, frontend, infra, docs) that participates in the AutoFlow lifecycle under a central orchestrator.
 
 ---
 
@@ -22,9 +22,9 @@ Every sub-repository **must** contain:
 
 ---
 
-## Auto-Flow State Ownership
+## AutoFlow State Ownership
 
-Auto-Flow state lives in the host (orchestrator) repository under `.autoflow/issue-{N}.json` — one file per issue. Sub-repos do not own Auto-Flow state. A sub-repo that finds an `.autoflow/` directory locally should treat it as residual from a misconfigured run; the canonical state is in the host repo.
+AutoFlow state lives in the host (orchestrator) repository under `.autoflow/issue-{N}.json` — one file per issue. Sub-repos do not own AutoFlow state. A sub-repo that finds an `.autoflow/` directory locally should treat it as residual from a misconfigured run; the canonical state is in the host repo.
 
 The host's hook (`.claude/hooks/check-autoflow-gate.sh`) reads the state file and computes pass/fail directly from raw `scores`. Sub-repo AIs do not write to the state file — they receive instructions through `SendMessage` from the orchestrator.
 
@@ -58,13 +58,13 @@ This AI agent may only modify files within this repository.
 For cross-repo changes, raise a Discussion to the Orchestrator.
 ```
 
-### 4. Auto-Flow Reference
+### 4. AutoFlow Reference
 ```markdown
-## Auto-Flow
-This repository follows the Auto-Flow lifecycle defined in:
+## AutoFlow
+This repository follows the AutoFlow lifecycle defined in:
 {{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}/CLAUDE.md
 
-All Auto-Flow phases, evaluation criteria, and gate rules apply.
+All AutoFlow phases, evaluation criteria, and gate rules apply.
 ```
 
 ---
@@ -72,7 +72,7 @@ All Auto-Flow phases, evaluation criteria, and gate rules apply.
 ## Agent Behavior Rules
 
 ### DO
-- Follow the Auto-Flow phases in order
+- Follow the AutoFlow phases in order
 - Run tests before marking the TDD cycle complete
 - Use the Discussion Protocol for ambiguities
 - Reference the orchestrator's CLAUDE.md for process questions
@@ -158,8 +158,8 @@ Each sub-repo should have CI that:
 3. Reports results back to the PR
 4. Blocks merge on failure
 
-### Auto-Flow Gate Integration
+### AutoFlow Gate Integration
 The `check-autoflow-gate.sh` hook can be integrated into CI to verify:
 - Evaluation score meets threshold
-- All Auto-Flow phases completed in order
+- All AutoFlow phases completed in order
 - State files are consistent

@@ -122,7 +122,7 @@ For Go projects:
 
 ---
 
-## Integration with Auto-Flow
+## Integration with AutoFlow
 
 ### During AUDIT
 A fresh-spawned Evaluation AI scores this checklist's 5 items independently. Average ≥ 7.5, each ≥ 7, security ≤ 3 → block.

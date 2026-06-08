@@ -1,6 +1,6 @@
 # {{REPO_FRONTEND}} — Claude Code Operating Manual
 
-> Frontend sub-repository CLAUDE.md for use with Auto-Flow.
+> Frontend sub-repository CLAUDE.md for use with AutoFlow.
 
 ---
 
@@ -14,9 +14,9 @@
 
 ---
 
-## Auto-Flow
+## AutoFlow
 
-This repository follows the Auto-Flow lifecycle defined in:
+This repository follows the AutoFlow lifecycle defined in:
 **`{{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}/CLAUDE.md`**
 
 ---
