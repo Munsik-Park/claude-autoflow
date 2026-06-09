@@ -12,7 +12,7 @@
 
 ## Overview
 
-AutoFlow defines 16 phases (`PREFLIGHT` → `LAND`) that guide every code change
+AutoFlow defines 16 phases (`PREFLIGHT` → `HANDOFF`) that guide every code change
 from issue analysis to merge. Each phase has explicit entry/exit criteria, and
 evaluation gates prevent low-quality work from reaching production.
 
@@ -44,7 +44,7 @@ mapping is preserved 1:1 below.
 | STEP 6 | GATE:QUALITY |
 | STEP 7 | DELIVER |
 | STEP 8 | INTEGRATE |
-| STEP 9 | LAND |
+| STEP 9 | HANDOFF |
 
 ---
 
@@ -71,7 +71,7 @@ flowchart TD
     QUAL{{GATE:QUALITY}}:::gate
     DEL[DELIVER<br/>Sub-Repo Push]:::phase
     INT[INTEGRATE]:::phase
-    LAND[LAND<br/>PR + Merge + Close]:::phase
+    HAND[HANDOFF<br/>PR + Hand-off]:::phase
     CLOSE([Issue Auto-Closed]):::terminal
     DONE([Done]):::terminal
     HUMAN([Human Decision]):::terminal
@@ -106,11 +106,11 @@ flowchart TD
     QUAL -->|FAIL ×4| HUMAN
     DEL --> INT
     INT -->|FAIL| RED
-    INT -->|PASS| LAND
-    LAND -.->|env / merge conflict ≤2×| LAND
-    LAND -->|code issue| RED
-    LAND -->|retry exhausted| HUMAN
-    LAND -->|merged| DONE
+    INT -->|PASS| HAND
+    HAND -.->|env / push rejection ≤2×| HAND
+    HAND -->|code issue| RED
+    HAND -->|retry exhausted| HUMAN
+    HAND -->|handed off| DONE
 
     classDef phase fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
     classDef gate fill:#fff8e1,stroke:#f57f17,color:#bf360c
@@ -153,7 +153,7 @@ DISPATCH → RED → GREEN ⇄ VERIFY (≤3 round-trips) → REFINE
                                                    INTEGRATE → [FAIL] → RED
                                                        │
                                                        ▼
-                                                     LAND ◄── retry ≤2×
+                                                   HANDOFF ◄── retry ≤2×
                                                        │
                                                        ▼
                                                      Done
@@ -440,7 +440,7 @@ The `Minimal implementation` item is scored against [`submodule-common-rules.md`
 ```
 1. Each Submodule AI pushes its branch to its fork (`git push origin <branch>`).
 2. Teammate shutdown — Submodule AIs report completion and stop.
-3. The host's dev branch is NOT pushed yet (that happens at LAND, after sub-repo PRs are merged).
+3. The host's dev branch is NOT pushed yet (that happens at HANDOFF, when the host PR is created).
 ```
 
 In single-repo deployments, DELIVER reduces to a single `git push -u origin <branch>` and the Developer AI shuts down.
@@ -465,50 +465,62 @@ not a discretionary skip.
 
 ---
 
-## LAND — PR + Merge + Close
+## HANDOFF — PR Creation + Hand-off
 
-Sub-repo PRs are merged **before** the host PR is created. Squash merge changes the commit hash, so the host PR's submodule pointer must reference a commit that exists in the sub-repo's main.
+AutoFlow's mission ends by handing off an open PR — after PR creation, CI, the automated PR review, and resolved review triage (step 6.5). Merging, issue close, and deployment are outside AutoFlow's authority, performed entirely by an external review process that AutoFlow does not define or perform.
 
 ```
-1. Change summary (per-sub-repo changed files, commit hashes).
+1. Change summary (changed files, commit hashes; per-sub-repo if applicable).
 2. Test results report.
-3. Sub-repo PRs created (each sub-repo: fork → upstream).
-4. Sub-repo PRs CI passes + auto-merge (squash) confirmed.
-   - gh pr view --json state,mergedAt
-   - Do NOT run `gh pr merge` directly.
-5. Submodule pointer bump.
-   - git submodule foreach 'git checkout main && git fetch upstream && git merge upstream/main && git push origin main'
-   - git add <sub-repos> && git commit (host dev branch)
-   - git push -u origin dev/YYYY-MM-DD
-6. Host PR created.
-7. Host PR CI passes + auto-merge confirmed.
-8. Git Clean Check.
-9. Local deployment decision + execution + verification.
-10. Completion report.
+3. Push the dev branch: `git push -u origin dev/<branch>` (in a review-response cycle the branch is already tracked; the push updates the existing PR).
+4. Create PR(s) (skipped in a review-response cycle — step 3's push updates the existing PR):
+   - PR title and body follow the repository's title / PR-body conventions (see git-workflow.md > Pull Request Process).
+   - Sub-repo changes present:
+     a. Create each sub-repo PR (fork → upstream) with the `blocked-by-review` label, body `Part of {{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}#N` (no close keyword). The review gate is per-PR: every PR created for this cycle — the host PR and each sub-repo PR — carries `blocked-by-review` and is reviewed on its own diff in step 6. The `blocked-by-review` label must exist in each repo (one-time operator setup — see external-review-sequencing.md). `blocked-by-subrepo` is a separate, host-only merge-order gate, not a review gate.
+     b. Create the host PR as a draft with the `blocked-by-review` gate label (cleared by the review in step 6 when clean) and, for multi-repo changes, the `blocked-by-subrepo` label. The body is the rendered host PR body (see PR Issue Auto-Close in git-workflow.md).
+   - Host-only change (no sub-repo dependency): create the host PR as a draft with the `blocked-by-review` gate label but no `blocked-by-subrepo` label, and unblock the host-only merge-order check per external-review-sequencing.md > host-only case.
+5. Confirm CI is green on the created PR(s).
+6. Post-PR automated review (per-PR): run the external automated PR reviewer (e.g. Codex) on every PR created in step 4 — the host PR and each sub-repo PR — each reviewed against its own diff. The reviewer posts a severity-ranked review comment to each PR and removes that PR's `blocked-by-review` gate label when its review finds zero Critical/High/Medium findings, leaving it in place otherwise. The reviewer does not approve / request-changes, merge, or close. A sub-repo PR review is required, not optional — for a multi-repo change the host PR diff is only the submodule-pointer bump, so reviewing the host alone never covers the sub-repo code. In a review-response cycle the review re-runs per-PR against each PR still carrying the gate label.
+6.5. Review triage (per-PR; after step 6, before termination). For each PR, read two signals: the `blocked-by-review` label state (`gh pr view <N> --json labels`) and the review verdict. Per Cost Control, the orchestrator does not read the review comment body itself; a `sonnet` subagent ingests it (`gh pr view <N> --comments`), writes severity-classified findings to `.autoflow/issue-{N}-review-findings.md`, and returns `{max_severity, findings, low_confidence_items}` + the label state. The verdict (`max_severity`) is the primary signal; the label is a derived, fail-open-prone signal — the two can disagree because a clean review may still leave the label on if removal fails. Branch on the pair:
+   - max_severity ≥ Medium (the reviewer confirmed Critical/High/Medium) — do NOT end. Auto-enter a review-response cycle in-session with the review comment as the DIAGNOSE trigger, reusing the existing review-response machinery (re-running DIAGNOSE → … → HANDOFF on the flagged findings and re-running step 6 on the PRs still carrying the label). The label is cleared only by the re-review — the orchestrator never removes it. Each auto-triggered review-response entry is recorded in `.autoflow/issue-{N}-ledger.md` with a `review-autofix` marker.
+     - Pause for the user (`AskUserQuestion`; `active:false`) when the attempt hits any of: (a) the fix needs a contract / acceptance-criterion change, (b) the fix direction is ambiguous, (c) the finding is a Low Confidence item, (d) the attempt repeats the immediately-prior review-response cycle's complaint class with a new witness case (loop-check match). The user's answer is appended to the ledger and selects re-entry.
+     - Attempt cap = 7. Count this issue's `review-autofix`-marked ledger entries; on the 7th without the label clearing, stop auto-resolving and pause for the user (`active:false`).
+   - Label present but max_severity < Medium (or no verdict determinable) — this is NOT a code finding; the review was clean yet the label stuck (a label-removal / review-infrastructure failure). Do NOT start a review-response cycle (there is nothing to fix). Re-run the step-6 review on that PR so the re-review clears the label; if it still sticks, escalate to the user / operator (`active:false`). This path does NOT consume the 7-attempt code-resolution cap.
+   - No label and max_severity = Low — the orchestrator decides by pure agent judgment (no fixed rule) whether any Low finding is worth fixing now: yes → run the same in-session review-response resolution for those items (Low alone does not trigger a user pause unless one of the 4 criteria above is hit); no → proceed to step 7, optionally leaving a one-line PR note that the Low items were reviewed and deferred.
+   - No label and no findings — proceed directly to step 7.
+7. `.autoflow/issue-{N}.json` (only once review triage is resolved — no PR retains `blocked-by-review`): set `active` to `false`; remove the in-progress label from the issue (`gh issue edit #N --remove-label "status:in-progress"`).
+8. Report: "PR #N open (draft) — review posted — handed to external review." AutoFlow ends; the session may terminate.
 ```
 
-**[MUST]** Do NOT create the host PR before sub-repo PRs are merged.
-**[MUST]** Sub-repo PR bodies use `Part of <host-org>/<host-repo>#N` (no `Closes`); only the host PR uses `Closes #N`.
+**[MUST]** AutoFlow runs neither `gh pr merge` nor a push to the default branch. Merging — including, for multi-repo changes, the sub-repo → pointer → host sequencing — is owned entirely by the external review process. Submodule pointer reconciliation defaults to the operator but may be delegated to AutoFlow on explicit request after the sub-repo PR is merged upstream.
 
-In single-repo deployments, steps 3-7 collapse to: open one PR with `Closes #N`, wait for auto-merge.
+**[MUST]** The host PR body uses `Closes #N` so the external merge closes the issue automatically. Sub-repo PR bodies use `Part of {{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}#N` and omit `Closes`.
 
-### LAND failure → regression
+Topology decides which PRs HANDOFF creates (see [`CLAUDE.md`](../CLAUDE.md) > Deployment Topology): a project with one or more submodules creates each affected sub-repo PR plus the host PR; change scope determines which sub-repo PRs exist. In single-repo deployments (zero submodules), HANDOFF creates one host PR with `Closes #N`.
+
+Dev-branch deletion and removal of the resolved issue's `.autoflow/issue-{N}*` management files follow the external merge or rejection, handled by the next cycle's PREFLIGHT cleanup. The durable record lives in the GitHub PR/issue and commit log (the `.autoflow` files are gitignored scratch).
+
+### HANDOFF failure → regression
+
+Classify the cause and regress along the matching path.
 
 ```
-Sub-repo PR (step 4) failure:
-  CI failure (code issue)     → RED (existing rules apply)
-  CI failure (env / transient) → CI retry, then step 4 retry (max 2)
-  Merge conflict              → sub-repo branch rebase + force push → step 3 retry (max 2)
-  Partial merge               → only un-merged sub-repos are re-classified
-
-Host PR (step 7) failure:
-  CI failure (code issue)     → RED (existing rules apply)
-  CI failure (pointer issue)  → step 5 retry
-  Merge conflict              → dev branch rebase + force push → step 6 retry (max 2)
+PR creation / CI (steps 3-5) failure:
+  CI failure (code issue)      → RED (test/impl fix, existing rules apply)
+  CI failure (env / transient) → CI retry, then step 5 retry (max 2)
+  Push rejected (branch state)  → dev branch rebase on main → step 3 retry (max 2)
 ```
 
-**Max retries**: LAND internal retry max 2. Two failures → human.
-**RED regression**: existing GREEN↔VERIFY round-trip rule (max 3) applies.
+**Max retries**: HANDOFF internal retry max 2. Two failures → human.
+**RED regression**: existing GREEN↔VERIFY round-trip rules (max 3) apply.
+
+### Merge Sequencing (external review)
+
+AutoFlow opens the host PR as a draft with the `blocked-by-subrepo` label; the external reviewer performs the merge in this order — (1) merge each sub-repo PR into its upstream default branch, (2) reconcile the host PR's submodule pointer to the upstream merge commit, (3) signal the host repo that the sub-repo merge is done (unblocking the host merge-order check), (4) promote the host PR draft → ready, (5) merge the host PR (its `Closes #N` line closes the issue). The full reviewer-facing procedure, dispatch payload schema, and concurrent-cycle pointer-reconciliation guard live in [`external-review-sequencing.md`](external-review-sequencing.md) and [`git-workflow.md`](git-workflow.md) > Merge Sequencing.
+
+**Host-only case**: there is no sub-repo step; the host merge-order check is unblocked at PR creation, and the reviewer performs only the promote + merge steps.
+
+**[MUST]** AutoFlow does not merge, promote the draft to ready, or merge the sub-repo PRs. It only creates the draft PR(s) at HANDOFF. Pointer reconciliation may be delegated to AutoFlow on explicit request after the sub-repo PR is merged.
 
 ---
 

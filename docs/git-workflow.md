@@ -45,7 +45,7 @@ The `Next:` line lets the next session pick up where this one left off (see
 
 ## Git Clean Check
 
-Used at PREFLIGHT (entry) and LAND (completion).
+Used at PREFLIGHT (entry) and HANDOFF (completion).
 
 ```bash
 # 1. Working tree is clean
@@ -62,7 +62,7 @@ git checkout -b <type>/<issue>-<desc> main
 If any check fails:
 
 - Uncommitted changes → `git stash`, `git commit`, or discard with the user's
-  approval (PREFLIGHT). At LAND, discuss with the user before discarding.
+  approval (PREFLIGHT). At HANDOFF, discuss with the user before discarding.
 - Remote has new commits ahead → `git pull --rebase` and re-run.
 - Wrong base → re-branch from latest main.
 
@@ -123,11 +123,39 @@ Closes #<issue-number>
 - Large features whose individual commits tell an important story.
 - Multi-phase implementations where history matters.
 
+### Merge Sequencing (external review)
+
+For host PRs with sub-repo dependencies (multi-repo deployments — see `CLAUDE.md` > Deployment Topology), the merge order is sub-repo → pointer bump → host. The host PR is created as a draft with the `blocked-by-subrepo` label at HANDOFF; the label is auto-removed and a required status check `subrepo-merged` is published by `.github/workflows/handoff-sequence.yml` when the reviewer dispatches `subrepo-merged` after merging the sub-repo PR upstream.
+
+Full reviewer-facing procedure: [`external-review-sequencing.md`](external-review-sequencing.md).
+
+See also: [`autoflow-guide.md`](autoflow-guide.md) > HANDOFF > Merge Sequencing (external review).
+
+### Pointer reconciliation — concurrent-cycle gitlink guard
+
+When a **reconcile request** (pointer bump after the sub-repo PR merges) is delegated to AutoFlow and several cycles are in external review at once, the dev branch may have forked before another cycle's host PR merged and reconciled the `services/{{REPO_SUBMODULE}}` pointer. A naive bump + push then leaves the host PR `CONFLICTING`. Before bumping, compare `BASE` (dev's merge-base pointer), `MAIN` (current `origin/main` pointer), and `TARGET` (this issue's `merge_commit_sha`); if `MAIN != BASE`, resolve by fork ancestry:
+
+```bash
+git fetch origin main && git -C services/{{REPO_SUBMODULE}} fetch origin main
+# TARGET descendant of MAIN: put TARGET on the dev gitlink FIRST, then merge main.
+# A bare `git merge origin/main` with the dev pointer still at BASE resolves the
+# gitlink to MAIN (3-way merge takes theirs when ours==base), NOT TARGET.
+if git -C services/{{REPO_SUBMODULE}} merge-base --is-ancestor <MAIN> <TARGET>; then
+  git -C services/{{REPO_SUBMODULE}} checkout <TARGET>
+  git add services/{{REPO_SUBMODULE}} && git commit -m "chore(#<N>): reconcile services/{{REPO_SUBMODULE}} pointer to <TARGET>"
+  git merge --no-edit origin/main          # dev gitlink TARGET ⊇ MAIN -> submodule stays at TARGET
+  test "$(git ls-tree HEAD services/{{REPO_SUBMODULE}} | awk '{print $3}')" = "<TARGET>" || echo "POINTER != TARGET — fix before push"
+fi
+# MAIN descendant of TARGET (would regress the pointer) OR divergent -> do NOT push; escalate to operator
+```
+
+Before/after pushing, verify **all three**: (1) `git ls-tree HEAD services/{{REPO_SUBMODULE}}` == `TARGET` (a mismatch is `Exit 79`); (2) `gh pr view <PR> --json mergeable` == `MERGEABLE`; (3) CI rebuild result (authenticated API call to `{{CI_URL}}`). **[MUST]** An unauthenticated CI call may return `403`/empty — never read that as "CI down". Run the reconcile against a freshly-synced `main` (Post-Merge Cleanup of prior merges first) so `BASE ≈ MAIN`. Full procedure: [`external-review-sequencing.md`](external-review-sequencing.md) > Reconcile preflight.
+
 ---
 
 ## Post-Merge Cleanup
 
-After the PR is confirmed merged at LAND:
+After the PR is merged (external review merges it; typically observed at the next cycle's PREFLIGHT):
 
 ```bash
 git checkout main

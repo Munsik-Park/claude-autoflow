@@ -8,7 +8,7 @@
 
 ### What Is Being Ported
 The Claude Code operating know-how embedded in `Munsik-Park/ontology-platform`'s CLAUDE.md, hooks, and docs:
-- AutoFlow (PREFLIGHT–LAND) development lifecycle
+- AutoFlow (PREFLIGHT–HANDOFF) development lifecycle
 - 3-Phase independent structure analysis (bias prevention)
 - Multi-agent role separation (orchestrator / Developer AI / Test AI / Evaluation AI)
 - Hook-based evaluation gate (`check-autoflow-gate.sh`)

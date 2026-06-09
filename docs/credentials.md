@@ -62,7 +62,7 @@ repos:
 
 ### `.autoflow/submodules.yaml` (checked in; multi-repo only)
 
-Maps each sub-repo to its upstream and the fork host used at LAND.
+Maps each sub-repo to its upstream and the fork host used at HANDOFF.
 
 ```yaml
 submodules:
@@ -128,9 +128,9 @@ Secret-shape patterns (used by AUDIT; see `security-checklist.md`):
 - AWS access key: `^AKIA[0-9A-Z]{16}$`
 - Generic env line inside a code block: `^[A-Z_][A-Z0-9_]*=.+$`
 
-### [MUST] LAND uses the gh login that matches the role
+### [MUST] HANDOFF uses the gh login that matches the role
 
-At LAND, PR creation must run under the gh login defined in `.autoflow/auth.local.yaml`:
+At HANDOFF, PR creation must run under the gh login defined in `.autoflow/auth.local.yaml`:
 
 - Host PR (orchestrator scope) → `gh_users.orchestrator`
 - Sub-repo PR for `<name>` → `gh_users.submodules.<name>` (falls back to orchestrator)
@@ -142,7 +142,7 @@ gh auth switch --user "$LOGIN"     # or: GH_TOKEN=$(...) gh pr create ...
 gh auth status                     # verify
 ```
 
-This is the codified version of CLAUDE.md > LAND step 4's "the fork account lacks upstream merge permission" note: the orchestrator account opens the host PR, each fork account opens its own sub-repo PR.
+This is the codified version of CLAUDE.md > HANDOFF step 4's "the fork account lacks upstream merge permission" note: the orchestrator account opens the host PR, each fork account opens its own sub-repo PR.
 
 ### [MUST] Sub-repo AIs do not write to host `.autoflow/auth.local.yaml`
 

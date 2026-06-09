@@ -2,7 +2,7 @@
 
 A reusable template for structured, evaluation-gated AI-assisted software development with [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
-AutoFlow is a 16-phase development lifecycle (PREFLIGHT → LAND) that ensures
+AutoFlow is a 16-phase development lifecycle (PREFLIGHT → HANDOFF) that ensures
 quality through multi-agent role separation, independent analysis, and
 quantified evaluation gates. This template is the **generalized form** of the
 methodology originally implemented in `ontology-platform` — a multi-sub-repo
@@ -13,7 +13,7 @@ deployment orchestrator. The only changes from upstream are:
 
 Every rule, retry cap, evaluation category, and pass threshold is preserved
 from upstream. Single-repo projects are supported as the degenerate case
-(DELIVER pushes one branch, INTEGRATE / LAND collapse to a single PR flow).
+(DELIVER pushes one branch, INTEGRATE / HANDOFF collapse to a single PR flow).
 
 ---
 
@@ -37,7 +37,7 @@ AUDIT           Security Audit    — Independent project-specific security audi
 GATE:QUALITY    Completion Eval   — Scored quality assessment (gate)
 DELIVER         Sub-Repo Push     — each Submodule AI pushes its fork branch; Teammate shutdown
 INTEGRATE       Integration Test  — system build, health check, functional test
-LAND            PR + Merge + Close — sub-repo PRs first → pointer bump → host PR → merge → cleanup
+HANDOFF         PR + Hand-off — push dev branch → sub-repo PRs → host PR (Closes #N) → CI green → review triage; AutoFlow ends at the open PR (external review merges)
 ```
 
 The happy-path flow at a glance (regression edges and human-escalation paths
@@ -60,7 +60,7 @@ flowchart LR
     AUD --> QUAL{{GATE:QUALITY}}
     QUAL --> DEL[DELIVER]
     DEL --> INT[INTEGRATE]
-    INT --> LAND([LAND])
+    INT --> HANDOFF([HANDOFF])
 
     classDef gate fill:#fff8e1,stroke:#f57f17,color:#bf360c
     class HYP,PLAN,AUD,QUAL gate
