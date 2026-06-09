@@ -10,10 +10,10 @@ All communication with the user must be in Korean (한글). Even if the user wri
 
 A public template repository that generalizes the AutoFlow methodology from `ontology-platform` into a reusable framework. The generalization is intentionally narrow:
 
-1. **Name generalization** — upstream's numeric `STEP 0~9` (and sub-step `5a/5b/5c/5d/5.5/5.7`) identifiers are replaced by semantic phase names (`PREFLIGHT`, `DIAGNOSE`, `GATE:HYPOTHESIS`, `ARCHITECT`, `GATE:PLAN`, `DISPATCH`, `RED`, `GREEN`, `VERIFY`, `REFINE`, `VALIDATE`, `AUDIT`, `GATE:QUALITY`, `DELIVER`, `INTEGRATE`, `LAND`). Each generalized name maps 1:1 to an upstream STEP — no phase is added or removed.
+1. **Name generalization** — upstream's numeric `STEP 0~9` (and sub-step `5a/5b/5c/5d/5.5/5.7`) identifiers are replaced by semantic phase names (`PREFLIGHT`, `DIAGNOSE`, `GATE:HYPOTHESIS`, `ARCHITECT`, `GATE:PLAN`, `DISPATCH`, `RED`, `GREEN`, `VERIFY`, `REFINE`, `VALIDATE`, `AUDIT`, `GATE:QUALITY`, `DELIVER`, `INTEGRATE`, `HANDOFF`). Each generalized name maps 1:1 to an upstream STEP — no phase is added or removed; the terminal phase additionally narrows its scope (`HANDOFF` ends by handing off an open PR — after PR creation, CI, automated review, and resolved review triage; merge/close/deploy stay outside AutoFlow's authority — see Development Lifecycle).
 2. **Identifier placeholders** — service-specific names like `ontology-api`, `saiso`, organization `connev-ontology`, etc. are replaced by `{{REPO_*}}`/`{{GITHUB_ORG}}` placeholders, so users instantiate them through `setup/init.sh`.
 
-Every rule, retry cap, evaluation category, score threshold, and regression path is preserved verbatim from upstream. The methodology evolves in `ontology-platform`; this repository tracks rather than diverges.
+Every rule, retry cap, evaluation category, score threshold, and regression path is preserved from upstream, with one deliberate divergence: AutoFlow hands off at an open PR (`HANDOFF`) instead of upstream's merge-and-close terminal step — merge/close/deploy stay outside AutoFlow's authority and an external review process performs the merge. Aside from this, the methodology evolves in `ontology-platform` and this repository tracks rather than diverges.
 
 ## Instruction Conventions
 
@@ -30,6 +30,15 @@ Every rule, retry cap, evaluation category, score threshold, and regression path
 
 For details, see [`docs/repo-boundary-rules.md`](docs/repo-boundary-rules.md).
 
+## Deployment Topology
+
+"Single-repo" and "multi-repo" classify a project by **submodule count**, independent of repository count or the scope of any individual change.
+
+- **single-repo** = the host repository contains **zero submodules**. The Submodule AI operates as the Developer AI in the orchestrator's own repository, fork/upstream handling is omitted, and the orchestrator commits code changes directly.
+- **multi-repo** = the host repository contains **one or more submodules**. One submodule and N submodules follow the identical contract: full fork-and-PR mechanics apply, sub-repo AIs own their directories, and the orchestrator coordinates and opens PRs.
+
+Classification is determined solely by submodule count, evaluated at PREFLIGHT and re-confirmed at HANDOFF. A multi-repo project applies the multi-repo procedure to every issue, including issues whose changes land only in host files: change scope decides which steps execute, while topology decides which procedure governs them.
+
 ## Credentials & Runtime State
 
 Secrets, credential references, and project config are separated into three tiers:
@@ -41,7 +50,7 @@ Secrets, credential references, and project config are separated into three tier
 | Project config (placeholders, fork↔upstream map) | `.autoflow/config.yaml`, `.autoflow/submodules.yaml` | Yes |
 
 - **[MUST]** No phase reads `.env*` files. No AI output (messages, commits, PR bodies, logs) contains secret values. AUDIT rejects commits whose diff matches secret-shape patterns.
-- **[MUST]** LAND switches gh login per role using `.autoflow/auth.local.yaml`: host PRs run under `gh_users.orchestrator`, sub-repo PRs run under `gh_users.submodules.<name>`. This codifies LAND step 4's "fork account lacks upstream merge permission" constraint.
+- **[MUST]** HANDOFF switches gh login per role using `.autoflow/auth.local.yaml`: host PRs run under `gh_users.orchestrator`, sub-repo PRs run under `gh_users.submodules.<name>`. This codifies HANDOFF's PR-creation "fork account lacks upstream merge permission" constraint.
 - Sub-repo credential behaviour: see [`docs/submodule-common-rules.md`](docs/submodule-common-rules.md) > Credentials.
 - Full schemas, examples, masking patterns, and migration steps: see [`docs/credentials.md`](docs/credentials.md).
 
@@ -100,8 +109,9 @@ AutoFlow teammate and subagent spawns choose the model by phase work type rather
 | REFINE | `sonnet` | mechanical `/simplify` application |
 | AUDIT | `sonnet` | security rubric, 5 items × 10 points (1-cycle pilot before settling) |
 | GATE:QUALITY | `sonnet` | rubric, 10 items × 10 points |
+| HANDOFF review-triage (finding ingestion + Low judgment) | `sonnet` | review-comment ingestion (severity classification) + Low-finding impact judgment; the auto-resolution itself reuses the RED/GREEN/… rows above |
 
-Other phases either have no teammate spawn or are run by the orchestrator: PREFLIGHT (orchestrator), DISPATCH (`TaskCreate` + `SendMessage` only), VALIDATE (automatic gate), DELIVER / INTEGRATE / LAND (orchestrator).
+Other phases either have no teammate spawn or are run by the orchestrator: PREFLIGHT (orchestrator), DISPATCH (`TaskCreate` + `SendMessage` only), VALIDATE (automatic gate), DELIVER / INTEGRATE (orchestrator); HANDOFF is orchestrator-run except its review-triage finding-ingestion / Low-judgment subagent (see table).
 
 **[MUST]** Every `Agent` spawn (in either `subagent_type` or `team_name` form) declares the `model` parameter explicitly (`model: "sonnet"` or `model: "opus"`). Without it the host session model is inherited and this per-phase policy is bypassed. The orchestrator's own model follows the user's session settings (outside this policy). Note: `SendMessage` is not a spawn — it delivers to an existing teammate — and therefore carries no `model` parameter.
 
@@ -189,7 +199,7 @@ AUDIT           : Security Audit    — independent Evaluation AI (5 items × 10
 GATE:QUALITY    : Completion Eval   — Evaluation AI (10 items × 10 points)
 DELIVER         : Sub-Repo Push     — each Submodule AI pushes its fork branch; Teammate shutdown
 INTEGRATE       : Integration Test  — system build, health check, functional test (single-repo: project-level integration test)
-LAND            : PR + Merge + Close — sub-repo PRs first → pointer bump → host PR → merge → Git Clean Check → local deploy
+HANDOFF         : PR + Hand-off     — push dev branch → sub-repo PRs → host PR (Closes #N) → CI green → automated review → review-triage (auto-resolve Medium+ / judge Low) → state inactive once review is clean; external review merges out of band
 ```
 
 ### Flow Control
@@ -219,15 +229,18 @@ LAND            : PR + Merge + Close — sub-repo PRs first → pointer bump →
 | AUDIT → GATE:QUALITY | security audit PASS |
 | GATE:QUALITY → DELIVER | completion evaluation PASS |
 | DELIVER → INTEGRATE | sub-repo push + Teammate shutdown done |
-| INTEGRATE → LAND | integration tests pass |
-| LAND → done | sub-repo PRs merged → pointer bump → host PR merged → Git Clean Check → local deploy decision/verification |
-| LAND → LAND (retry) | environment / transient error or merge conflict → internal retry (max 2) |
-| LAND → RED | code issue (CI failure) → fix tests/implementation and re-flow |
-| LAND → user | LAND internal retry exhausted (2×) |
+| INTEGRATE → HANDOFF | integration tests pass |
+| HANDOFF (review-triage) → review-response | automated PR review verdict `max_severity ≥ Medium` → auto-enter an in-session review-response cycle with the review comment as the DIAGNOSE trigger; the orchestrator never removes the `blocked-by-review` label — only the re-review clears it |
+| HANDOFF (review-triage) → re-review / operator | label present but `max_severity < Medium` (or no verdict) → label-clear / review-infra failure, not a code finding → re-run the automated review; still stuck → escalate (`active:false`). Does not consume the 7-attempt cap |
+| HANDOFF (review-triage) → user | auto-resolution hits a user-decision criterion (contract/AC change, ambiguous fix, `Low Confidence` item, loop-check match) or the 7-attempt cap → pause (`active:false`) |
+| HANDOFF → end | all PRs cleared of `blocked-by-review` (no Medium+) + Low triage resolved + CI green (host PR carries `Closes #N`) → `active:false` → AutoFlow ends; external review merges out of band |
+| HANDOFF → HANDOFF (retry) | environment / transient error or push rejection → internal retry (max 2) |
+| HANDOFF → RED | CI failure (code issue) → fix tests/implementation and re-flow |
+| HANDOFF → user | HANDOFF internal retry exhausted (2×) |
 
-**Regressions**: GATE:HYPOTHESIS cause FAIL → DIAGNOSE (max 2×). GATE:PLAN FAIL → ARCHITECT (max 3×). VERIFY FAIL → cause-branched fix (max 3 round-trips). REFINE FAIL → Developer AI fixes and re-runs (max 2×; on second failure, abandon refactor and proceed to VALIDATE with the Green state). AUDIT FAIL → fix and re-evaluate (max 2×). GATE:QUALITY FAIL → RED (max 3×). INTEGRATE FAIL → RED. LAND failure → cause classification: code issue → RED; environment / conflict → LAND internal retry (max 2×).
-**Human escalation**: 3 regressions without pass. VERIFY deadlock unresolved by Evaluation AI arbitration → human. LAND internal retry exhausted → human.
-**PR auto-creation**: at LAND, the orchestrator opens PRs and confirms auto-merge.
+**Regressions**: GATE:HYPOTHESIS cause FAIL → DIAGNOSE (max 2×). GATE:PLAN FAIL → ARCHITECT (max 3×). VERIFY FAIL → cause-branched fix (max 3 round-trips). REFINE FAIL → Developer AI fixes and re-runs (max 2×; on second failure, abandon refactor and proceed to VALIDATE with the Green state). AUDIT FAIL → fix and re-evaluate (max 2×). GATE:QUALITY FAIL → RED (max 3×). INTEGRATE FAIL → RED. HANDOFF failure → cause classification: code issue → RED; environment / push rejection → HANDOFF internal retry (max 2×). Automated-review auto-resolution (Medium+ found at HANDOFF) → review-response (max 7×; on the 7th without the `blocked-by-review` label clearing, pause for the user).
+**Human escalation**: 3 regressions without pass. VERIFY deadlock unresolved by Evaluation AI arbitration → human. HANDOFF internal retry exhausted → human.
+**PR creation**: at HANDOFF, the orchestrator opens the PR(s), places `Closes #N` on the host PR, and confirms CI is green. Merging is external; AutoFlow does not merge.
 
 ### Phase Playbook Loading Contract
 
@@ -252,7 +265,7 @@ Each phase's procedure body — its numbered steps, scoring rubric, and phase-lo
 | GATE:QUALITY | [`docs/autoflow-guide.md`](docs/autoflow-guide.md) > GATE:QUALITY |
 | DELIVER | [`docs/autoflow-guide.md`](docs/autoflow-guide.md) > DELIVER |
 | INTEGRATE | [`docs/autoflow-guide.md`](docs/autoflow-guide.md) > INTEGRATE |
-| LAND | [`docs/autoflow-guide.md`](docs/autoflow-guide.md) > LAND; git procedures: [`docs/git-workflow.md`](docs/git-workflow.md) |
+| HANDOFF | [`docs/autoflow-guide.md`](docs/autoflow-guide.md) > HANDOFF (incl. Merge Sequencing); reviewer/operator guide: [`docs/external-review-sequencing.md`](docs/external-review-sequencing.md); git procedures: [`docs/git-workflow.md`](docs/git-workflow.md) |
 
 The gate **PASS thresholds** (each ≥ 7, avg ≥ 7.5, security ≤ 3 → block) and the **regression / retry caps** are fixed invariants: they live in the Flow Control table and the **Regressions** line above and are enforced by the hook (`.claude/hooks/check-autoflow-gate.sh`) — the per-gate playbooks restate each gate's rubric items but not these thresholds. The evaluation contract (fresh-spawn Evaluation AI, the 10-point scale, the output format) lives in [`docs/teammate-contracts.md`](docs/teammate-contracts.md) > Evaluation System and [`docs/evaluation-system.md`](docs/evaluation-system.md).
 
@@ -310,7 +323,7 @@ If `verdict` is empty or contains `skip`, the gate is not triggered for the caus
 - `git push` → AUDIT + GATE:QUALITY pass required.
 - `gh pr create` → AUDIT + GATE:QUALITY pass required.
 
-**Completion**: at LAND, set `active` to `false` (the file is preserved as history).
+**Completion**: at HANDOFF, once review triage is resolved (no PR retains `blocked-by-review`), set `active` to `false` (the file is preserved as the in-flight handoff record). The open PR is then owned by external review, which merges on its own schedule.
 **Forced termination**: also set `active` to `false`.
 
 ## Evaluation System
@@ -364,17 +377,17 @@ If `verdict` is empty or contains `skip`, the gate is not triggered for the caus
 
 ### PR Wait Rule
 
-**[MUST]** Do not start new work until the auto-merge of the previous PR is confirmed. Verified at LAND's Git Clean Check.
+**[MUST]** One issue runs at a time. Do not start new work until the previous cycle has reached HANDOFF (its PR is open and handed off to external review). AutoFlow hands off before the external merge, so readiness is not tied to the merge. Verified at HANDOFF's Git Clean Check.
 
 ### Git Clean Check
 
-Used at PREFLIGHT (entry) and LAND (completion). → see `docs/git-workflow.md` > Git Clean Check.
+Used at PREFLIGHT (entry) and HANDOFF (completion). → see `docs/git-workflow.md` > Git Clean Check.
 
 ### Post-Merge Cleanup
 
-Performed at LAND after the host PR is confirmed merged. → see `docs/git-workflow.md` > Post-Merge Cleanup.
+Performed after the external merge is observed — AutoFlow hands off before the merge, so cleanup runs at the next cycle's PREFLIGHT (or in the live session if it observes the merge first). → see `docs/git-workflow.md` > Post-Merge Cleanup.
 
-**[MUST]** The submodule pointer bump happens at LAND step 5 (before the host PR is created). If a Post-Merge step ever requires an additional pointer-bump commit, that is a procedural error.
+**[MUST]** AutoFlow does not bump the submodule pointer as a merge step — the sub-repo → pointer → host sequencing is owned by external review (see `docs/git-workflow.md` > Merge Sequencing and [`docs/external-review-sequencing.md`](docs/external-review-sequencing.md)). Pointer reconciliation may be delegated to AutoFlow only on explicit request, after the sub-repo PR is merged upstream.
 
 ### Commit Rules
 
@@ -402,9 +415,9 @@ Co-Authored-By: Claude <model> <noreply@anthropic.com>
 
 ### PR Flow
 
-**Feature (sub-repo change included)**: Submodule AI commit → push to fork → sub-repo PR created and merged (squash) → submodule pointer bump → host PR created and merged.
-**Feature (host-only)**: orchestrator commit → push → PR created → auto-merge confirmed.
-**Rules / infrastructure**: orchestrator direct commit → push → PR created → auto-merge confirmed.
+**Feature (sub-repo change included)**: Submodule AI commit → push to fork → sub-repo PR created. Host PR created with `Closes #N`. AutoFlow ends; external review merges (sub-repo → pointer → host sequencing is external).
+**Feature (host-only)**: orchestrator commit → push → PR created with `Closes #N`. AutoFlow ends; external review merges.
+**Rules / infrastructure**: orchestrator direct commit → push → PR created. AutoFlow ends; external review merges.
 
 ### PR Issue Auto-Close
 

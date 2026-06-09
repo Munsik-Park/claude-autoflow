@@ -207,7 +207,7 @@ fi
 
 if [[ "$REPO_BACKEND" == "none" && "$REPO_FRONTEND" == "none" && "$REPO_INFRA" == "none" ]]; then
   warn "No sub-repos configured — running in single-repo mode."
-  warn "DELIVER pushes a single branch and INTEGRATE / LAND collapse to a single PR flow."
+  warn "DELIVER pushes a single branch and INTEGRATE / HANDOFF collapse to a single PR flow."
   warn "You may want to remove the Sub-Repository List rows from CLAUDE.md."
 fi
 

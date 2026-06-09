@@ -119,17 +119,17 @@ The act of judging "this change is simple" is itself a product of bias. That jud
 
 ---
 
-### Decision 6: Structure Evaluation FAIL Closes the Issue
+### Decision 6: Structure Evaluation FAIL = No Code Change Needed (close, or reply if a PR is open)
 
 **What it does**
 
-When the structure evaluation at GATE:HYPOTHESIS returns FAIL, the orchestrator auto-closes the GitHub issue with a comment recording the structure-evaluation scores and a summary of the existing mechanisms that handle the concern. AutoFlow terminates locally; the state file is marked `active: false`.
+When the structure evaluation at GATE:HYPOTHESIS returns FAIL, no code change is needed — the existing structure already satisfies the request. The next action depends on whether a PR is already open for the issue. For a fresh issue (no open PR), the orchestrator auto-closes the GitHub issue with a comment recording the structure-evaluation scores and a summary of the existing mechanisms, and AutoFlow terminates locally (`active: false`). When a PR is already open — a **review-response** cycle, the disposition introduced with the HANDOFF terminal phase — closing the issue would be wrong, so the orchestrator instead posts the finding as a reply on the open PR and leaves the issue and PR open for external review.
 
 **Why it works this way**
 
-A structure-evaluation FAIL is the system's way of saying "the existing structure already handles this." The cheapest correct outcome is to leave the existing structure in place and stop. Auto-closing the issue records that conclusion in a single auditable action and matches the principle that **the best code is code that is never written**.
+A structure-evaluation FAIL is the system's way of saying "the existing structure already handles this." The cheapest correct outcome is to leave the existing structure in place and stop, recording that conclusion in a single auditable action — matching the principle that **the best code is code that is never written**.
 
-If the human author disagrees with the auto-close, the issue can be reopened or re-filed with additional context. That re-entry is the natural correction path. Keeping a "FAIL but open" intermediate state would invite the orchestrator to interpret what to do next, which puts the disposition decision back in front of the bias the gate exists to prevent.
+Every disposition branch has a defined terminus, so no "FAIL but open" intermediate state is left for the orchestrator to interpret (which would put the disposition back in front of the bias the gate exists to prevent). For a fresh issue the issue is auto-closed; if the human author disagrees, reopening or re-filing with additional context is the natural correction path. For a review-response cycle the issue's PR is already open, so the finding is posted as a PR reply and the cycle hands the disposition to the same external review that owns the PR.
 
 ---
 
@@ -137,7 +137,7 @@ If the human author disagrees with the auto-close, the issue can be reopened or 
 
 **What it does**
 
-Every repetition in AutoFlow (e.g., GREEN↔VERIFY test-fix cycles, GATE:QUALITY re-evaluation cycles, LAND retry attempts) has an explicit maximum retry count. No loop can run indefinitely.
+Every repetition in AutoFlow (e.g., GREEN↔VERIFY test-fix cycles, GATE:QUALITY re-evaluation cycles, HANDOFF retry attempts) has an explicit maximum retry count. No loop can run indefinitely.
 
 **Why it works this way**
 
@@ -175,15 +175,30 @@ The tempting shortcut is "have the teammates report more cheaply" or "summarize 
 
 ---
 
+### Decision 9: HANDOFF Acts on Its Own Review Before Handing Off (Bounded Auto-Resolution)
+
+**Problem.** AutoFlow's terminal phase originally ran the per-PR automated review and then ended unconditionally, leaving any `blocked-by-review` label (Critical/High/Medium findings) for a human to notice and re-trigger. The findings the methodology itself produced sat idle until someone re-invoked the issue.
+
+**Decision.** HANDOFF adds a review-triage step after the automated PR review. If the review verdict is `Medium` or worse, the orchestrator auto-enters a review-response cycle in-session with the review comment as the DIAGNOSE trigger — reusing the existing review-response machinery (DIAGNOSE target, loop check, gates, re-HANDOFF, re-review) rather than introducing a new phase. If the label was cleared (only Low or no findings), the orchestrator judges the Low findings by agent judgment and decides whether to fix them. This deliberately extends AutoFlow's reach past the "end at PR creation" reflex: the methodology now resolves its own review output before handing the PR off, while still never merging.
+
+**Why it is safe.**
+- **The orchestrator never owns the label.** AutoFlow never removes the `blocked-by-review` label — the label's single authority is the isolated external re-review. Auto-resolution can only *fix code and re-trigger the review*; it can never declare itself clean. The fix trigger keys off the review **verdict (`max_severity`), not label presence alone** — a clean review may leave the label on if removal fails, so a label-present / sub-Medium PR is routed to a re-review (or operator escalation), not a code-fix loop.
+- **The auto-loop is bounded.** A user-decision pause fires on any of four triggers (contract/AC change, ambiguous fix, `Low Confidence` item, loop-check match), and a hard cap of 7 auto-resolution attempts (counted via `review-autofix`-marked ledger entries) escalates to the user. This reuses the existing loop-termination and oscillation-guard mechanisms (Decision 7), so the new trigger source cannot loop without a termination condition.
+- **The cap lives in the ledger, not the gate.** The 7-attempt cap is tracked in the append-only decision ledger, so the evaluation gates and their thresholds are unchanged. Re-pushes route through the existing AUDIT + GATE:QUALITY gates.
+
+**The tempting shortcut** is to have HANDOFF auto-promote or auto-merge once findings are addressed. That is rejected: merging stays external (the host-PR `Closes #N` and the merge-sequencing workflow), and the orchestrator is structurally barred from clearing the review label itself. Auto-resolution improves the PR that is handed off; it does not take over the hand-off.
+
+---
+
 ## Generalization Rationale
 
 This repository is the **generalized form** of the AutoFlow methodology that originated in `ontology-platform`. The generalization is intentionally narrow:
 
-1. **Name generalization** — upstream's numeric identifiers (`STEP 0~9`, `5a/5b/5c/5d/5.5/5.7`) are replaced by semantic phase names (`PREFLIGHT`, `DIAGNOSE`, `GATE:HYPOTHESIS`, `ARCHITECT`, `GATE:PLAN`, `DISPATCH`, `RED`, `GREEN`, `VERIFY`, `REFINE`, `VALIDATE`, `AUDIT`, `GATE:QUALITY`, `SHIP`, `LAND`). Each generalized name maps 1:1 to an upstream STEP.
+1. **Name generalization** — upstream's numeric identifiers (`STEP 0~9`, `5a/5b/5c/5d/5.5/5.7`) are replaced by semantic phase names (`PREFLIGHT`, `DIAGNOSE`, `GATE:HYPOTHESIS`, `ARCHITECT`, `GATE:PLAN`, `DISPATCH`, `RED`, `GREEN`, `VERIFY`, `REFINE`, `VALIDATE`, `AUDIT`, `GATE:QUALITY`, `DELIVER`, `INTEGRATE`, `HANDOFF`). Each generalized name maps 1:1 to an upstream STEP.
 
 2. **Single-repo adaptation** — concepts that exist in upstream solely because that repo is a submodule-based deployment orchestrator are dropped (STEP 7 submodule push, STEP 8 docker-compose integration, STEP 9 submodule-PR-first ordering, cross-project boundary rules tied to fork/upstream distinctions). The single-repo PR/merge flow remains.
 
-Beyond these two adaptations, generalization adds nothing and removes nothing. Every rule, retry cap, evaluation category, score threshold, and regression path is preserved verbatim from upstream. New design improvements belong in `ontology-platform` first; this repository tracks upstream rather than evolving independently.
+Beyond these two adaptations, generalization adds nothing and removes nothing, with **one deliberate divergence**: AutoFlow hands off at an open PR (`HANDOFF`) instead of upstream's merge-and-close terminal step — merge/close/deploy stay outside AutoFlow's authority and an external review process performs the merge. Aside from this, every rule, retry cap, evaluation category, score threshold, and regression path is preserved from upstream. New design improvements belong in `ontology-platform` first; this repository tracks upstream rather than evolving independently.
 
 ---
 
