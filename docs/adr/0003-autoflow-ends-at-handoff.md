@@ -6,10 +6,10 @@ Proposed
 
 ## Context
 
-The `CLAUDE.md` LAND phase and PR template state that AutoFlow creates PRs and
+The `CLAUDE.md` HANDOFF phase and PR template state that AutoFlow creates PRs and
 hands them to external review. Merge, issue closure, and deployment authority
 are not owned by AutoFlow itself. See also [`docs/design-rationale.md`](../design-rationale.md)
-Decision 9 and `CLAUDE.md` > LAND for the sequencing rationale.
+Decision 9 and `CLAUDE.md` > HANDOFF for the sequencing rationale.
 
 ## Decision
 

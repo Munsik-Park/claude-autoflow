@@ -1,0 +1,248 @@
+# .github/workflows/handoff-sequence.yml -- sub-repo merge -> machine-verified
+# label removal + status-check publication.
+#
+# TEMPLATE NOTE: this workflow assumes a single primary submodule mounted at
+# `services/{{REPO_SUBMODULE}}`. Substitute `{{REPO_SUBMODULE}}` with your
+# submodule directory before enabling the workflow (`setup/init.sh` performs
+# this substitution; otherwise edit the path by hand). For more than one
+# submodule, replicate the per-submodule assertions (steps 4 and 6). Single-repo
+# projects (no submodule) do not need this workflow.
+#
+# Listens for `repository_dispatch` event of type `subrepo-merged` (sent by
+# the external reviewer after merging the sub-repo PR upstream; see
+# docs/external-review-sequencing.md). For the indicated host PR the job
+# verifies the canonical 8-step pipeline:
+#
+#   1. Validate payload                       -- required fields + per-field format.
+#   2. Decide payload branch                  -- host-only (no sub-repo triple) vs
+#                                                multi-repo (full sub-repo triple).
+#   3. Assert host PR state                   -- PR OPEN both branches; label
+#                                                required on multi-repo only.
+#   4. Assert host-only diff excludes sub-repo (host-only only) -- host PR diff
+#                                                contains no services/{{REPO_SUBMODULE}}/
+#                                                file change.
+#   5. Assert upstream sub-repo PR merged (multi-repo only)
+#                                             -- `merged: true` AND merge_commit_sha
+#                                                matches payload after lowercase
+#                                                normalization.
+#   6. Assert host PR submodule pointer (multi-repo only)
+#                                             -- host PR head submodule pointer for
+#                                                services/{{REPO_SUBMODULE}} equals payload
+#                                                merge_commit_sha.
+#   7. Publish subrepo-merged status check on the host PR head SHA so the
+#      branch-protection required-status-check rule passes.
+#   8. Remove blocked-by-subrepo label (idempotent on host-only branch).
+#
+# Publish runs before remove for retry safety: a publish failure leaves the
+# label intact so a retry re-runs all assertions; the GitHub statuses POST is
+# idempotent at (sha, context).
+#
+# Promotion from draft -> ready remains manual (external reviewer).
+
+name: handoff-sequence
+
+on:
+  repository_dispatch:
+    types: [subrepo-merged]
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  unblock-host-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate payload
+        env:
+          ISSUE: ${{ github.event.client_payload.issue }}
+          HOST_PR: ${{ github.event.client_payload.host_pr }}
+          SUBREPO: ${{ github.event.client_payload.subrepo }}
+          SUBREPO_PR: ${{ github.event.client_payload.subrepo_pr }}
+          MERGE_COMMIT_SHA: ${{ github.event.client_payload.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ISSUE:-}" ] || [ -z "${HOST_PR:-}" ]; then
+            echo "client_payload missing required fields (issue, host_pr)" >&2
+            exit 64
+          fi
+          case "$ISSUE" in *[!0-9]*) echo "issue not numeric: $ISSUE" >&2; exit 65 ;; esac
+          case "$HOST_PR" in *[!0-9]*) echo "host_pr not numeric: $HOST_PR" >&2; exit 65 ;; esac
+
+          if [ -n "${SUBREPO:-}" ]; then
+            case "$SUBREPO" in
+              */*) : ;;
+              *) echo "subrepo not owner/repo: $SUBREPO" >&2; exit 65 ;;
+            esac
+            case "$SUBREPO" in
+              *[!A-Za-z0-9._/-]*) echo "subrepo has illegal characters: $SUBREPO" >&2; exit 65 ;;
+            esac
+          fi
+
+          if [ -n "${SUBREPO_PR:-}" ]; then
+            case "$SUBREPO_PR" in
+              *[!0-9]*) echo "subrepo_pr not numeric: $SUBREPO_PR" >&2; exit 65 ;;
+            esac
+          fi
+
+          if [ -n "${MERGE_COMMIT_SHA:-}" ]; then
+            MERGE_COMMIT_SHA_LC="$(printf '%s' "$MERGE_COMMIT_SHA" | tr 'A-F' 'a-f')"
+            case "$MERGE_COMMIT_SHA_LC" in
+              *[!0-9a-f]*) echo "merge_commit_sha has non-hex characters: $MERGE_COMMIT_SHA" >&2; exit 65 ;;
+            esac
+            if [ "${#MERGE_COMMIT_SHA_LC}" -ne 40 ]; then
+              echo "merge_commit_sha not 40-char: $MERGE_COMMIT_SHA" >&2
+              exit 65
+            fi
+            echo "MERGE_COMMIT_SHA_LC=$MERGE_COMMIT_SHA_LC" >> "$GITHUB_ENV"
+          fi
+
+      - name: Decide payload branch
+        env:
+          SUBREPO: ${{ github.event.client_payload.subrepo }}
+          SUBREPO_PR: ${{ github.event.client_payload.subrepo_pr }}
+          MERGE_COMMIT_SHA: ${{ github.event.client_payload.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          n_present=0
+          [ -n "${SUBREPO:-}" ] && n_present=$((n_present + 1))
+          [ -n "${SUBREPO_PR:-}" ] && n_present=$((n_present + 1))
+          [ -n "${MERGE_COMMIT_SHA:-}" ] && n_present=$((n_present + 1))
+          case "$n_present" in
+            0) branch="host-only" ;;
+            3) branch="multi-repo" ;;
+            *) echo "partial sub-repo payload: ${n_present}/3 fields present" >&2; exit 76 ;;
+          esac
+          echo "PAYLOAD_BRANCH=$branch" >> "$GITHUB_ENV"
+
+      - name: Assert host PR state
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOST_PR: ${{ github.event.client_payload.host_pr }}
+          HOST_REPO: ${{ github.repository }}
+          PAYLOAD_BRANCH: ${{ env.PAYLOAD_BRANCH }}
+        run: |
+          set -euo pipefail
+          state_labels="$(gh pr view "$HOST_PR" --repo "$HOST_REPO" --json state,labels)"
+          state="$(printf '%s' "$state_labels" | jq -r '.state')"
+          if [ "$state" != "OPEN" ]; then
+            echo "host PR #$HOST_PR is not OPEN (state=$state)" >&2
+            exit 75
+          fi
+          if [ "$PAYLOAD_BRANCH" = "multi-repo" ]; then
+            has_label="$(printf '%s' "$state_labels" | jq -r '.labels[].name' | grep -Fx 'blocked-by-subrepo' || true)"
+            if [ -z "$has_label" ]; then
+              echo "host PR #$HOST_PR does not carry 'blocked-by-subrepo' label (multi-repo cycle)" >&2
+              exit 75
+            fi
+          fi
+
+      - name: Assert host-only diff excludes sub-repo
+        if: env.PAYLOAD_BRANCH == 'host-only'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOST_PR: ${{ github.event.client_payload.host_pr }}
+          HOST_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # services/{{REPO_SUBMODULE}} is the substituted submodule path. If
+          # .gitmodules ever points the submodule elsewhere, update this path
+          # together with .gitmodules (and re-run setup/init.sh if applicable).
+          files_json="$(gh api "repos/$HOST_REPO/pulls/$HOST_PR/files" --paginate)"
+          subrepo_changes="$(printf '%s' "$files_json" | jq -r '.[] | select(.filename == "services/{{REPO_SUBMODULE}}" or (.filename | startswith("services/{{REPO_SUBMODULE}}/"))) | .filename')"
+          if [ -n "$subrepo_changes" ]; then
+            echo "host-only payload claimed but PR changes sub-repo paths:" >&2
+            printf '%s\n' "$subrepo_changes" >&2
+            exit 80
+          fi
+
+      - name: Assert upstream sub-repo PR merged
+        if: env.PAYLOAD_BRANCH == 'multi-repo'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SUBREPO: ${{ github.event.client_payload.subrepo }}
+          SUBREPO_PR: ${{ github.event.client_payload.subrepo_pr }}
+          MERGE_COMMIT_SHA_LC: ${{ env.MERGE_COMMIT_SHA_LC }}
+        run: |
+          set -euo pipefail
+          response="$(gh api "repos/$SUBREPO/pulls/$SUBREPO_PR")"
+          merged="$(printf '%s' "$response" | jq -r '.merged')"
+          upstream_sha="$(printf '%s' "$response" | jq -r '.merge_commit_sha // ""' | tr 'A-F' 'a-f')"
+          if [ "$merged" != "true" ]; then
+            echo "upstream PR $SUBREPO#$SUBREPO_PR not merged (merged=$merged)" >&2
+            exit 77
+          fi
+          if [ "$upstream_sha" != "$MERGE_COMMIT_SHA_LC" ]; then
+            echo "upstream merge_commit_sha mismatch: got=$upstream_sha payload=$MERGE_COMMIT_SHA_LC" >&2
+            exit 78
+          fi
+
+      - name: Assert host PR submodule pointer
+        if: env.PAYLOAD_BRANCH == 'multi-repo'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOST_PR: ${{ github.event.client_payload.host_pr }}
+          HOST_REPO: ${{ github.repository }}
+          MERGE_COMMIT_SHA_LC: ${{ env.MERGE_COMMIT_SHA_LC }}
+        run: |
+          set -euo pipefail
+          head_sha="$(gh api "repos/$HOST_REPO/pulls/$HOST_PR" | jq -r '.head.sha // ""')"
+          if [ -z "$head_sha" ]; then
+            echo "could not resolve host PR #$HOST_PR head sha" >&2
+            exit 79
+          fi
+          pointer_sha="$(gh api "repos/$HOST_REPO/git/trees/$head_sha?recursive=false" \
+                          | jq -r '.tree[]? | select(.path=="services/{{REPO_SUBMODULE}}") | .sha' \
+                          | tr 'A-F' 'a-f')"
+          if [ -z "$pointer_sha" ]; then
+            echo "no services/{{REPO_SUBMODULE}} submodule entry at host PR head $head_sha" >&2
+            exit 79
+          fi
+          if [ "$pointer_sha" != "$MERGE_COMMIT_SHA_LC" ]; then
+            echo "submodule pointer mismatch: host=$pointer_sha payload=$MERGE_COMMIT_SHA_LC" >&2
+            exit 79
+          fi
+
+      - name: Publish subrepo-merged status check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOST_PR: ${{ github.event.client_payload.host_pr }}
+          HOST_REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.client_payload.issue }}
+        run: |
+          set -euo pipefail
+          head_sha="$(gh pr view "$HOST_PR" \
+            --repo "$HOST_REPO" \
+            --json headRefOid \
+            --jq '.headRefOid')"
+          if [ -z "$head_sha" ]; then
+            echo "could not resolve head SHA for PR #$HOST_PR" >&2
+            exit 70
+          fi
+          gh api "repos/$HOST_REPO/statuses/$head_sha" \
+            --method POST \
+            --field state=success \
+            --field context=subrepo-merged \
+            --field description="sub-repo PR merged upstream for issue #$ISSUE"
+
+      - name: Remove blocked-by-subrepo label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOST_PR: ${{ github.event.client_payload.host_pr }}
+          HOST_REPO: ${{ github.repository }}
+          PAYLOAD_BRANCH: ${{ env.PAYLOAD_BRANCH }}
+        run: |
+          set -euo pipefail
+          if [ "$PAYLOAD_BRANCH" = "host-only" ]; then
+            # Idempotent on host-only: label may have never been applied
+            # (--no-subrepo-dep path) or may have been removed by a prior
+            # retry attempt.
+            gh pr edit "$HOST_PR" \
+              --repo "$HOST_REPO" \
+              --remove-label "blocked-by-subrepo" || true
+          else
+            gh pr edit "$HOST_PR" \
+              --repo "$HOST_REPO" \
+              --remove-label "blocked-by-subrepo"
+          fi

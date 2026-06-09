@@ -155,17 +155,35 @@ Before/after pushing, verify **all three**: (1) `git ls-tree HEAD services/{{REP
 
 ## Post-Merge Cleanup
 
-After the PR is merged (external review merges it; typically observed at the next cycle's PREFLIGHT):
+Performed at PREFLIGHT of the next cycle once the prior PR is observed merged
+or closed (or by the live session if it observes the decision first). Apply it
+to **every** resolved cycle found during prior-cycle resolution, including ones
+from earlier cycles:
 
 ```bash
 git checkout main
 git pull origin main
-git branch -d <branch>           # local branch
-git push origin --delete <branch> # remote branch (if not auto-deleted)
+git branch -d <branch>             # local branch
+git push origin --delete <branch>  # remote branch (if not auto-deleted)
+scripts/cleanup/cleanup-issue.sh <N>  # delete the resolved issue's .autoflow/issue-<N>.* + issue-<N>-* files (rm-deny-safe wrapper; accepts multiple Ns)
 ```
 
-The `.autoflow/issue-{N}.json` state file is preserved as history; only its
-`active` field flips to `false`.
+**Delete** the resolved issue's `.autoflow/issue-{N}*` management files (state
+JSON, decision ledger, design docs, reports) at cleanup via
+`scripts/cleanup/cleanup-issue.sh <N>` (pass one or more `N`), so each later
+PREFLIGHT reads only live cycles. They are gitignored working scratch; the
+durable record lives in the GitHub PR/issue and commit history.
+
+**[MUST] Use the wrapper, not a bare `rm`.** `cleanup-issue.sh` is invoked by
+path, so the Bash command carries no `rm` token, and it removes only the
+resolved issue's files on an **exact number boundary** — `issue-<N>.*` and
+`issue-<N>-*` (NOT a bare `issue-<N>*` glob, which would also match `issue-<N>3`
+/ a prefix-collision sibling like `123` for `N=12`) — with a digits-only `N`
+guard, `find -delete` scoped to `.autoflow/` at `maxdepth 1`. This keeps cleanup
+working under a broad `rm` permission deny: Claude Code precedence is
+**deny > allow**, so an `rm` allow-exception cannot override a broad
+`Bash(rm:*)` deny — only a non-`rm` wrapper survives it. Allow-list the wrapper
+(`Bash(./scripts/cleanup/cleanup-issue.sh:*)`) so it never prompts.
 
 ---
 
