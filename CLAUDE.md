@@ -285,6 +285,8 @@ While AutoFlow is in progress, an issue-scoped state file lives under `.autoflow
 
 **File naming**: `.autoflow/issue-{N}.json`
 
+**Companion artifact**: `.autoflow/issue-{N}-ledger.md` — the append-only decision ledger (see [Deliberation Isolation](#deliberation-isolation-delegated-facilitation) > Decision Ledger). Created at the first settled decision; retained alongside the state file and deleted with it at prior-cycle cleanup once the PR is merged/closed (see [`docs/autoflow-guide.md`](docs/autoflow-guide.md) > PREFLIGHT). The hook does not read it (it is a methodology artifact, not a gate input).
+
 **Creation**: at PREFLIGHT completion.
 
 ```json
@@ -293,6 +295,9 @@ While AutoFlow is in progress, an issue-scoped state file lives under `.autoflow
   "issue": "#N",
   "title": "Issue title",
   "date": "YYYY-MM-DD",
+  "cycle": 1,
+  "mode": "new-issue",
+  "phase": "in-progress",
   "phases": {
     "gate_hypothesis_structure": { "evaluator": "", "scores": {} },
     "gate_hypothesis_cause":     { "evaluator": "", "scores": {}, "verdict": "pending" },
@@ -302,6 +307,12 @@ While AutoFlow is in progress, an issue-scoped state file lives under `.autoflow
   }
 }
 ```
+
+**`cycle` field**: starts at `1` on Creation. PREFLIGHT increments it on review-response entry (target issue's PR is open) and resets `phases` to the empty Creation template (preserving the `verdict` rule). The hook gates read from the current `phases`; cycle history is preserved by `git log .autoflow/issue-N.json`.
+
+**`mode` field**: `"new-issue"` on Creation; PREFLIGHT sets `"review-response"` on review-response entry (target issue's PR is open). The DIAGNOSE structure-gate disposition reads `mode` rather than re-deriving the PR state — a single persisted source of the cycle classification. The hook does not read it (additive field).
+
+**`phase` field**: coarse, non-exhaustive lifecycle marker (the hook does not read it; additive field) — `"in-progress"` during a cycle; `"review-triage"` while HANDOFF triages the automated review result (auto-resolving Medium+ findings or judging Low findings before handoff); `"awaiting-external-review"` at HANDOFF (set only once the review is clean — no `blocked-by-review` label remains) and at a structure-gate no-work review-response exit (both hand the open PR to external review); `"awaiting-user"` at a non-code-lever / non-code-root-cause pause, at a review-response loop-check match awaiting the user's re-entry decision, or at a HANDOFF review-triage user-decision / 7-attempt-cap / label-clear-failure escalation pause. A terminal or escalation state this list does not name leaves `phase` at its last value; `active` is the authoritative run flag.
 
 **`verdict` rule** (gate_hypothesis_cause only):
 
@@ -322,8 +333,11 @@ If `verdict` is empty or contains `skip`, the gate is not triggered for the caus
 - `Agent` (implementation spawn) → GATE:PLAN pass required.
 - `git push` → AUDIT + GATE:QUALITY pass required.
 - `gh pr create` → AUDIT + GATE:QUALITY pass required.
+- `gh pr merge`, and any push to the default branch — **denied while a state file has `active:true`** (and `gh pr merge` is denied unconditionally). AutoFlow never merges; merging is external.
 
-**Completion**: at HANDOFF, once review triage is resolved (no PR retains `blocked-by-review`), set `active` to `false` (the file is preserved as the in-flight handoff record). The open PR is then owned by external review, which merges on its own schedule.
+These gates are wired via PreToolUse on `Bash` (git / gh commands), `Agent` (spawns), and `Write|Edit|MultiEdit`.
+
+**Completion**: at HANDOFF, once the automated review is clean (no PR retains the `blocked-by-review` label — Medium+ findings auto-resolved and Low findings triaged), set `active` to `false` and record `phase: "awaiting-external-review"`. The file serves as the in-flight handoff record while its PR awaits the external decision — PREFLIGHT's prior-cycle resolution reads it (review-response mode). Once the PR is observed merged or closed, prior-cycle resolution **deletes** the issue's `.autoflow/issue-{N}*` files as cleanup, keeping each later PREFLIGHT focused on live cycles. The durable record lives in the GitHub PR/issue and commit log (the `.autoflow` files are gitignored scratch).
 **Forced termination**: also set `active` to `false`.
 
 ## Evaluation System
@@ -377,7 +391,13 @@ If `verdict` is empty or contains `skip`, the gate is not triggered for the caus
 
 ### PR Wait Rule
 
-**[MUST]** One issue runs at a time. Do not start new work until the previous cycle has reached HANDOFF (its PR is open and handed off to external review). AutoFlow hands off before the external merge, so readiness is not tied to the merge. Verified at HANDOFF's Git Clean Check.
+The PR Wait Rule is the **PREFLIGHT-entry readiness check** that clears the requested issue to start. Its source of truth is AutoFlow's own `.autoflow/issue-*.json` **state files**: read the `active` flag there to decide readiness. It resolves two questions in order — (1) is any **other** issue mid-cycle? (2) at what stage is the **requested** issue's own state? — and proceeds once both are answered.
+
+**[MUST]** Use the `active` flag as the single start signal: begin a new cycle once every **other** issue's state file reads `active:false`. One issue runs at a time — when another issue reads `active:true`, finish or resolve that cycle first, then start the next. The hook applies the same signal: it admits `git push` / `gh pr create` while every state file reads `active:false`.
+
+**[MUST]** Read an `active:false` state file (`phase: awaiting-external-review`) as **cleared and handed off**: its PR belongs to external review, which merges on its own schedule. Tie readiness to the `active` flag alone, so each issue starts as soon as the prior cycle reaches HANDOFF — while external review merges the open PR on its own timeline.
+
+For the **requested** issue, read its own state file to choose the mode: `active:true` → resume the in-progress cycle; `active:false` with an open PR → enter review-response mode (PR-review stage); absent → start as a new issue.
 
 ### Git Clean Check
 
