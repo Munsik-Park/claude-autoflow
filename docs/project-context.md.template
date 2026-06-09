@@ -1,0 +1,29 @@
+# {{PROJECT_NAME}} — Project Context
+
+> Fill this in for your project, then rename from `.template` to `.md`. This document
+> orients an AI or a new contributor: what the system is, who uses it, and the
+> constraints that shape design decisions. Keep it short and current.
+
+## What This Project Is
+
+<!-- One or two paragraphs: the product / system, its purpose, and primary users. -->
+
+## Scope & Boundaries
+
+<!-- What this repository owns vs. what lives elsewhere (submodules, external services). -->
+
+## Key Constraints
+
+<!-- Non-negotiables: compliance, performance budgets, platform, language policy, etc. -->
+
+## Glossary
+
+<!-- Domain terms an outsider would not know. -->
+
+---
+
+## How to Customise
+
+1. Replace `{{PROJECT_NAME}}` and fill each section with project specifics.
+2. Keep it brief — link out to deeper docs rather than duplicating them.
+3. Rename from `.template` to `.md`.

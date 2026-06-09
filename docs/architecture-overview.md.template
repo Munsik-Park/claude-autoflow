@@ -1,0 +1,29 @@
+# {{PROJECT_NAME}} — Architecture Overview
+
+> Fill this in for your project, then rename from `.template` to `.md`. This document
+> is the high-level map: components, how they fit together, and where the important
+> boundaries are. Diagrams welcome; keep prose tight.
+
+## Components
+
+<!-- The major parts (services, submodules, data stores) and each part's responsibility. -->
+
+## Data Flow
+
+<!-- How a representative request / job moves through the system. -->
+
+## Boundaries & Contracts
+
+<!-- Trust / ownership boundaries and API contracts; see [`repo-boundary-rules.md`](repo-boundary-rules.md). -->
+
+## Deployment Topology
+
+<!-- single-repo vs multi-repo (see [`../CLAUDE.md`](../CLAUDE.md) > Deployment Topology); environments. -->
+
+---
+
+## How to Customise
+
+1. Replace `{{PROJECT_NAME}}` and document your actual components and flows.
+2. Link to ADRs (`docs/adr/`) for the decisions behind the structure.
+3. Rename from `.template` to `.md`.
