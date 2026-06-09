@@ -455,6 +455,7 @@ Part of {{GITHUB_ORG}}/{{REPO_ORCHESTRATOR}}#N
 - Cross-repo references are recognised in PR bodies only (commit messages do not trigger cross-repo close).
 - **[MUST]** Sub-repo PRs do NOT use `Closes` — sub-repo PRs merge first, so `Closes` would prematurely close the issue.
 - **[MUST]** Only the host PR uses `Closes #N`.
+- **[MUST]** PR bodies generated from `.github/pull_request_template.md` never inline a plain-text close-keyword token in the template itself. The template carries the marker `<!-- HOST-CLOSE-LINE -->`; the HANDOFF renderer substitutes that marker with the active `Closes #N` line in the rendered host PR body. Templates, docs, and design notes that **describe** the close-keyword pattern must wrap the example in backticks or a code-fence. This prevents the footgun where prose describing the pattern accidentally triggers an active issue close.
 
 ### Issue Management
 
