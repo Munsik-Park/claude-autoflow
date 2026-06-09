@@ -211,6 +211,51 @@ if [[ "$REPO_BACKEND" == "none" && "$REPO_FRONTEND" == "none" && "$REPO_INFRA" =
   warn "You may want to remove the Sub-Repository List rows from CLAUDE.md."
 fi
 
+# ---------------------------------------------------------------------------
+# Submodule fork URL re-pointing (multi-repo only)
+# ---------------------------------------------------------------------------
+# Per docs/submodule-common-rules.md > Submodule URL & Pointer Policy,
+# .gitmodules must point at the operator-controlled fork (not upstream).
+# When this framework is propagated, each submodule URL must be retargeted
+# to the new operator's fork. Iterates over every submodule in .gitmodules.
+# Skip gracefully when .gitmodules is absent (single-repo projects).
+GITMODULES="${PROJECT_ROOT}/.gitmodules"
+if [[ -f "$GITMODULES" ]]; then
+  echo ""
+  echo -e "${YELLOW}── Submodule Fork URLs ──${NC}"
+  echo "Per docs/submodule-common-rules.md > Submodule URL & Pointer Policy,"
+  echo ".gitmodules must point at your operator-controlled fork (not upstream)."
+  echo ""
+
+  path_lines=$(git config --file "$GITMODULES" --get-regexp '^submodule\..*\.path$' 2>/dev/null || true)
+
+  if [[ -z "$path_lines" ]]; then
+    info "No submodules found in .gitmodules — skipping submodule URL prompt."
+  else
+    while IFS= read -r path_line; do
+      sm_path=$(echo "$path_line" | awk '{print $2}')
+      sm_key=$(echo "$path_line" | awk '{print $1}' | sed 's/^submodule\.//;s/\.path$//')
+      current_url=$(git config --file "$GITMODULES" --get "submodule.${sm_key}.url" 2>/dev/null || echo "")
+      sm_basename=$(basename "$sm_path")
+
+      echo "Submodule: ${sm_path}"
+      echo "  current URL: ${current_url}"
+      prompt NEW_SUBMODULE_URL \
+        "  Operator fork URL for ${sm_path}" \
+        "https://github.com/${GITHUB_ORG}/${sm_basename}.git"
+
+      if [[ -n "$current_url" && "$current_url" != "$NEW_SUBMODULE_URL" ]]; then
+        sed_inplace "s|${current_url}|${NEW_SUBMODULE_URL}|" "$GITMODULES"
+        success "Updated .gitmodules ${sm_path} URL → ${NEW_SUBMODULE_URL}"
+      else
+        info "${sm_path} URL unchanged."
+      fi
+    done <<< "$path_lines"
+
+    warn "Run \`git submodule sync\` and \`git submodule update --init --recursive\` to pick up the new URLs."
+  fi
+fi
+
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║          Setup Complete!                     ║${NC}"

@@ -122,7 +122,42 @@ For each sub-repository:
 
 ---
 
-## Step 6: Configure `.gitignore`
+## Step 6: Retarget `.gitmodules` to Your Fork (multi-repo only)
+
+> **OPTIONAL** — only required for multi-repo projects that use Git submodules.
+> Single-repo projects have no `.gitmodules` and can skip this step entirely.
+
+When this template is propagated to a new operator, every submodule URL in
+`.gitmodules` must be updated from the previous operator's fork to yours.
+The `init.sh` wizard handles this interactively; for a manual setup, run:
+
+```bash
+# Example: retarget a submodule at services/{{REPO_SUBMODULE}}
+git config --file .gitmodules submodule.services/{{REPO_SUBMODULE}}.url \
+  https://github.com/<org>/<repo>.git
+
+# Repeat for each submodule, then sync and re-initialise:
+git submodule sync
+git submodule update --init --recursive
+```
+
+Replace `<org>/<repo>` with your organization and fork name.
+
+**SSH / deploy-key note (OPTIONAL):** If your sub-repositories are private,
+replace the `https://` URL above with an SSH remote:
+
+```bash
+git config --file .gitmodules submodule.services/{{REPO_SUBMODULE}}.url \
+  git@github.com:<org>/<repo>.git
+```
+
+Ensure the machine running `git submodule update` has the corresponding SSH
+key or deploy key added to `<org>/<repo>` on GitHub.  This is only necessary
+for private repositories; public forks work with HTTPS without credentials.
+
+---
+
+## Step 7: Configure `.gitignore`
 
 Add the following to the host repo:
 
@@ -140,7 +175,7 @@ must not be committed.
 
 ---
 
-## Step 7: Verify Setup
+## Step 8: Verify Setup
 
 ```bash
 # Check for any remaining placeholders
@@ -150,7 +185,7 @@ grep -r '{{' . --include='*.md' --include='*.sh' | grep -v '.template' | grep -v
 
 ---
 
-## Step 8: Post-Setup Checklist
+## Step 9: Post-Setup Checklist
 
 - [ ] `CLAUDE.md` has no remaining `{{placeholders}}`.
 - [ ] `docs/security-checklist.md` is customised for your stack.
@@ -158,6 +193,7 @@ grep -r '{{' . --include='*.md' --include='*.sh' | grep -v '.template' | grep -v
 - [ ] `.gitignore` includes `.autoflow/issue-*.json` and `CLAUDE.local.md`.
 - [ ] Hook is executable: `chmod +x .claude/hooks/check-autoflow-gate.sh`.
 - [ ] Sub-repo `CLAUDE.md` files created (multi-repo only).
+- [ ] `.gitmodules` submodule URLs point at your operator-controlled forks (multi-repo only).
 - [ ] Team members have read `docs/autoflow-guide.md`.
 
 ---

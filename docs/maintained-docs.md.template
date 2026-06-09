@@ -20,13 +20,33 @@ maintained-docs check) to ensure documentation stays in sync with code.
 | Document | Path | Update When | Maintainer |
 |----------|------|-------------|------------|
 | Main Operating Manual | `CLAUDE.md` | Process changes | Orchestrator AI / Human |
-| AutoFlow Guide | `docs/autoflow-guide.md` | Phase definitions change | Orchestrator AI |
-| Evaluation System | `docs/evaluation-system.md` | Scoring categories or thresholds change | Orchestrator AI |
-| Design Rationale | `docs/design-rationale.md` | New design decisions | Orchestrator AI / Human |
-| Git Workflow | `docs/git-workflow.md` | Branch/commit rules change | Orchestrator AI |
+| Documentation Index (role-scoped injection router) | `docs/INDEX.md` | New baseline/review/ADR docs added, renamed, or routing changes | Orchestrator AI |
+| AutoFlow Guide | `docs/autoflow-guide.md` | Phase definitions, transitions, or regressions change | Orchestrator AI |
+| DIAGNOSE Analysis Playbook | `docs/phases/analysis.md` | The DIAGNOSE 3-Phase analysis procedure, necessity rubric, or bias safeguards change | Orchestrator AI |
+| Evaluation System | `docs/evaluation-system.md` | Scoring categories, thresholds, or output format change | Orchestrator AI |
+| Teammate Contracts | `docs/teammate-contracts.md` | Role contracts or consolidated scoring change | Orchestrator AI |
 | Teammate Common Rules | `docs/teammate-common-rules.md` | Discussion Protocol or teammate rules change | Orchestrator AI |
+| Design Rationale | `docs/design-rationale.md` | New design decisions or rule justifications | Orchestrator AI / Human |
+| Git Workflow | `docs/git-workflow.md` | Branch naming, commit rules, or PR flow changes | Orchestrator AI |
+| Repo Boundary Rules | `docs/repo-boundary-rules.md` | Cross-repo coordination rules change | Orchestrator AI |
+| Submodule Common Rules | `docs/submodule-common-rules.md` | Sub-repo Discussion Protocol or fork-and-PR contract changes | Orchestrator AI |
+| Credentials & Runtime State | `docs/credentials.md` | Credential tiers, masking patterns, or per-role login rules change | Orchestrator AI / Human |
+| Gate-Matching Standard | `docs/gate-matching-standard.md` | Hook command-matching rule (P1) or unconditional-deny ordering (P2) changes | Orchestrator AI |
+| External Review Sequencing | `docs/external-review-sequencing.md` | The reviewer-facing merge-sequencing procedure or host-only dispatch shortcut changes | Orchestrator AI |
+| PR Body Guide | `docs/pr-body-guide.md` | New principles added or existing wording revised | Orchestrator AI / Human |
+| Issue & PR Title Guide | `docs/title-guide.md` | Naming convention changes (format, type values, or examples) | Orchestrator AI / Human |
+| Development Guideline | `docs/development-guideline.md` | Work-type, issue, ADR, PR, refactoring, testing, or documentation policy changes | Orchestrator AI / Human |
 | Security Checklist | `docs/security-checklist.md` | New security requirements | Human |
 | This Document | `docs/maintained-docs.md` | New docs added or removed | Orchestrator AI |
+
+### Architecture Decision Records (`docs/adr/`)
+
+| Document | Path | Update When | Maintainer |
+|----------|------|-------------|------------|
+| ADR README | `docs/adr/README.md` | ADR process, status values, or the ADR list changes | Orchestrator AI / Human |
+| ADR Template | `docs/adr/0000-adr-template.md` | ADR format changes | Orchestrator AI / Human |
+| Host / Submodule Boundary ADR | `docs/adr/0001-host-orchestrator-and-submodule-boundary.md` | Host/submodule ownership policy changes | Orchestrator AI / Human |
+| Handoff Authority ADR | `docs/adr/0003-autoflow-ends-at-handoff.md` | AutoFlow merge/handoff authority changes | Orchestrator AI / Human |
 
 <!-- Add project-specific documents below.
      Examples: API docs, schema docs, runbooks, ADRs.
@@ -34,6 +54,8 @@ maintained-docs check) to ensure documentation stays in sync with code.
 
 | Document | Path | Update When | Maintainer |
 |----------|------|-------------|------------|
+| Project Context | `docs/project-context.md` | Product scope, users, or key constraints change | Orchestrator AI / Human |
+| Architecture Overview | `docs/architecture-overview.md` | Components, data flow, or deployment topology change | Orchestrator AI / Human |
 | (project-specific entry) | `docs/<file>.md` | (when this changes) | (who) |
 
 ---
@@ -44,7 +66,7 @@ maintained-docs check) to ensure documentation stays in sync with code.
 
 - **DIAGNOSE step 7** — identify affected docs based on the issue.
 - **VALIDATE step 4** — confirm impacted docs are updated.
-- **SHIP** — the PR description lists which docs were updated.
+- **HANDOFF** — the PR description lists which docs were updated.
 
 ### How to Update
 
