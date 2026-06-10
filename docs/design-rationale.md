@@ -37,7 +37,7 @@ Even when an AI declares "PASS," whether that judgment actually meets the define
 
 - **AI-A**: Analyzes code structure only — without seeing the issue content
 - **AI-B**: Analyzes the issue text only — without seeing the code
-- **Phase 3**: AI-A evaluates AI-B's proposed resolution from a structural perspective
+- **Phase 3**: AI-A evaluates the *necessity* of AI-B's proposed resolution against the actual structure (reuse-neutral — not a structural-fit judgment)
 
 **Why it works this way**
 
@@ -123,13 +123,13 @@ The act of judging "this change is simple" is itself a product of bias. That jud
 
 **What it does**
 
-When the structure evaluation at GATE:HYPOTHESIS returns FAIL, no code change is needed — the existing structure already satisfies the request. The next action depends on whether a PR is already open for the issue. For a fresh issue (no open PR), the orchestrator auto-closes the GitHub issue with a comment recording the structure-evaluation scores and a summary of the existing mechanisms, and AutoFlow terminates locally (`active: false`). When a PR is already open — a **review-response** cycle, the disposition introduced with the HANDOFF terminal phase — closing the issue would be wrong, so the orchestrator instead posts the finding as a reply on the open PR and leaves the issue and PR open for external review.
+When the structure evaluation at GATE:HYPOTHESIS returns FAIL, no code change is needed — either because as-is already satisfies the request (Behavior gap low) or because the lever is data / config / ops, not code (Code-change necessity low). For the already-satisfied case the next action follows the cycle's `mode` (recorded at PREFLIGHT): if `mode = new-issue` (no open PR) the orchestrator auto-closes the GitHub issue with a comment recording the structure-evaluation scores and a summary of the existing mechanisms, and AutoFlow terminates locally (`active: false`); if `mode = review-response` (open PR) it instead replies on the PR with the finding and leaves the issue and PR open. For the non-code-lever case it reports to the user and pauses (reclassification as Type 2 / non-code is the re-entry). The gate scores *necessity only* and is reuse-neutral — a fix that leverages existing code is not a FAIL. (Canonical disposition: [`phases/analysis.md`](phases/analysis.md) — the DIAGNOSE analysis playbook.)
 
 **Why it works this way**
 
-A structure-evaluation FAIL is the system's way of saying "the existing structure already handles this." The cheapest correct outcome is to leave the existing structure in place and stop, recording that conclusion in a single auditable action — matching the principle that **the best code is code that is never written**.
+A structure-evaluation FAIL on the **gap** item (Behavior gap for code issues, Content gap for doc issues) means as-is already satisfies the request — no code change is needed. The cheapest correct outcome is to stop and record that conclusion in a single auditable action, matching the principle that **the best code is code that is never written**. The gate scores *necessity only* and is reuse-neutral: a fix that leverages existing code is not a FAIL — only an already-satisfied behavior is.
 
-Every disposition branch has a defined terminus, so no "FAIL but open" intermediate state is left for the orchestrator to interpret (which would put the disposition back in front of the bias the gate exists to prevent). For a fresh issue the issue is auto-closed; if the human author disagrees, reopening or re-filing with additional context is the natural correction path. For a review-response cycle the issue's PR is already open, so the finding is posted as a PR reply and the cycle hands the disposition to the same external review that owns the PR.
+Every disposition branch has a defined terminus, so no "FAIL but open" intermediate state is left for the orchestrator to interpret (which would put the disposition back in front of the bias the gate exists to prevent). In a **new-issue** cycle (`mode = new-issue`) the issue is auto-closed; if the human author disagrees, reopening or re-filing is the natural correction path. In a **review-response** cycle (`mode = review-response`) the issue's PR is open, so closing the issue would be wrong — the finding is posted as a PR reply and the cycle ends `active: false` / `awaiting-external-review`, handing the disposition to the same external review that owns the PR. The gate has exactly two items, so the only other FAIL is *Code-change necessity low* — a real gap whose lever is data / config / ops, not code; that is reported to the user and AutoFlow pauses (mirroring the non-code-root-cause exit at GATE:HYPOTHESIS), with reclassification (Type 2 / non-code) as the re-entry. The structure gate never re-DIAGNOSEs.
 
 ---
 
@@ -231,6 +231,9 @@ The following may look like "better approaches" but undermine core principles:
 | Allow phase-skipping judgment | "This one is simple" is itself a biased judgment |
 | Let the pipeline modify its own criteria | Judgment tracing impossible → trust chain collapse |
 | Design loops without termination conditions | No maximum retry → infinite loop risk → system hangs |
+| Run a multi-teammate deliberation in the orchestrator's own context | Round-by-round cross-talk + duplicate reports accumulate → judgment contamination → decision oscillation (Decision 8) |
+| Replace deliberation isolation with a cheaper in-loop summary | Orchestrator stays in the loop → duplicate accumulation and oscillation remain; it is a bias mechanism, not a cost tweak |
+| Re-open a ledgered decision without a new verified fact | Re-reading the same material re-opens settled scope → oscillation-driven round explosion |
 | Add improvements to this repository before they exist in upstream | Generalization is mirror, not branch — improvements diverge the methodology and break parity |
 
 ---

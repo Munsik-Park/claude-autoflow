@@ -13,8 +13,9 @@
 ## Overview
 
 AutoFlow defines 16 phases (`PREFLIGHT` → `HANDOFF`) that guide every code change
-from issue analysis to merge. Each phase has explicit entry/exit criteria, and
-evaluation gates prevent low-quality work from reaching production.
+from issue analysis to PR hand-off. Each phase has explicit entry/exit criteria, and
+evaluation gates prevent low-quality work from reaching the PR. Merging is performed
+by an external review process; AutoFlow does not merge.
 
 Key principles:
 
@@ -73,12 +74,15 @@ flowchart TD
     INT[INTEGRATE]:::phase
     HAND[HANDOFF<br/>PR + Hand-off]:::phase
     CLOSE([Issue Auto-Closed]):::terminal
+    REVW([Reply on PR<br/>await external review]):::terminal
     DONE([Done]):::terminal
     HUMAN([Human Decision]):::terminal
 
     PRE --> DIA
     DIA -->|structure eval| HYPS
-    HYPS -->|FAIL| CLOSE
+    HYPS -->|FAIL · gap-low · new-issue| CLOSE
+    HYPS -->|FAIL · gap-low · review-response| REVW
+    HYPS -.->|FAIL · non-code lever| HUMAN
     HYPS -->|PASS<br/>feat issue| ARC
     HYPS -->|PASS<br/>bug issue| HYPC
     HYPC -->|PASS| ARC
@@ -123,7 +127,9 @@ The same diagram in plain text, for environments without mermaid rendering:
 PREFLIGHT
     │
     ▼
-DIAGNOSE ─── structure eval ──► [FAIL] → Issue Auto-Closed
+DIAGNOSE ─── structure eval ──► [FAIL]
+                ├─ gap-item low (already satisfied) ─► new-issue: Issue Auto-Closed │ review-response: Reply on PR + await review
+                └─ gap real, non-code lever ────────► report to user + pause
     │
     ▼
 GATE:HYPOTHESIS (cause, bug only) ◄── retry ≤2×
@@ -156,7 +162,7 @@ DISPATCH → RED → GREEN ⇄ VERIFY (≤3 round-trips) → REFINE
                                                    HANDOFF ◄── retry ≤2×
                                                        │
                                                        ▼
-                                                     Done
+                                          PR open — external review merges
 ```
 
 ---

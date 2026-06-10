@@ -117,6 +117,7 @@ All AutoFlow phases, evaluation criteria, and gate rules apply.
 - Modify files in other repositories
 - Push directly to `{{DEFAULT_BRANCH}}`
 - Ignore evaluation feedback during revision (REVISION)
+- Inline document body, full file text, or raw verbose test output in reports — see Reporting Format below
 
 ---
 
@@ -166,6 +167,7 @@ When a teammate reports to the orchestrator (or to another teammate via `SendMes
    - file state → `path:line` plus the verbatim content of that line
 
    Anchors must be deterministically re-derivable by the orchestrator (`git show <SHA>` / re-running the test command / `git show HEAD:<file>`). Reports without an anchor are rejected, not interpreted.
+6. **Facilitator return (deliberation phases)**: the facilitation `Workflow` returns one structured result, specific to the phase — ARCHITECT: `{ verdict: CONVERGED|ESCALATE, artifact paths, ledger, summary }`; VERIFY: `{ test/impl self-check, next_action: RED|GREEN|SEQUENTIAL_FIX|EVALUATION_AI, ledger, summary }`. It carries no round-by-round messages and no duplicate dual reports. Shape and rationale: [host `CLAUDE.md`](../CLAUDE.md#deliberation-isolation-delegated-facilitation) > Deliberation Isolation and [`teammate-contracts.md`](teammate-contracts.md) > Facilitator > Return Contract.
 
 ---
 
@@ -195,6 +197,7 @@ Every sub-repo must maintain:
 2. **Integration tests** for API endpoints / component interactions
 3. **No broken tests on `{{DEFAULT_BRANCH}}`** — all tests must pass before merge
 4. **Test commands documented** in `CLAUDE.md` so Test AI can run them
+5. **Cost-aware execution**: invoke your test runner in summary/quiet mode (e.g. jest `--silent --reporters=summary`, pytest `-q`) when running for a teammate report (verbose output is for local debugging only). Coverage reports use the summary reporter; per-file HTML reports stay on disk and are referenced by path, not pasted.
 
 ---
 

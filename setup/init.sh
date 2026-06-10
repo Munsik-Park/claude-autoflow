@@ -85,6 +85,7 @@ echo ""
 prompt REPO_BACKEND            "Backend sub-repo name (or 'none')" "none"
 prompt REPO_FRONTEND           "Frontend sub-repo name (or 'none')" "none"
 prompt REPO_INFRA              "Infrastructure sub-repo name (or 'none')" "none"
+prompt REPO_SUBMODULE          "Primary submodule dir under services/ — used by handoff-sequence.yml (or 'none')" "none"
 
 echo ""
 echo -e "${YELLOW}── Configuration Summary ──${NC}"
@@ -99,6 +100,7 @@ echo "  Language:       ${COMMUNICATION_LANGUAGE}"
 echo "  Backend:        ${REPO_BACKEND}"
 echo "  Frontend:       ${REPO_FRONTEND}"
 echo "  Infrastructure: ${REPO_INFRA}"
+echo "  Submodule path: services/${REPO_SUBMODULE}"
 echo ""
 
 echo -en "${BLUE}?${NC} Proceed with setup? (y/N): "
@@ -138,6 +140,9 @@ replace_placeholders() {
   if [[ "$REPO_INFRA" != "none" ]]; then
     sed_inplace "s|{{REPO_INFRA}}|${REPO_INFRA}|g" "$dest"
   fi
+  if [[ "$REPO_SUBMODULE" != "none" ]]; then
+    sed_inplace "s|{{REPO_SUBMODULE}}|${REPO_SUBMODULE}|g" "$dest"
+  fi
 
   success "Generated: ${dest}"
 }
@@ -156,6 +161,18 @@ replace_placeholders \
 replace_placeholders \
   "${PROJECT_ROOT}/docs/maintained-docs.md.template" \
   "${PROJECT_ROOT}/docs/maintained-docs.md"
+
+# Substitute the submodule path in handoff-sequence.yml (an executable workflow,
+# not a .template file). Single-repo projects (REPO_SUBMODULE=none) do not use it.
+HANDOFF_WF="${PROJECT_ROOT}/.github/workflows/handoff-sequence.yml"
+if [[ -f "$HANDOFF_WF" ]]; then
+  if [[ "$REPO_SUBMODULE" != "none" ]]; then
+    sed_inplace "s|{{REPO_SUBMODULE}}|${REPO_SUBMODULE}|g" "$HANDOFF_WF"
+    success "Substituted submodule path in handoff-sequence.yml"
+  else
+    warn "handoff-sequence.yml still contains {{REPO_SUBMODULE}} — set a submodule and re-run, edit it by hand, or delete it for single-repo projects."
+  fi
+fi
 
 GITIGNORE="${PROJECT_ROOT}/.gitignore"
 ensure_gitignore_line() {

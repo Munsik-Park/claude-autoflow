@@ -62,7 +62,7 @@ be diluted by averaging.
 
 | Type | Items (count) | Retry |
 |------|---------------|-------|
-| Structure evaluation (GATE:HYPOTHESIS — structure form, runs in DIAGNOSE 3-Phase) | Behavior gap, Code-change necessity (2) | none — PASS/FAIL single verdict; reuse-neutral 2-item necessity gate. FAIL on gap-low (existing structure already produces the behavior) → issue auto-closed + AutoFlow terminated. FAIL on code-change-necessity-low (non-code lever — data/config/ops) → report to user + pause. No retry loop |
+| Structure evaluation (GATE:HYPOTHESIS — structure form, runs in DIAGNOSE 3-Phase) | Behavior gap, Code-change necessity (2) | none — PASS/FAIL single verdict; reuse-neutral 2-item necessity gate. FAIL on gap-low (already satisfied) → review-response: reply + active:false (awaiting-external-review, no close); new-issue: auto-closed + terminated. FAIL on Code-change-necessity-low (non-code lever) → report to user + pause. No retry loop. (Canonical: [`phases/analysis.md`](phases/analysis.md)) |
 | Hypothesis evaluation (GATE:HYPOTHESIS — cause form, bug/incident only) | Hypothesis diversity, Verification sufficiency, Verdict evidence (3) | max 2× → DIAGNOSE |
 | Plan evaluation (GATE:PLAN) | Feasibility, Dependencies, Scope, Security, Test plan (5) — Feasibility/Scope absorb the structural-fit & over-engineering concern the DIAGNOSE structure gate deliberately does not score | max 3× → ARCHITECT |
 | Security audit (AUDIT) | Authn/Authz, Input validation, Data exposure, Infra isolation, Dependencies (5) | max 2× |

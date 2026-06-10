@@ -209,7 +209,8 @@ HANDOFF         : PR + Hand-off     — push dev branch → sub-repo PRs → hos
 | PREFLIGHT → DIAGNOSE | Git clean, remote sync done |
 | DIAGNOSE (intake readiness triage) → user | new-issue only: a planning/design/ADR prerequisite is clearly required first → write reason + suggested issue-split draft to `.autoflow/issue-{N}-triage.md`, report anchor + summary, pause (no auto issue creation); ambiguous → PASS to structure analysis → see [`docs/phases/analysis.md`](docs/phases/analysis.md) |
 | DIAGNOSE (intake readiness triage) → structure analysis | triage PASS (no clear prerequisite) → Phase A/B fan-out begins |
-| DIAGNOSE (structure eval) → close | GATE:HYPOTHESIS structure FAIL → issue auto-closed + AutoFlow terminated |
+| DIAGNOSE (structure eval) → close / reply / user | GATE:HYPOTHESIS structure FAIL → gap-item-low (already satisfied): mode=new-issue → issue auto-closed + terminated, mode=review-response → reply on PR + active:false (awaiting-external-review), no close. Gap real but Code-change-necessity low (non-code lever) → report to user + pause |
+| DIAGNOSE (review-response loop check) → user | trigger comment repeats the immediately-prior review-response cycle's complaint class with a new witness case → reply on PR + await the user's re-entry decision (`phase: awaiting-user`) |
 | DIAGNOSE (structure eval) → DIAGNOSE (cause) | GATE:HYPOTHESIS structure PASS (code change required) |
 | DIAGNOSE → GATE:HYPOTHESIS (cause) | hypothesis classification + lightweight verification done (bug/incident issues) |
 | DIAGNOSE → ARCHITECT | affected scope identified (feat issues — skip GATE:HYPOTHESIS cause) |

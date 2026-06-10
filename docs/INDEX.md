@@ -23,6 +23,7 @@ These ship with the AutoFlow template and are the operating source of truth.
 | [Repo Boundary Rules](repo-boundary-rules.md) | Host / submodule / cross-repo responsibility boundaries. |
 | [Credentials & Runtime State](credentials.md) | Secret / reference / config tiers. |
 | [Git Workflow](git-workflow.md) | Branch structure and bash procedures. |
+| [External Review Sequencing](external-review-sequencing.md) | Merge sequencing and the external-review handshake (label gates, `subrepo-merged` dispatch, `handoff-sequence.yml`). |
 | [Maintained Documents](maintained-docs.md.template) | Registry of documents that must stay current (rendered to `maintained-docs.md` per project). |
 | [Security Checklist](security-checklist.md.template) | Security review checklist for the host scope (rendered to `security-checklist.md` per project). |
 

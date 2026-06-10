@@ -100,13 +100,28 @@ push-delivered.
 | Mark task done | `TaskUpdate(status: "completed")` | then check `TaskList` |
 | Cross-cutting impact notice | `SendMessage` | to affected teammate, or to lead |
 
+**Facilitated deliberation phases** (ARCHITECT, VERIFY cause-branch): the discussion
+does **not** run as Agent-Teams teammates messaging the orchestrator. It runs inside
+an isolated **`Workflow`** (the facilitator): the Developer-AI and Test-AI run as
+in-script workflow sub-agents, their round-by-round exchange stays in workflow
+variables, and only a single structured result returns to the orchestrator. There is
+no `SendMessage(to: facilitator)` and no nested team — those are not supported by the
+Agent Teams runtime. See [`teammate-contracts.md`](teammate-contracts.md) > Facilitator
+and [`CLAUDE.md`](../CLAUDE.md#deliberation-isolation-delegated-facilitation) >
+Deliberation Isolation.
+
 ---
 
 ## Discussion Protocol (Single Source of Truth)
 
 The rules below govern every multi-AI discussion. They prevent groundless agreement
 and force grounded judgement. The orchestrator's `CLAUDE.md` references this section
-as the canonical Discussion Protocol.
+as the canonical Discussion Protocol. In facilitated deliberation phases (ARCHITECT,
+VERIFY cause-branch) this protocol is driven inside an isolated `Workflow` (the
+facilitator) and only a single result returns to the orchestrator — the protocol
+itself is unchanged; what differs is that the Developer-AI/Test-AI run as in-script
+workflow sub-agents rather than as orchestrator teammates (see Communication — Agent
+Teams above).
 
 **Response process**:
 
